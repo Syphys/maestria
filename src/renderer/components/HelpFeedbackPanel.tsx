@@ -28,7 +28,6 @@ import {
   MastodonIcon,
   NewFeatureIcon,
   OnboardingIcon,
-  ProTeaserIcon,
   TranslationIcon,
   WebClipperIcon,
   XIcon,
@@ -36,7 +35,6 @@ import {
 import { useAboutDialogContext } from '-/components/dialogs/hooks/useAboutDialogContext';
 import { useKeyboardDialogContext } from '-/components/dialogs/hooks/useKeyboardDialogContext';
 import { useOnboardingDialogContext } from '-/components/dialogs/hooks/useOnboardingDialogContext';
-import { useProTeaserDialogContext } from '-/components/dialogs/hooks/useProTeaserDialogContext';
 import { Pro } from '-/pro';
 import { AppDispatch } from '-/reducers/app';
 import {
@@ -72,7 +70,6 @@ function HelpFeedbackPanel(props: Props) {
   const { openAboutDialog } = useAboutDialogContext();
   const { openOnboardingDialog } = useOnboardingDialogContext();
   const { openKeyboardDialog } = useKeyboardDialogContext();
-  const { openProTeaserDialog } = useProTeaserDialogContext();
   const { reduceHeightBy } = props;
 
   return (
@@ -252,15 +249,6 @@ function HelpFeedbackPanel(props: Props) {
               <XIcon />
             </ListItemIcon>
             <ListItemText>{t('core:followOnX')}</ListItemText>
-          </ListItemButton>
-        </ListItem>
-        <Divider />
-        <ListItem disablePadding>
-          <ListItemButton onClick={() => openProTeaserDialog()}>
-            <ListItemIcon>
-              <ProTeaserIcon />
-            </ListItemIcon>
-            <ListItemText>{t('achieveMore') + ' TagSpaces Pro'}</ListItemText>
           </ListItemButton>
         </ListItem>
       </List>

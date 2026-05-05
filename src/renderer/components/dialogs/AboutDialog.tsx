@@ -240,18 +240,6 @@ function AboutDialog(props: Props) {
       </DialogContent>
       <TsDialogActions sx={{ justifyContent: 'space-between' }}>
         <span>
-          {!Pro && (
-            <TsButton
-              data-tid="checkForUpdates"
-              title={t('core:checkForNewVersion')}
-              onClick={() => {
-                openURLExternally(Links.links.productsOverview, true);
-              }}
-              sx={{ marginRight: AppConfig.defaultSpaceBetweenButtons }}
-            >
-              Upgrade to PRO
-            </TsButton>
-          )}
           <TsButton
             data-tid="checkForUpdates"
             title={t('core:checkForNewVersion')}

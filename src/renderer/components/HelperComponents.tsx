@@ -16,9 +16,9 @@
  *
  */
 
-import { Pro } from '-/pro';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 export function BetaLabel() {
@@ -34,56 +34,45 @@ export function BetaLabel() {
   );
 }
 
-export function ProLabel() {
-  const { t } = useTranslation();
-  return (
-    !Pro && (
-      <Tooltip placement="top" title={t('thisFunctionalityIsAvailableInPro')}>
-        <Typography sx={{ display: 'initial' }}>
-          <sup style={{ marginLeft: 5 }}>PRO</sup>
-        </Typography>
-      </Tooltip>
-    )
-  );
+// Pro upsell components are intentionally neutered in this fork:
+// - ProLabel / ProSign render nothing (no "PRO" superscript badges)
+// - ProTooltip renders its children with the regular tooltip text only
+//   (no "this is a Pro feature" message)
+// Pro-gated feature buttons in the rest of the UI keep their `disabled` state
+// where applicable, but the upsell hints are gone.
+
+export function ProLabel(): null {
+  return null;
 }
 
-export function ProSign() {
-  const { t } = useTranslation();
-  return (
-    !Pro && (
-      <Tooltip placement="top" title={t('thisFunctionalityIsAvailableInPro')}>
-        <Typography sx={{ display: 'initial' }}>
-          <sup
-            style={{
-              fontSize: 10,
-              borderRadius: 4,
-              backgroundColor: '#1dd19f',
-              padding: 3,
-            }}
-          >
-            PRO
-          </sup>
-        </Typography>
-      </Tooltip>
-    )
-  );
+export function ProSign(): null {
+  return null;
 }
 
-export function ProTooltip(props) {
+export function ProTooltip(props: {
+  tooltip?: string;
+  placement?:
+    | 'top'
+    | 'bottom'
+    | 'left'
+    | 'right'
+    | 'top-start'
+    | 'top-end'
+    | 'bottom-start'
+    | 'bottom-end'
+    | 'left-start'
+    | 'left-end'
+    | 'right-start'
+    | 'right-end';
+  children: React.ReactElement;
+}) {
   const { tooltip, placement, children } = props;
-  const { t } = useTranslation();
-  const proTooltip = tooltip && tooltip;
-  const tooltipPlacement = placement || 'top';
-  const noProTooltip = tooltip
-    ? tooltip + ' - ' + t('thisFunctionalityIsAvailableInPro')
-    : t('thisFunctionalityIsAvailableInPro');
+  if (!tooltip) {
+    return <div style={{ display: 'flex' }}>{children}</div>;
+  }
   return (
-    <Tooltip
-      arrow
-      placement={tooltipPlacement}
-      title={Pro ? proTooltip : noProTooltip}
-    >
-      <div style={{ display: 'flex' }} children={children}></div>
+    <Tooltip arrow placement={placement || 'top'} title={tooltip}>
+      <div style={{ display: 'flex' }}>{children}</div>
     </Tooltip>
   );
 }

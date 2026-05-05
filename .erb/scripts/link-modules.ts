@@ -12,35 +12,54 @@ const {
   distPath,
 } = webpackPaths;
 
-try {
-  if (fs.existsSync(srcNodeModulesPath)) {
-    fs.unlinkSync(srcNodeModulesPath);
+/**
+ * Remove a path that may be a file, symlink, broken symlink, or junction.
+ * `fs.existsSync` is intentionally not used: it returns false for broken
+ * symlinks, leaving them in place and causing EEXIST on the next symlinkSync.
+ */
+function removeIfPresent(target: string): boolean {
+  try {
+    fs.unlinkSync(target);
+    return true;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return false;
+    if (code === 'EPERM' || code === 'EISDIR') {
+      try {
+        fs.rmdirSync(target);
+        return true;
+      } catch (err2) {
+        if ((err2 as NodeJS.ErrnoException).code === 'ENOENT') return false;
+        console.error('Error removing ' + target, err2);
+        return false;
+      }
+    }
+    console.error('Error removing ' + target, err);
+    return false;
   }
-} catch (err) {
-  console.error('Error removing file:' + srcNodeModulesPath, err);
 }
+
+removeIfPresent(srcNodeModulesPath);
 if (fs.existsSync(appNodeModulesPath)) {
   fs.symlinkSync(appNodeModulesPath, srcNodeModulesPath, 'junction');
 }
 
-if (!fs.existsSync(erbNodeModulesPath) && fs.existsSync(appNodeModulesPath)) {
+removeIfPresent(erbNodeModulesPath);
+if (fs.existsSync(appNodeModulesPath)) {
   fs.symlinkSync(appNodeModulesPath, erbNodeModulesPath, 'junction');
 }
 
 const targetNodeModules = path.join(distPath, 'node_modules');
-try {
-  if (fs.existsSync(targetNodeModules)) {
-    fs.unlinkSync(targetNodeModules);
-  }
-} catch (err) {
-  console.error('Error removing file:' + targetNodeModules, err);
-}
+removeIfPresent(targetNodeModules);
 if (fs.existsSync(appNodeModulesPath)) {
   try {
     fs.symlinkSync(appNodeModulesPath, targetNodeModules, 'junction');
   } catch (err) {
     console.error(
-      'Error creating link target:' + targetNodeModules + ':' + err.message,
+      'Error creating link target:' +
+        targetNodeModules +
+        ':' +
+        (err as Error).message,
     );
   }
 }
@@ -49,33 +68,21 @@ if (fs.existsSync(appNodeModulesPath)) {
 const targetEnv = path.join(erbPath, '.env'); //srcPath, '.env');
 const appEnv = path.join(appPath, '.env');
 
-try {
-  if (fs.existsSync(targetEnv)) {
-    fs.unlinkSync(targetEnv);
-  }
-} catch (err) {
-  console.error('Error removing file:' + targetEnv, err);
-}
+removeIfPresent(targetEnv);
 if (fs.existsSync(appEnv)) {
   try {
     fs.symlinkSync(appEnv, targetEnv, 'file');
   } catch (e) {
-    console.log(appEnv + ' exist');
+    console.log(targetEnv + ' could not be linked: ' + (e as Error).message);
   }
 }
 
 const distEnv = path.join(distPath, '.env');
-try {
-  if (fs.existsSync(distEnv)) {
-    fs.unlinkSync(distEnv);
-  }
-} catch (err) {
-  console.error('Error removing file:' + distEnv, err);
-}
+removeIfPresent(distEnv);
 if (fs.existsSync(appEnv)) {
   try {
     fs.symlinkSync(appEnv, distEnv, 'file');
   } catch (e) {
-    console.log(distEnv + ' exist');
+    console.log(distEnv + ' could not be linked: ' + (e as Error).message);
   }
 }

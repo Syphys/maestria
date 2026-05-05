@@ -17,6 +17,7 @@
  */
 
 import DateIcon from '@mui/icons-material/DateRange';
+import LockIcon from '@mui/icons-material/Lock';
 import PlaceIcon from '@mui/icons-material/Place';
 import { Box } from '@mui/material';
 import React, { useCallback, useMemo } from 'react';
@@ -161,6 +162,9 @@ function TagContainer({
     'currentYear',
     'dateTagging',
   ].includes(functionality || '');
+  const isSystemTag = tag.system === true;
+  /** System tags are read-only: force display mode regardless of caller intent. */
+  const effectiveTagMode = isSystemTag ? 'display' : tagMode;
 
   /** Compute readable tag title for date tags */
   const tagTitle = useMemo(() => {
@@ -199,21 +203,25 @@ function TagContainer({
   const handleMenu = useCallback(
     (event: any) => {
       if (!handleTagMenu) return;
+      // System tags are read-only — suppress the context/edit menu entirely.
+      if (isSystemTag) return;
       handleTagMenu(event, tag, entry || tagGroup, !!selectedEntries?.length);
     },
-    [handleTagMenu, tag, entry, tagGroup, selectedEntries],
+    [handleTagMenu, tag, entry, tagGroup, selectedEntries, isSystemTag],
   );
 
   /** Ctrl+Click adds tag */
   const handleClick = useCallback(
     (event: any) => {
+      // Block all interactions on system tags — they are managed by the system.
+      if (isSystemTag) return;
       if (event.ctrlKey && addTags) {
         addTags(selectedEntries, [tag]);
       } else {
         handleMenu(event);
       }
     },
-    [addTags, selectedEntries, tag, handleMenu],
+    [addTags, selectedEntries, tag, handleMenu, isSystemTag],
   );
 
   return (
@@ -239,13 +247,25 @@ function TagContainer({
           {(isTagDate || isDateSmartTag) && (
             <DateIcon sx={{ color: txtColor, height: 16, ml: '-5px' }} />
           )}
+          {isSystemTag && (
+            <LockIcon
+              sx={{
+                color: txtColor,
+                height: 12,
+                width: 12,
+                ml: '-3px',
+                opacity: 0.7,
+              }}
+              titleAccess="System tag (read-only)"
+            />
+          )}
           {!isTagGeo && <span>{displayTitle}</span>}
         </Box>
 
         <TagContainerMenu
           handleRemoveTag={handleRemoveTag}
           tag={tag}
-          tagMode={tagMode}
+          tagMode={effectiveTagMode}
           deleteIcon={deleteIcon}
         />
       </Tag>
