@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Local fork — AI Models Hub
+
+This repo is being adapted into a specialized AI-model browser/manager for `D:\models`. See [MODELS_HUB.md](MODELS_HUB.md) for the project plan: phased features (header parsing, HF enrichment, treemap/calendar/graph perspectives, hardware-aware run delegation, in-app chat + MCP server), architecture decisions, and clean-room rules. **Do not read `tagspacespro/` source** — any feature inspired by Pro must be reimplemented from user-visible behavior only.
+
+**Sharded models** — a model split into N files (e.g. `foo-00001-of-00012.gguf`) is one logical entity. Shard 1 is canonical: it carries the sidecar, drives autoTags, and is what the runner receives. Helpers in `src/renderer/modelhub/shard.ts` (pure) + `src/main/modelhub/shardFs.ts` (fs-backed). When adding any feature that touches a model file, check `isCanonicalShard(name)` and route through `resolveCanonicalShardPath(filePath)` in main process. See [MODELS_HUB_SHARDS.md](MODELS_HUB_SHARDS.md).
+
 ## Build & Development
 
 - **Install dependencies**: `npm install`

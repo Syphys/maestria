@@ -45,6 +45,7 @@ import {
   readMacOSTags,
 } from './util';
 import os from 'os';
+import registerModelhubEvents from './modelhub/ipc';
 
 //let watcher: FSWatcher;
 const progress = {};
@@ -633,4 +634,6 @@ export default function loadMainEvents() {
       event.returnValue = process.env.USER ?? process.env.USERNAME ?? '';
     }
   });
+
+  registerModelhubEvents();
 }

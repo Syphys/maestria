@@ -83,7 +83,29 @@ export type Channels =
   | 'startup-finished'
   | 'getAuthor'
   | 'cancelRequest'
-  | 'fetchTile';
+  | 'fetchTile'
+  | 'modelhub:parseHeader'
+  | 'modelhub:enrichLocal'
+  | 'modelhub:enrichHf'
+  | 'modelhub:loadModelMeta'
+  | 'modelhub:enrichFolderStart'
+  | 'modelhub:enrichFolderCancel'
+  | 'modelhub:enrichFolderProgress'
+  | 'modelhub:enrichFolderDone'
+  | 'modelhub:detectHardware'
+  | 'modelhub:patchModelMeta'
+  | 'modelhub:sumShardBytes'
+  | 'modelhub:listModelHostingFolders'
+  | 'modelhub:runnersList'
+  | 'modelhub:runnersSave'
+  | 'modelhub:runnersRemove'
+  | 'modelhub:runnersDetect'
+  | 'modelhub:runnersAutotune'
+  | 'modelhub:runnersLaunch'
+  | 'modelhub:runnersStop'
+  | 'modelhub:runnersRunning'
+  | 'modelhub:runnersBuildCommand'
+  | 'modelhub:runnersOpenChat';
 
 const electronHandler = {
   ipcRenderer: {
@@ -111,7 +133,7 @@ const electronHandler = {
     removeAllListeners(channel: string) {
       ipcRenderer.removeAllListeners(channel);
     },
-    startDrag: (fileName) => ipcRenderer.send('ondragstart', fileName),
+    startDrag: (fileName: string) => ipcRenderer.send('ondragstart', fileName),
     getPathForFile(file: File) {
       return webUtils.getPathForFile(file);
     },

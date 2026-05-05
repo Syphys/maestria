@@ -1,0 +1,56 @@
+/**
+ * Public Models Hub renderer surface.
+ * See MODELS_HUB.md and MODELS_HUB_FEATURES.md for the full plan.
+ */
+
+export * from './types';
+export * from './parsers';
+export * from './autoTags';
+export {
+  useModelHeader,
+  fetchModelHeader,
+  _clearModelHeaderCache,
+} from './useModelHeader';
+export {
+  useModelMeta,
+  fetchModelMeta,
+  enrichModelMeta,
+  enrichModelMetaHf,
+  startBulkEnrichment,
+  subscribeBulkEvents,
+  _clearModelMetaCache,
+} from './useModelMeta';
+export type {
+  BulkProgressEvent,
+  BulkDoneEvent,
+  BulkSummary,
+  BulkOptions,
+  BulkRun,
+} from './useModelMeta';
+export { default as ModelhubGlobalStatus } from './ModelhubGlobalStatus';
+export { default as ModelhubSizeFilter } from './ModelhubSizeFilter';
+export {
+  buildModelhubTagGroup,
+  upsertModelhubTagGroup,
+  MODELHUB_TAGGROUP_UUID,
+  MODELHUB_TAGGROUP_TITLE,
+} from './modelhubTagGroup';
+export type { HardwareProfile, RuntimeEstimate, GpuInfo } from './hardware';
+export { fetchHardwareProfile, estimateRuntime } from './hardware';
+export { default as RunModelButton } from './runners/RunModelButton';
+export { default as RunnerSetupDialog } from './runners/RunnerSetupDialog';
+export {
+  useRunners,
+  listRunners,
+  saveRunner,
+  removeRunner,
+  detectRunners,
+  autotuneFor,
+  buildCommand,
+  launchRunner,
+  stopRunner,
+  pickRunnerFor,
+  quickLaunchModel,
+  listRunningModels,
+  openChatForPid,
+} from './runners/useRunners';

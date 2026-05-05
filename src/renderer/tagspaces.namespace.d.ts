@@ -109,6 +109,18 @@ export namespace TS {
     lastModified?: string;
     dateCreated?: string;
     fileSize?: string;
+    /** Minimum file size in bytes (Models Hub extension; applied as post-filter). */
+    sizeMin?: number;
+    /** Maximum file size in bytes (Models Hub extension; applied as post-filter). */
+    sizeMax?: number;
+    /**
+     * Models Hub extension — parameter-count buckets to keep, e.g.
+     * `["7-13B", "30-70B"]`. OR-combined within the array; AND-combined
+     * with the rest of the query. Backed by the `size:<bucket>` auto-tags
+     * synced into `entry.tags` during enrichment, so post-filter just
+     * checks tag presence.
+     */
+    paramBuckets?: string[];
     searchBoxing?: ScopeType;
     searchType?: 'fuzzy' | 'semistrict' | 'strict';
     forceIndexing?: boolean;
@@ -170,6 +182,14 @@ export namespace TS {
     textcolor?: string;
     originTitle?: string;
     position?: number;
+    /**
+     * System-managed tag (e.g. derived from model file headers by Models Hub).
+     * The UI must render these in display-only mode (no remove/edit/menu).
+     * They are recomputed by the system and should not be modified by hand.
+     */
+    system?: boolean;
+    /** Free-form origin marker for system tags (e.g. "modelhub"). */
+    origin?: string;
   }
 
   interface TagGroup {
