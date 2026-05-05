@@ -24,6 +24,7 @@ import RunModelButton from './runners/RunModelButton';
 import { canonicalShardName, detectShardInfo, isCanonicalShard } from './shard';
 import ModelNotesEditor from './ModelNotesEditor';
 import RunParamsEditor from './RunParamsEditor';
+import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 
 function basename(p: string): string {
   return p.replace(/^.*[\\/]/, '');
@@ -260,6 +261,8 @@ export function ModelHubPanel({
     };
   }, [filePath, supported]);
 
+  const { reloadOpenedFile } = useOpenedEntryContext();
+
   const onEnrichLocal = useCallback(async () => {
     if (!filePath) return;
     setBusy('local');
@@ -274,6 +277,18 @@ export function ModelHubPanel({
             ? 'Sidecar updated with header + auto-tags.'
             : 'Computed in memory (read-only or skipWrite).',
         );
+        // Refresh `openedEntry` from disk so the standard TagSpaces tag
+        // area picks up the new system tags written to the sidecar.
+        // Without this, the panel state updates but the tags above the
+        // panel stay stuck on the pre-write snapshot — that's how the
+        // user kept seeing duplicates after Parse Header.
+        if (result.written) {
+          try {
+            await reloadOpenedFile();
+          } catch {
+            /* non-fatal */
+          }
+        }
       } else {
         setError(result.error ?? 'enrich failed');
       }
@@ -282,7 +297,7 @@ export function ModelHubPanel({
     } finally {
       setBusy('idle');
     }
-  }, [filePath, readOnly]);
+  }, [filePath, readOnly, reloadOpenedFile]);
 
   const onEnrichHf = useCallback(async () => {
     if (!filePath) return;
@@ -301,6 +316,13 @@ export function ModelHubPanel({
             result.written ? ' Sidecar updated.' : ''
           }`,
         );
+        if (result.written) {
+          try {
+            await reloadOpenedFile();
+          } catch {
+            /* non-fatal */
+          }
+        }
       } else {
         setError(result.error ?? 'HF enrich failed');
       }
@@ -309,7 +331,7 @@ export function ModelHubPanel({
     } finally {
       setBusy('idle');
     }
-  }, [filePath, readOnly]);
+  }, [filePath, readOnly, reloadOpenedFile]);
 
   if (!supported) return null;
 

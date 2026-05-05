@@ -75,7 +75,40 @@ import {
   getThumbFileLocationForFile,
   isMeta,
 } from '@tagspaces/tagspaces-common/paths';
-import { enhanceEntry, getUuid } from '@tagspaces/tagspaces-common/utils-io';
+import {
+  enhanceEntry as enhanceEntryBase,
+  getUuid,
+} from '@tagspaces/tagspaces-common/utils-io';
+
+/**
+ * Enhanced version of tagspaces-common's enhanceEntry that preserves
+ * all custom tag properties (system: true, origin: 'modelhub', etc)
+ * from the sidecar. The base version strips everything but title/color/textcolor.
+ */
+function enhanceEntryWithSystem(
+  entry: TS.FileSystemEntry,
+  tagDelimiter: string,
+  dirSeparator: string,
+): TS.FileSystemEntry {
+  const enhanced = enhanceEntryBase(entry, tagDelimiter, dirSeparator);
+
+  // If we have sidecar tags, the base enhanceEntryBase already merged them
+  // into enhanced.tags, but it stripped extra fields. We restore them here.
+  if (entry.meta && Array.isArray(entry.meta.tags)) {
+    const sidecarTags = entry.meta.tags;
+    enhanced.tags = enhanced.tags.map((t) => {
+      const original = sidecarTags.find((st) => st.title === t.title);
+      if (original) {
+        // Return original tag object to preserve 'system', 'origin', etc.
+        return original;
+      }
+      return t;
+    });
+  }
+
+  return enhanced;
+}
+
 import React, {
   createContext,
   useCallback,
@@ -1298,7 +1331,7 @@ export const DirectoryContentContextProvider = ({
         return;
       }
 
-      const enhancedEntry: TS.FileSystemEntry = enhanceEntry(
+      const enhancedEntry: TS.FileSystemEntry = enhanceEntryWithSystem(
         entry,
         tagDelimiter,
         location?.getDirSeparator(),
@@ -1435,7 +1468,7 @@ export const DirectoryContentContextProvider = ({
       : loadMetaForDir(entry.path, location, entry.meta);
     return metaPromise.then((meta) => {
       if (meta) {
-        return enhanceEntry(
+        return enhanceEntryWithSystem(
           {
             ...entry,
             meta: {
@@ -1668,21 +1701,21 @@ export const DirectoryContentContextProvider = ({
             .loadJSONFile(metaFilePath, useEncryption)
             .then((meta: TS.FileSystemEntryMeta) => {
               if (meta) {
-                return enhanceEntry(
+                return enhanceEntryWithSystem(
                   { ...entry, meta: { ...meta, ...metaProps } },
                   tagDelimiter,
                   location.getDirSeparator(),
                 );
               }
-              return enhanceEntry(
-                { ...entry, meta: { ...metaProps } },
+              return enhanceEntryWithSystem(
+                { ...entry, meta: { id: getUuid(), ...metaProps } },
                 tagDelimiter,
                 location.getDirSeparator(),
               );
             });
         } catch (e) {
-          return enhanceEntry(
-            { ...entry, meta: { ...metaProps } },
+          return enhanceEntryWithSystem(
+            { ...entry, meta: { id: getUuid(), ...metaProps } },
             tagDelimiter,
             location.getDirSeparator(),
           );

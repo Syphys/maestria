@@ -76,10 +76,40 @@ import {
   normalizePath,
 } from '@tagspaces/tagspaces-common/paths';
 import {
-  enhanceEntry,
+  enhanceEntry as enhanceEntryBase,
   getUuid,
   loadJSONString,
 } from '@tagspaces/tagspaces-common/utils-io';
+
+/**
+ * Enhanced version of tagspaces-common's enhanceEntry that preserves
+ * all custom tag properties (system: true, origin: 'modelhub', etc)
+ * from the sidecar. The base version strips everything but title/color/textcolor.
+ */
+function enhanceEntryWithSystem(
+  entry: TS.FileSystemEntry,
+  tagDelimiter: string,
+  dirSeparator: string,
+): TS.FileSystemEntry {
+  const enhanced = enhanceEntryBase(entry, tagDelimiter, dirSeparator);
+
+  // If we have sidecar tags, the base enhanceEntryBase already merged them
+  // into enhanced.tags, but it stripped extra fields. We restore them here.
+  if (entry.meta && Array.isArray(entry.meta.tags)) {
+    const sidecarTags = entry.meta.tags;
+    enhanced.tags = enhanced.tags.map((t) => {
+      const original = sidecarTags.find((st) => st.title === t.title);
+      if (original) {
+        // Return original tag object to preserve 'system', 'origin', etc.
+        return original;
+      }
+      return t;
+    });
+  }
+
+  return enhanced;
+}
+
 import React, { createContext, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
@@ -1529,11 +1559,12 @@ export const IOActionsContextProvider = ({
                   }
                 }
                 if (file.meta) {
-                  const enhancedEntry: TS.FileSystemEntry = enhanceEntry(
-                    file,
-                    tagDelimiter,
-                    currentLocation?.getDirSeparator(),
-                  );
+                  const enhancedEntry: TS.FileSystemEntry =
+                    enhanceEntryWithSystem(
+                      file,
+                      tagDelimiter,
+                      currentLocation?.getDirSeparator(),
+                    );
                   return enhancedEntry;
                 }
                 return file;

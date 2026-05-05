@@ -14,7 +14,7 @@
 import { enrichLocal } from './enrichLocal';
 import { enrichHf, EnrichHfOptions } from './enrichHf';
 import { listModelFiles } from './listModelFiles';
-import { loadModelMeta } from './sidecar';
+import { loadModelMeta, patchModelMeta } from './sidecar';
 
 export type EnrichFolderMode = 'local' | 'hf';
 
@@ -132,6 +132,28 @@ export async function enrichFolder(
               // (e.g. into the Models Hub tag library group).
               lastAutoTags = existing.autoTags;
               lastMatchedRepo = existing.huggingface?.repo;
+              // Tag-normalization pass: even when we skip re-parsing the
+              // header, run patchModelMeta with `syncSystemTags` so the
+              // sidecar's `tags[]` is reconciled by `mergeSystemTagsIntoExisting`.
+              // This is what cleans up duplicate/legacy non-system tags
+              // that earlier code paths had left around — without it
+              // Parse-all is a no-op for already-enriched files and the
+              // visible duplicates persist forever.
+              if (
+                !options.skipWrite &&
+                Array.isArray(existing.autoTags) &&
+                existing.autoTags.length > 0
+              ) {
+                try {
+                  await patchModelMeta(
+                    filePath,
+                    {},
+                    { syncSystemTags: existing.autoTags },
+                  );
+                } catch {
+                  /* normalization failure is non-fatal — continue the bulk */
+                }
+              }
             }
           }
         }

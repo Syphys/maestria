@@ -88,26 +88,79 @@ export interface WriteSidecarResult {
 const SYSTEM_TAG_COLOR_BG = '#616161'; // grey-700 — visually distinct from user tags
 const SYSTEM_TAG_COLOR_FG = '#ffffff';
 
-function buildSystemTags(autoTags: string[]): SidecarTag[] {
-  return autoTags.map((title) => ({
+/**
+ * Build a fresh system tag with the Models Hub markers + colors. Used both
+ * for new auto-tags AND to upgrade an existing same-titled user tag.
+ */
+function makeSystemTag(title: string): SidecarTag {
+  return {
     title,
     type: 'sidecar',
     system: true,
     origin: 'modelhub',
     color: SYSTEM_TAG_COLOR_BG,
     textcolor: SYSTEM_TAG_COLOR_FG,
-  }));
+  };
 }
 
+/**
+ * Reconcile the sidecar's `tags[]` with the freshly computed `autoTags`:
+ *
+ *  - Genuinely user-set tags (whose titles aren't in `autoTags`) are kept
+ *    untouched.
+ *  - Tags with titles that match `autoTags` are upgraded in place to the
+ *    system shape (system: true + origin: modelhub + grey color), no
+ *    matter whether they were system already or plain user tags. This
+ *    fixes the duplicate-rendering bug where older sidecars had a
+ *    non-system version that survived alongside our newly-added system
+ *    one.
+ *  - Auto-tags that aren't present at all get inserted as new system tags.
+ *
+ * Title comparison is case-sensitive (matches how TagSpaces handles tag
+ * identity elsewhere). Order: user tags first, system tags appended.
+ */
 function mergeSystemTagsIntoExisting(
   existing: SidecarTag[] | undefined,
   autoTags: string[],
 ): SidecarTag[] {
   const prior: SidecarTag[] = Array.isArray(existing) ? existing : [];
-  const userKept = prior.filter(
-    (t) => !(t.system === true && t.origin === 'modelhub'),
+  const autoSet = new Set(autoTags);
+  const seenAuto = new Set<string>();
+
+  const userTags: SidecarTag[] = [];
+
+  // 1. Separate user tags from system tags.
+  // We consider a tag "system" if it has system: true OR origin: 'modelhub'.
+  for (const t of prior) {
+    const title = typeof t.title === 'string' ? t.title : '';
+    if (!title) continue;
+
+    const isSystem = t.system === true || t.origin === 'modelhub';
+
+    if (isSystem) {
+      // It's a system tag. We don't keep it in userTags.
+      // If its title is in autoTags, we'll recreate it anyway.
+      continue;
+    }
+
+    // It's a user tag.
+    if (autoSet.has(title)) {
+      // Special case: if a user tag has the same title as a new auto-tag,
+      // we "consume" it by not adding it to userTags, and it will be
+      // re-added as a system tag below. This prevents duplicates.
+      continue;
+    }
+
+    userTags.push(t);
+  }
+
+  // 2. Build the new system tags from autoTags.
+  const newSystemTags: SidecarTag[] = autoTags.map((title) =>
+    makeSystemTag(title),
   );
-  return [...userKept, ...buildSystemTags(autoTags)];
+
+  // 3. Combine: user tags first, then new system tags.
+  return [...userTags, ...newSystemTags];
 }
 
 /**
