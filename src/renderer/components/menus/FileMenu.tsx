@@ -49,6 +49,8 @@ import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { usePlatformFacadeContext } from '-/hooks/usePlatformFacadeContext';
 import { useSelectedEntriesContext } from '-/hooks/useSelectedEntriesContext';
 import { Pro } from '-/pro';
+import { isSupportedModelFile } from '-/modelhub/parsers';
+import { quickLaunchModel } from '-/modelhub/runners/useRunners';
 import { getKeyBindingObject } from '-/reducers/settings';
 import { supportedImgs } from '-/services/thumbsgenerator';
 import {
@@ -321,6 +323,55 @@ function FileMenu(props: Props) {
     }
   }
 
+  /**
+   * Models Hub: replaces the default "Open file" action for model weights
+   * (.gguf, .safetensors, …). Loading a 50 GB binary into the in-app
+   * viewer is useless; the user wants to launch the model on a runner.
+   * Falls back to opening the entry properties when no runner is
+   * configured so the user discovers the setup dialog.
+   */
+  async function runModel() {
+    onClose();
+    if (!lastSelectedEntry) return;
+    const filePath = lastSelectedEntry.path;
+    // Show an immediate "starting" notification so the user gets feedback
+    // even when registration takes a few seconds (Ollama dedup of large
+    // shards can sit at ~30s on first run). Sticky so it doesn't vanish.
+    showNotification(
+      `Starting model… (${filePath.replace(/^.*[\\/]/, '')})`,
+      'default',
+      false,
+    );
+    const result = await quickLaunchModel(filePath);
+    // Clear the "starting" message before showing the outcome.
+    if (result.needsSetup) {
+      showNotification(
+        'No runner configured. Open the file properties → Models Hub to set one up.',
+        'warning',
+        false,
+      );
+      // Open the entry so the panel is in front and the user sees the
+      // "Configure runner…" button on the Run control.
+      openEntry(filePath);
+      return;
+    }
+    if (!result.ok) {
+      showNotification(
+        `Launch failed: ${result.error ?? 'unknown error'}`,
+        'error',
+        false,
+      );
+      return;
+    }
+    // Launch dispatches an event that pops the in-app ChatDialog —
+    // single click from the menu now lands the user in the chat.
+    showNotification(
+      `Launched ${result.runner?.label ?? 'runner'} — chat opening…`,
+      'default',
+      false,
+    );
+  }
+
   function openInNewWindow() {
     onClose();
     if (selectedEntries && selectedEntries.length === 1) {
@@ -346,20 +397,41 @@ function FileMenu(props: Props) {
     pathLowerCase?.endsWith('.' + ext),
   );
 
+  const isModelFile =
+    !!lastSelectedEntry && isSupportedModelFile(lastSelectedEntry.path);
+
   if (selectedEntries.length < 2) {
-    menuItems.push(
-      <MenuItem
-        key="fileMenuOpenFile"
-        data-tid="fileMenuOpenFile"
-        onClick={openFile}
-      >
-        <ListItemIcon>
-          <OpenFileIcon />
-        </ListItemIcon>
-        <ListItemText primary={t('core:openFile')} />
-        <MenuKeyBinding keyBinding={keyBindings['openEntry']} />
-      </MenuItem>,
-    );
+    if (isModelFile) {
+      // Models Hub: "Run model" replaces the upstream "Open file" entry —
+      // opening a multi-GB GGUF as text/binary is never what the user wants
+      // here. They can still reach the metadata panel via "Properties".
+      menuItems.push(
+        <MenuItem
+          key="fileMenuRunModel"
+          data-tid="fileMenuRunModel"
+          onClick={runModel}
+        >
+          <ListItemIcon>
+            <OpenFileIcon />
+          </ListItemIcon>
+          <ListItemText primary="Run model" />
+        </MenuItem>,
+      );
+    } else {
+      menuItems.push(
+        <MenuItem
+          key="fileMenuOpenFile"
+          data-tid="fileMenuOpenFile"
+          onClick={openFile}
+        >
+          <ListItemIcon>
+            <OpenFileIcon />
+          </ListItemIcon>
+          <ListItemText primary={t('core:openFile')} />
+          <MenuKeyBinding keyBinding={keyBindings['openEntry']} />
+        </MenuItem>,
+      );
+    }
     menuItems.push(
       <MenuItem
         key="fileMenuOpenFileNewWindow"

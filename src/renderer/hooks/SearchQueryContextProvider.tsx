@@ -131,6 +131,13 @@ export const SearchQueryContextProvider = ({
       lastModified: tempSearchQuery.current.lastModified,
       dateCreated: tempSearchQuery.current.dateCreated,
       fileSize: tempSearchQuery.current.fileSize,
+      // Models Hub: numeric byte-range filter from the GB slider in the
+      // search panel. Without these in the whitelist they get dropped here
+      // and the slider has no effect.
+      sizeMin: tempSearchQuery.current.sizeMin,
+      sizeMax: tempSearchQuery.current.sizeMax,
+      // Models Hub: parameter-count bucket chips. Same whitelist concern.
+      paramBuckets: tempSearchQuery.current.paramBuckets,
       tagTimePeriodFrom: tempSearchQuery.current.tagTimePeriodFrom,
       tagTimePeriodTo: tempSearchQuery.current.tagTimePeriodTo,
       // tagPlaceRadius,

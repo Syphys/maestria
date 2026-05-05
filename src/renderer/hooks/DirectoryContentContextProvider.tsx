@@ -51,6 +51,18 @@ import {
   useCancelablePerLocation,
 } from '-/utils/useCancelablePerLocation';
 import useFirstRender from '-/utils/useFirstRender';
+import { isSupportedModelFile } from '-/modelhub/parsers';
+import {
+  detectShardInfo,
+  isCanonicalShard,
+  stripShardSuffix,
+} from '-/modelhub/shard';
+import {
+  isModelHostingFolder,
+  isModelHostingFoldersReady,
+  primeModelHostingFolders,
+  subscribeModelHostingFolders,
+} from '-/modelhub/modelHostingFolders';
 import {
   cleanFrontDirSeparator,
   cleanTrailingDirSeparator,
@@ -249,6 +261,47 @@ export const DirectoryContentContextProvider = ({
   const tagDelimiter: string = useSelector(getTagDelimiter);
 
   const currentDirectoryEntries = useRef<TS.FileSystemEntry[]>([]);
+
+  // Models Hub: keep an unfiltered snapshot of the most recent listing so
+  // that when the model-hosting-folders scan finishes (async), we can
+  // re-apply the filter against the current entries without re-fetching
+  // from the location.
+  const lastUnfilteredEntries = useRef<TS.FileSystemEntry[]>([]);
+
+  // Prime the model-hosting-folders cache for this location, then trigger
+  // a re-filter once the scan lands. Subscribing also covers the case
+  // where the user opens a different file / triggers Parse-all and we
+  // explicitly invalidate the cache.
+  useEffect(() => {
+    const root = currentLocation?.path;
+    if (!root) return;
+    primeModelHostingFolders(root);
+    const unsub = subscribeModelHostingFolders(() => {
+      // Only re-render when the loaded set is for our location.
+      if (!isModelHostingFoldersReady(root)) return;
+      if (lastUnfilteredEntries.current.length === 0) return;
+      // Re-run the filter against the snapshot — gives us the previously
+      // hidden folders (if any) without a fresh fs walk.
+      const refiltered = applyModelhubListingFilterRef.current(
+        lastUnfilteredEntries.current,
+      );
+      currentDirectoryEntries.current = refiltered;
+      forceUpdate();
+    });
+    return () => {
+      unsub();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation?.path]);
+
+  /**
+   * `applyModelhubListingFilter` captures `currentLocation` by closure on
+   * each render. We expose it via a ref so the long-lived subscription
+   * above always sees the latest version.
+   */
+  const applyModelhubListingFilterRef = useRef<
+    (entries: TS.FileSystemEntry[]) => TS.FileSystemEntry[]
+  >((e) => e);
   const { signal, abort, cancelAbort } =
     useCancelablePerLocation(currentLocationId);
   const searchQuery = useRef<TS.SearchQuery>({});
@@ -689,12 +742,80 @@ export const DirectoryContentContextProvider = ({
     return dirEntries;
   }
 
+  /**
+   * Models Hub: hide everything that isn't a model.
+   *  - Files: keep only model files (gguf, safetensors, …) AND only the
+   *    canonical shard of a sharded set. Without the canonical-shard
+   *    filter, an 8-shard model shows up as 8 cards in the listing —
+   *    confusing, redundant, and visually drowns single-file models.
+   *    See MODELS_HUB_SHARDS.md for the full rationale.
+   *  - Folders: keep only those known to host (recursively) at least one
+   *    model file. The membership comes from a per-location set primed
+   *    via the `modelhub:listModelHostingFolders` IPC. Until that set
+   *    finishes loading we keep folders visible — better a brief flash
+   *    of "too many" than a flash of "empty location".
+   */
+  function applyModelhubListingFilter(
+    entries: TS.FileSystemEntry[],
+  ): TS.FileSystemEntry[] {
+    const root = currentLocation?.path;
+    const folderSetReady = !!root && isModelHostingFoldersReady(root);
+    const out: TS.FileSystemEntry[] = [];
+    for (const entry of entries) {
+      if (entry.isFile) {
+        const name = entry.name ?? entry.path ?? '';
+        if (!isSupportedModelFile(name)) continue;
+        if (!isCanonicalShard(name)) continue;
+        // Cosmetic rewrite: a sharded canonical entry stored on disk as
+        // `foo-00001-of-00012.gguf` is shown as `foo.gguf` so the listing
+        // matches the user's mental model ("one model per row"). We only
+        // touch `name` / `title` — `path` is left intact so every file
+        // operation (open, parse, run, sidecar IO) keeps using the real
+        // on-disk filename. Mutation of the entry is acceptable here:
+        // these objects are produced fresh on every directory read.
+        if (detectShardInfo(name)) {
+          const cleanedName = stripShardSuffix(name);
+          if (cleanedName !== name) {
+            (entry as { name?: string }).name = cleanedName;
+            const t = (entry as { title?: string }).title;
+            if (typeof t === 'string') {
+              (entry as { title?: string }).title = stripShardSuffix(t);
+            }
+          }
+        }
+        out.push(entry);
+        continue;
+      }
+      // Folder.
+      if (!folderSetReady || !root || !entry.path) {
+        out.push(entry);
+        continue;
+      }
+      // The IPC returns absolute paths; compare against entry.path which
+      // is also absolute on local locations. Cloud locations (S3) won't
+      // populate the set, so the `folderSetReady` short-circuit above
+      // keeps them visible.
+      if (isModelHostingFolder(root, entry.path) === true) {
+        out.push(entry);
+      }
+    }
+    return out;
+  }
+
+  // Keep the ref pointing at the latest closure so the cache-ready
+  // subscription can re-filter with the up-to-date `currentLocation`.
+  applyModelhubListingFilterRef.current = applyModelhubListingFilter;
+
   function setCurrentDirectoryEntries(dirEntries: TS.FileSystemEntry[]) {
     cancelAbort();
     if (dirEntries && dirEntries.length > 0) {
-      currentDirectoryEntries.current = ensureParsedNameTags(dirEntries);
+      const parsed = ensureParsedNameTags(dirEntries);
+      lastUnfilteredEntries.current = parsed;
+      const filtered = applyModelhubListingFilter(parsed);
+      currentDirectoryEntries.current = filtered;
       forceUpdate();
     } else if (currentDirectoryEntries.current.length > 0) {
+      lastUnfilteredEntries.current = [];
       currentDirectoryEntries.current = [];
       forceUpdate();
     }

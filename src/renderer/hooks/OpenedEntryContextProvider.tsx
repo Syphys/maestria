@@ -17,6 +17,11 @@
  */
 
 import AppConfig from '-/AppConfig';
+import {
+  detectShardInfo,
+  isCanonicalShard,
+  stripShardSuffix,
+} from '-/modelhub/shard';
 import { TabNames } from '-/hooks/EntryPropsTabsContextProvider';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
@@ -560,6 +565,27 @@ export const OpenedEntryContextProvider = ({
         }
       } else {
         return Promise.resolve(false);
+      }
+    }
+    // Models Hub: cosmetic rename for canonical sharded entries — drops the
+    // `-00001-of-00012` suffix from the displayed name/title so the title
+    // bar, breadcrumbs, and Properties panel match the cleaned listing
+    // card. We DO NOT touch `path` — every IO operation (open, parse,
+    // sidecar, runner) keeps using the real on-disk filename.
+    if (
+      fsEntry &&
+      fsEntry.isFile &&
+      typeof fsEntry.name === 'string' &&
+      isCanonicalShard(fsEntry.name) &&
+      detectShardInfo(fsEntry.name)
+    ) {
+      const cleanedName = stripShardSuffix(fsEntry.name);
+      if (cleanedName !== fsEntry.name) {
+        (fsEntry as { name?: string }).name = cleanedName;
+        const t = (fsEntry as { title?: string }).title;
+        if (typeof t === 'string') {
+          (fsEntry as { title?: string }).title = stripShardSuffix(t);
+        }
       }
     }
     let entryForOpening: TS.OpenedEntry;

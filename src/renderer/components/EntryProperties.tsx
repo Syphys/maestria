@@ -44,6 +44,7 @@ import TsButton from '-/components/TsButton';
 import TsIconButton from '-/components/TsIconButton';
 import TsTextField from '-/components/TsTextField';
 import LinkGeneratorDialog from '-/components/dialogs/LinkGeneratorDialog';
+import ModelHubPanel from '-/modelhub/ModelHubPanel';
 import { useMenuContext } from '-/components/dialogs/hooks/useMenuContext';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useEditedEntryMetaContext } from '-/hooks/useEditedEntryMetaContext';
@@ -84,6 +85,11 @@ import {
   extractFileName,
   extractTitle,
 } from '@tagspaces/tagspaces-common/paths';
+import {
+  detectShardInfo,
+  isCanonicalShard,
+  stripShardSuffix,
+} from '-/modelhub/shard';
 import L from 'leaflet';
 import React, {
   ChangeEvent,
@@ -158,9 +164,19 @@ function EntryProperties({ tileServer }: Props) {
 
   const entryName = useMemo(() => {
     if (!openedEntry) return '';
-    return openedEntry.isFile
-      ? extractFileName(openedEntry.path, location?.getDirSeparator())
-      : extractDirectoryName(openedEntry.path, location?.getDirSeparator());
+    if (!openedEntry.isFile) {
+      return extractDirectoryName(
+        openedEntry.path,
+        location?.getDirSeparator(),
+      );
+    }
+    const raw = extractFileName(openedEntry.path, location?.getDirSeparator());
+    // Models Hub: strip the `-NNNNN-of-NNNNN` suffix from the displayed
+    // filename for canonical sharded entries. Path stays untouched (IO
+    // still uses the real on-disk name).
+    return isCanonicalShard(raw) && detectShardInfo(raw)
+      ? stripShardSuffix(raw)
+      : raw;
   }, [openedEntry, location]);
 
   const [editName, setEditName] = useState<string>();
@@ -1005,62 +1021,14 @@ function EntryProperties({ tileServer }: Props) {
             />
           </Grid>
         )}
-        <Grid container spacing={1} size={12}>
-          <Grid size={openedEntry.isFile ? 12 : 6}>
-            <FormHelperText>{t('core:thumbnail')}</FormHelperText>
-            <ThumbnailTextField
-              margin="dense"
-              variant="outlined"
-              sx={{ marginTop: 0 }}
-              fullWidth
-              slotProps={{
-                input: {
-                  readOnly: true,
-                  startAdornment: (
-                    <InputAdornment position="end">
-                      <Stack
-                        direction="column"
-                        spacing={0}
-                        sx={{ alignItems: 'center' }}
-                      >
-                        {!location.isReadOnly &&
-                          !isEditMode &&
-                          editName === undefined && (
-                            <ProTooltip tooltip={t('changeThumbnail')}>
-                              <TsButton
-                                data-tid="changeThumbnailTID"
-                                fullWidth
-                                variant="text"
-                                onClick={openThumbFilesDialog}
-                              >
-                                {t('core:change')}
-                              </TsButton>
-                            </ProTooltip>
-                          )}
-                        <Box
-                          role="button"
-                          tabIndex={0}
-                          sx={{
-                            backgroundSize: 'cover',
-                            backgroundRepeat: 'no-repeat',
-                            backgroundImage: thumbImage.current,
-                            backgroundPosition: 'center',
-                            borderRadius: AppConfig.defaultCSSRadius,
-                            minHeight: 150,
-                            minWidth: 150,
-                            marginBottom: '5px',
-                          }}
-                          onClick={openThumbFilesDialog}
-                        />
-                      </Stack>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-          </Grid>
-          {!openedEntry.isFile && (
-            <Grid size={6}>
+        {/* Models Hub: the Thumbnail block was removed — useless for the
+            target use case (no preview of a 50 GB GGUF, and we already
+            display rich header metadata in the ModelHub panel). The
+            Background-image block is kept for folders since it's a
+            location-level decoration. */}
+        {!openedEntry.isFile && (
+          <Grid container spacing={1} size={12}>
+            <Grid size={12}>
               <FormHelperText>{t('core:backgroundImage')}</FormHelperText>
               <ThumbnailTextField
                 margin="dense"
@@ -1116,8 +1084,8 @@ function EntryProperties({ tileServer }: Props) {
                 }}
               />
             </Grid>
-          )}
-        </Grid>
+          </Grid>
+        )}
         <Grid size={12}>
           <TsTextField
             data-tid="entryIDTID"
@@ -1162,6 +1130,14 @@ function EntryProperties({ tileServer }: Props) {
             }}
           />
         </Grid>
+        {openedEntry?.isFile && openedEntry?.path && (
+          <Grid size={12}>
+            <ModelHubPanel
+              filePath={openedEntry.path}
+              readOnly={location?.isReadOnly}
+            />
+          </Grid>
+        )}
       </Grid>
       {showSharingLinkDialog && (
         <LinkGeneratorDialog

@@ -321,6 +321,16 @@ function SearchAutocomplete(props: Props) {
             t('core:' + searchQuery.fileSize),
         });
       }
+      // Models Hub: numeric size range (sizeMin/sizeMax in bytes) drives the
+      // bottom slider widget. Flip emptySearch so the search actually runs;
+      // the slider widget already displays the current range, so we don't
+      // need to add a search-bar chip here.
+      if (
+        (typeof searchQuery.sizeMin === 'number' && searchQuery.sizeMin > 0) ||
+        (typeof searchQuery.sizeMax === 'number' && searchQuery.sizeMax > 0)
+      ) {
+        emptySearch = false;
+      }
       if (!emptySearch) {
         if (actions.length > 0) {
           actionValues.current = execActions(

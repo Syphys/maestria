@@ -32,6 +32,8 @@ import {
   UntaggedIcon,
   VideoIcon,
 } from '-/components/CommonIcons';
+import ModelhubSizeFilter from '-/modelhub/ModelhubSizeFilter';
+import ModelhubParamsFilter from '-/modelhub/ModelhubParamsFilter';
 import TagsSelect from '-/components/TagsSelect';
 import TooltipTS from '-/components/Tooltip';
 import TsDatePicker from '-/components/TsDatePicker';
@@ -54,7 +56,6 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { formatFileSize } from '@tagspaces/tagspaces-common/misc';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -80,12 +81,6 @@ function EditSearchQuery(props: Props) {
     workSpacesContext && workSpacesContext.getCurrentWorkSpace
       ? workSpacesContext?.getCurrentWorkSpace()
       : undefined;
-
-  const handleFileSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { target } = event;
-    const { value, name } = target;
-    setTempSearchQuery({ fileSize: value });
-  };
 
   const handleLastModifiedChange = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -520,52 +515,16 @@ function EditSearchQuery(props: Props) {
         </TsSelect>
       </FormControl>
       <FormControl disabled={isIndexing !== undefined}>
-        <TsSelect
-          value={tempSearchQuery.fileSize}
-          onChange={handleFileSizeChange}
-          label={t('core:sizeSearchTitle')}
-          title={t('filterBySizeTooltip')}
-        >
-          <MenuItem value="">{t('core:sizeAny')}</MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.empty.key}>
-            {t('core:sizeEmpty')}&nbsp;({formatFileSize(0)})
-          </MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.tiny.key}>
-            {t('core:sizeTiny')}
-            &nbsp;(&lt;&nbsp;
-            {formatFileSize(AppConfig.SearchSizes.tiny.thresholdBytes)})
-          </MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.verySmall.key}>
-            {t('core:sizeVerySmall')}
-            &nbsp;({formatFileSize(AppConfig.SearchSizes.tiny.thresholdBytes)}
-            &nbsp;-&nbsp;
-            {formatFileSize(AppConfig.SearchSizes.verySmall.thresholdBytes)})
-          </MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.small.key}>
-            {t('core:sizeSmall')}
-            &nbsp;(
-            {formatFileSize(AppConfig.SearchSizes.verySmall.thresholdBytes)}
-            &nbsp;-&nbsp;
-            {formatFileSize(AppConfig.SearchSizes.small.thresholdBytes)})
-          </MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.medium.key}>
-            {t('core:sizeMedium')}
-            &nbsp;({formatFileSize(AppConfig.SearchSizes.small.thresholdBytes)}
-            &nbsp;-&nbsp;
-            {formatFileSize(AppConfig.SearchSizes.medium.thresholdBytes)})
-          </MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.large.key}>
-            {t('core:sizeLarge')}
-            &nbsp;({formatFileSize(AppConfig.SearchSizes.medium.thresholdBytes)}
-            &nbsp;-&nbsp;
-            {formatFileSize(AppConfig.SearchSizes.large.thresholdBytes)})
-          </MenuItem>
-          <MenuItem value={AppConfig.SearchSizes.huge.key}>
-            {t('core:sizeHuge')}
-            &nbsp;(&gt;&nbsp;
-            {formatFileSize(AppConfig.SearchSizes.huge.thresholdBytes)})
-          </MenuItem>
-        </TsSelect>
+        {/* Models Hub: replaced upstream's coarse bucket select with a
+            byte-range slider. The bucket scale (tiny ↔ huge) tops out at a
+            threshold designed for documents/photos and is useless for
+            multi-GB model files. */}
+        <ModelhubSizeFilter />
+      </FormControl>
+      <FormControl disabled={isIndexing !== undefined}>
+        {/* Parameter-count chips. Complements the disk-size slider:
+            "70B+ AND ≤ 60 GB" → 70B Q4/Q5 quants that fit my hardware. */}
+        <ModelhubParamsFilter />
       </FormControl>
       <FormControl disabled={isIndexing !== undefined}>
         <TsSelect

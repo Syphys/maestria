@@ -41,6 +41,11 @@ import {
   extractFileName,
   extractTitle,
 } from '@tagspaces/tagspaces-common/paths';
+import {
+  detectShardInfo,
+  isCanonicalShard,
+  stripShardSuffix,
+} from '-/modelhub/shard';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -79,20 +84,32 @@ function EntryContainerTitle(props: Props) {
   );
 
   const currentLocation = findLocation(openedEntry.locationID);
+  // Models Hub: strip the `-NNNNN-of-NNNNN` shard suffix from the
+  // displayed title/filename for canonical sharded entries. The cleaned
+  // value is used in the breadcrumb + window title; `openedEntry.path`
+  // is left untouched so IO uses the real on-disk filename.
+  const cleanForDisplay = (raw: string): string => {
+    if (!raw || !openedEntry.isFile) return raw;
+    return isCanonicalShard(raw) && detectShardInfo(raw)
+      ? stripShardSuffix(raw)
+      : raw;
+  };
+
   let fileTitle: string = openedEntry.path
-    ? extractTitle(
-        openedEntry.path,
-        !openedEntry.isFile,
-        currentLocation?.getDirSeparator(),
+    ? cleanForDisplay(
+        extractTitle(
+          openedEntry.path,
+          !openedEntry.isFile,
+          currentLocation?.getDirSeparator(),
+        ),
       )
     : '';
 
   let fileName: string;
   if (openedEntry.path) {
     if (openedEntry.isFile) {
-      fileName = extractFileName(
-        openedEntry.path,
-        currentLocation?.getDirSeparator(),
+      fileName = cleanForDisplay(
+        extractFileName(openedEntry.path, currentLocation?.getDirSeparator()),
       );
     } else {
       fileName = extractDirectoryName(

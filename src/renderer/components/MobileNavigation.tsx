@@ -42,10 +42,9 @@ import {
 } from '-/components/CommonIcons';
 import CustomLogo from '-/components/CustomLogo';
 import HelpFeedbackPanel from '-/components/HelpFeedbackPanel';
-import { ProLabel } from '-/components/HelperComponents';
 import InfoIcon from '-/components/InfoIcon';
 import LocationManager from '-/components/LocationManager';
-import ProTeaser from '-/components/ProTeaser';
+import { ModelhubGlobalStatus } from '-/modelhub';
 import StoredSearches from '-/components/StoredSearches';
 import TagLibrary from '-/components/TagLibrary';
 import TsButton from '-/components/TsButton';
@@ -69,7 +68,6 @@ import {
   actions as SettingsActions,
   getKeyBindingObject,
   isDesktopMode,
-  isHideProFeatures,
 } from '-/reducers/settings';
 import { createNewInstance } from '-/services/utils-io';
 import { TS } from '-/tagspaces.namespace';
@@ -118,11 +116,8 @@ function MobileNavigation(props: Props) {
   const { currentOpenedPanel, showPanel } = usePanelsContext();
   const { openDownloadUrl } = useDownloadUrlDialogContext();
   const keyBindings = useSelector(getKeyBindingObject);
-  const hideProFeatures: boolean = useSelector(isHideProFeatures);
   const { currentUser } = useUserContext();
-  const [showTeaserBanner, setShowTeaserBanner] = useState(true);
   const [anchorUser, setAnchorUser] = useState<HTMLButtonElement | null>(null);
-  const showProTeaser = !hideProFeatures && !Pro && showTeaserBanner;
   const { hideDrawer, width } = props;
   const switchTheme = useCallback(
     () => dispatch(SettingsActions.switchTheme()),
@@ -214,7 +209,10 @@ function MobileNavigation(props: Props) {
       <Box
         sx={{
           overflow: 'hidden',
-          height: showProTeaser ? 'calc(100% - 190px)' : 'calc(100% - 55px)',
+          // Reserve space for ModelhubGlobalStatus header row (~55px) +
+          // bottom toolbar row (~55px). The size-range filter now lives in
+          // the search panel, so no extra slider height is needed here.
+          height: 'calc(100% - 110px)',
         }}
       >
         <Box>
@@ -462,12 +460,7 @@ function MobileNavigation(props: Props) {
                         <AudioFileIcon />
                       </ListItemIcon>
                       <ListItemText
-                        primary={
-                          <>
-                            {t('core:newAudioRecording')}
-                            {!Pro && <ProLabel />}
-                          </>
-                        }
+                        primary={<>{t('core:newAudioRecording')}</>}
                       />
                     </MenuItem>
                     <MenuItem
@@ -484,12 +477,7 @@ function MobileNavigation(props: Props) {
                         <TemplateFileIcon />
                       </ListItemIcon>
                       <ListItemText
-                        primary={
-                          <>
-                            {t('core:createNewFromTemplate')}
-                            {!Pro && <ProLabel />}
-                          </>
-                        }
+                        primary={<>{t('core:createNewFromTemplate')}</>}
                       />
                     </MenuItem>
                     <Divider />
@@ -602,9 +590,7 @@ function MobileNavigation(props: Props) {
           backgroundColor: theme.palette.background.default,
         }}
       >
-        {showProTeaser && (
-          <ProTeaser setShowTeaserBanner={setShowTeaserBanner} />
-        )}
+        <ModelhubGlobalStatus />
         <Box
           sx={{
             display: 'flex',

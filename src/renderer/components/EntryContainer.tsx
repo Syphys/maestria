@@ -40,6 +40,37 @@ import {
 import { getResizedImageThumbnail } from '-/services/thumbsgenerator';
 import { TS } from '-/tagspaces.namespace';
 import { base64ToUint8Array } from '-/utils/dom';
+import { isSupportedModelFile } from '-/modelhub/parsers';
+import ModelFilePreview from '-/modelhub/ModelFilePreview';
+
+/**
+ * Models Hub: cap how much text we hand to a viewer iframe. A
+ * `tokenizer.json` can be 80 MB, an LLM training log can run into the
+ * GBs — pushing those into the viewer freezes the renderer with no
+ * recoverable benefit. Lookup-style files (configs / READMEs) fit in
+ * 100 KB; if a user genuinely wants the rest, they should open it in a
+ * dedicated editor.
+ */
+const PREVIEW_TEXT_BYTE_CAP = 100_000;
+
+function capTextForPreview(content: string): {
+  capped: string;
+  truncated: boolean;
+} {
+  // String length is character count, not bytes — but we treat 1 char ≈ 1
+  // byte for the cap. Worst case (lots of multibyte) the cap fires earlier
+  // than the byte budget, which is fine: we want to err on "too small".
+  if (content.length <= PREVIEW_TEXT_BYTE_CAP) {
+    return { capped: content, truncated: false };
+  }
+  const total = content.length;
+  return {
+    capped:
+      `[Models Hub: preview truncated to ${PREVIEW_TEXT_BYTE_CAP.toLocaleString()} chars (file is ${total.toLocaleString()} chars). Open in an external editor to see the rest.]\n\n` +
+      content.slice(0, PREVIEW_TEXT_BYTE_CAP),
+    truncated: true,
+  };
+}
 import { Tooltip, useMediaQuery } from '@mui/material';
 import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
@@ -291,6 +322,14 @@ function EntryContainer() {
         // if (!this.state.currentEntry.isFile) {
         //   textFilePath += '/index.html';
         // }
+        // Models Hub: short-circuit text loads for model weights \u2014
+        // EntryContainer's render path swaps in `ModelFilePreview`
+        // (HF description) instead of FileView for these files, so
+        // there's no iframe to feed text into anyway.
+        if (isSupportedModelFile(filePath)) {
+          break;
+        }
+
         cLocation
           .loadTextFilePromise(filePath, data.preview ? data.preview : false)
           .then((content) => {
@@ -299,6 +338,9 @@ function EntryContainer() {
               // eslint-disable-next-line no-param-reassign
               content = content.substr(1);
             }
+            // Cap before passing to the iframe \u2014 see PREVIEW_TEXT_BYTE_CAP.
+            const { capped } = capTextForPreview(content);
+            content = capped;
             let fileDirectory = extractContainingDirectoryPath(
               filePath,
               cLocation?.getDirSeparator(),
@@ -339,6 +381,14 @@ function EntryContainer() {
           break;
         }
         filePath = openedEntry.path;
+
+        // Models Hub: skip binary preview for model weights — pulling a
+        // 50 GB GGUF into an ArrayBuffer in the renderer is catastrophic.
+        // The Models Hub panel handles metadata; nothing else useful can
+        // be done here.
+        if (isSupportedModelFile(filePath)) {
+          break;
+        }
 
         cLocation
           .getFileContentPromise(filePath, 'arraybuffer')
@@ -714,17 +764,27 @@ function EntryContainer() {
             </Tooltip>
           )}
         </Box>
-        {openedEntry.isFile && (
-          <FileView
-            key="FileViewID"
-            fileViewer={fileViewer}
-            fileViewerContainer={fileViewerContainer}
-            height={
-              tabIndex !== TabNames.closedTabs ? '100%' : 'calc(100% - 100px)'
-            }
-            handleMessage={handleMessage}
-          />
-        )}
+        {openedEntry.isFile &&
+          (isSupportedModelFile(openedEntry.path) ? (
+            // Models Hub: replace the upstream FileView (iframe + viewer
+            // extension) with a React component that renders the HF model
+            // card directly. The iframe pipeline is useless for binary
+            // weights; this surface gives the preview area an actual
+            // purpose — the user lands on the .gguf and reads what the
+            // model is, while the panel on the right remains the source
+            // of truth for actions (Run, Notes, Run params, …).
+            <ModelFilePreview filePath={openedEntry.path} />
+          ) : (
+            <FileView
+              key="FileViewID"
+              fileViewer={fileViewer}
+              fileViewerContainer={fileViewerContainer}
+              height={
+                tabIndex !== TabNames.closedTabs ? '100%' : 'calc(100% - 100px)'
+              }
+              handleMessage={handleMessage}
+            />
+          ))}
       </Box>
     </GlobalHotKeys>
   );
