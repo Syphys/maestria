@@ -58,7 +58,7 @@ export interface EnrichFolderSummary {
   cancelled: boolean;
 }
 
-const DEFAULT_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_FRESHNESS_MS = 60 * 60 * 1000; // 1 hour (more reactive)
 
 function isFreshEnough(
   lastIso: string | undefined,

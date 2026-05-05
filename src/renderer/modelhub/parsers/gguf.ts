@@ -303,20 +303,9 @@ function primitiveSize(t: GgufType): number {
   }
 }
 
-/** Keys we always decode (vs. skip). Anything else is skipped to save memory. */
+/** Keys we always decode (vs. skip). We now want everything to support exhaustive tagging. */
 function isWantedKey(key: string): boolean {
-  if (key.startsWith('general.')) return true;
-  if (
-    key.endsWith('.context_length') ||
-    key.endsWith('.embedding_length') ||
-    key.endsWith('.block_count') ||
-    key.endsWith('.attention.head_count') ||
-    key.endsWith('.attention.head_count_kv') ||
-    key.endsWith('.feed_forward_length')
-  ) {
-    return true;
-  }
-  return false;
+  return true;
 }
 
 function paramCountFromSizeLabel(label?: string): number | undefined {

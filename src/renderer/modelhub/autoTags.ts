@@ -11,12 +11,17 @@ import { HeaderMeta, HfMeta } from './types';
 export const AUTO_TAG_NAMESPACES = [
   'arch',
   'quant',
-  'size',
+  'sizuck', // Bucketed/Categorized size
+  'params', // Raw parameter count (exact)
+  'ctx', // Context length
+  'layers', // Block count
+  'disk', // File size on disk
   'mod',
   'fmt',
   'lic',
   'type',
   'dir',
+  'meta', // Generic raw metadata
 ] as const;
 
 /**
@@ -171,17 +176,66 @@ export function computeAutoTags(input: AutoTagInput): string[] {
   // The shard count is shown in the per-file panel, not as a filterable tag.
   const sizeFromLabel = parseSizeLabel(h?.sizeLabel);
   const isSharded = !!h?.shardInfo && h.shardInfo.total > 1;
+
+  // 1. Bucketed size (sizuck)
   if (sizeFromLabel !== undefined) {
-    tags.add(`size:${sizeBucket(sizeFromLabel)}`);
+    tags.add(`sizuck:${sizeBucket(sizeFromLabel)}`);
   } else if (
     typeof h?.paramCount === 'number' &&
     h.paramCount > 0 &&
     !isSharded
   ) {
-    tags.add(`size:${sizeBucket(h.paramCount)}`);
+    tags.add(`sizuck:${sizeBucket(h.paramCount)}`);
   } else if (typeof h?.totalBytes === 'number' && h.totalBytes > 0) {
     const estParams = h.totalBytes / bytesPerParam(h.quantization);
-    if (estParams > 0) tags.add(`size:${sizeBucket(estParams)}`);
+    if (estParams > 0) tags.add(`sizuck:${sizeBucket(estParams)}`);
+  }
+
+  // 2. Raw / Precise data
+  if (h?.sizeLabel) {
+    tags.add(`params:${h.sizeLabel.toUpperCase().replace(/\s+/g, '')}`);
+  } else if (h?.paramCount && h.paramCount > 0 && !isSharded) {
+    // Format large numbers to human readable (e.g. 7.5B)
+    const p = h.paramCount;
+    const label =
+      p >= 1e9
+        ? (p / 1e9).toFixed(1) + 'B'
+        : p >= 1e6
+          ? (p / 1e6).toFixed(1) + 'M'
+          : p.toString();
+    tags.add(`params:${label}`);
+  }
+
+  if (h?.contextMax) {
+    const c = h.contextMax;
+    const label = c >= 1024 ? Math.round(c / 1024) + 'K' : c.toString();
+    tags.add(`ctx:${label}`);
+  }
+
+  if (h?.blockCount) {
+    tags.add(`layers:${h.blockCount}`);
+  }
+
+  if (h?.fileSize) {
+    const gb = (h.fileSize / (1024 * 1024 * 1024)).toFixed(1);
+    tags.add(`disk:${gb}GB`);
+  }
+
+  // Exhaustive meta-tagging: convert EVERYTHING from rawMetadata into tags
+  if (h?.rawMetadata) {
+    for (const [key, val] of Object.entries(h.rawMetadata)) {
+      // Skip very large values (like tokenizer tokens/scores) which are arrays
+      if (Array.isArray(val)) continue;
+
+      let displayVal = String(val);
+      if (displayVal.length > 0 && displayVal.length < 50) {
+        // Clean key: strip 'general.' prefix and normalize separators
+        const cleanKey = key.replace(/^general\./, '').replace(/[\s.]+/g, '-');
+        // Clean value: normalize separators
+        const cleanVal = displayVal.replace(/[\s:]+/g, '-');
+        tags.add(`meta:${cleanKey}:${cleanVal}`);
+      }
+    }
   }
 
   if (h?.modality) {
