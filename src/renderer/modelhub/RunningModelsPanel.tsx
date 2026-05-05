@@ -180,7 +180,10 @@ export default function RunningModelsPanel(): JSX.Element | null {
       >
         Running models ({running.length})
       </Typography>
-      <Stack spacing={0.5}>
+      {/* Cap the list height so a user running many models doesn't push
+          the bottom toolbar off-screen — the list scrolls internally
+          beyond ~3 entries. */}
+      <Stack spacing={0.5} sx={{ maxHeight: 220, overflowY: 'auto', pr: 0.5 }}>
         {running.map((entry) => {
           const busy = busyPid === entry.pid;
           const titleLabel =

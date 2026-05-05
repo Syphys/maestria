@@ -204,15 +204,23 @@ function MobileNavigation(props: Props) {
         overflow: 'hidden',
         width: width || 320,
         maxWidth: width || 320,
+        // Flex column so the bottom (ModelhubGlobalStatus + toolbar)
+        // auto-sizes to its content and the top scroll area takes the
+        // rest. The previous fixed `calc(100% - 110px)` reservation
+        // didn't grow when the Running-models panel added rows, leaving
+        // them clipped off-screen.
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <Box
         sx={{
           overflow: 'hidden',
-          // Reserve space for ModelhubGlobalStatus header row (~55px) +
-          // bottom toolbar row (~55px). The size-range filter now lives in
-          // the search panel, so no extra slider height is needed here.
-          height: 'calc(100% - 110px)',
+          // Take the remaining vertical space; minHeight: 0 is the
+          // standard flex idiom that lets a flex child shrink below
+          // its content size so its own overflow can scroll.
+          flex: 1,
+          minHeight: 0,
         }}
       >
         <Box>
