@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Button,
-  Chip,
   CircularProgress,
   Divider,
   Stack,
@@ -133,7 +132,7 @@ function HeaderBlock({ header }: { header: HeaderMeta }): JSX.Element {
             <Box component="dt" sx={{ color: 'text.secondary' }}>
               {k}
             </Box>
-            <Box component="dd" sx={{ m: 0 }}>
+            <Box component="dd" sx={{ m: 0, color: 'text.primary' }}>
               {v}
             </Box>
           </React.Fragment>
@@ -172,7 +171,7 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
         <Box component="dt" sx={{ color: 'text.secondary' }}>
           Repo
         </Box>
-        <Box component="dd" sx={{ m: 0 }}>
+        <Box component="dd" sx={{ m: 0, color: 'text.primary' }}>
           <a
             href={`https://huggingface.co/${hf.repo}`}
             target="_blank"
@@ -186,7 +185,7 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
             <Box component="dt" sx={{ color: 'text.secondary' }}>
               License
             </Box>
-            <Box component="dd" sx={{ m: 0 }}>
+            <Box component="dd" sx={{ m: 0, color: 'text.primary' }}>
               {hf.license}
             </Box>
           </>
@@ -196,7 +195,7 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
             <Box component="dt" sx={{ color: 'text.secondary' }}>
               Pipeline
             </Box>
-            <Box component="dd" sx={{ m: 0 }}>
+            <Box component="dd" sx={{ m: 0, color: 'text.primary' }}>
               {hf.pipelineTag}
             </Box>
           </>
@@ -206,7 +205,7 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
             <Box component="dt" sx={{ color: 'text.secondary' }}>
               Downloads
             </Box>
-            <Box component="dd" sx={{ m: 0 }}>
+            <Box component="dd" sx={{ m: 0, color: 'text.primary' }}>
               {hf.downloads.toLocaleString()}
             </Box>
           </>
@@ -216,7 +215,7 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
             <Box component="dt" sx={{ color: 'text.secondary' }}>
               Last modified
             </Box>
-            <Box component="dd" sx={{ m: 0 }}>
+            <Box component="dd" sx={{ m: 0, color: 'text.primary' }}>
               {new Date(hf.lastModified).toLocaleDateString()}
             </Box>
           </>
@@ -226,27 +225,6 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
           full preview surface (ModelFilePreview, replacing FileView in
           EntryContainer). Keeping it in both places duplicates a couple
           hundred kB of model-card HTML in the layout for no reason. */}
-    </Box>
-  );
-}
-
-function AutoTagsRow({ tags }: { tags: string[] }): JSX.Element {
-  return (
-    <Box>
-      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-        Auto-tags
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {tags.map((t) => (
-          <Chip
-            key={t}
-            label={t}
-            size="small"
-            variant="outlined"
-            sx={{ fontSize: '0.75em', height: 22 }}
-          />
-        ))}
-      </Box>
     </Box>
   );
 }
@@ -346,7 +324,6 @@ export function ModelHubPanel({
 
   const header = meta?.header;
   const hf = meta?.huggingface;
-  const autoTags = meta?.autoTags ?? [];
 
   return (
     <Box
@@ -433,7 +410,9 @@ export function ModelHubPanel({
       )}
 
       <Stack spacing={1.5} divider={<Divider flexItem />}>
-        {autoTags.length > 0 && <AutoTagsRow tags={autoTags} />}
+        {/* Auto-tags row removed: the same tags are already rendered as
+            locked system chips in the standard TagSpaces tag area above
+            the panel — duplicating them here was just visual noise. */}
         {header && <HeaderBlock header={header} />}
         {hf && <HfBlock hf={hf} />}
         {filePath && (
