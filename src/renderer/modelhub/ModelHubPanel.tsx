@@ -23,7 +23,6 @@ import {
 import { ModelMeta, HeaderMeta, HfMeta } from './types';
 import RunModelButton from './runners/RunModelButton';
 import { canonicalShardName, detectShardInfo, isCanonicalShard } from './shard';
-import { renderHfMarkdown } from './hfMarkdown';
 import ModelNotesEditor from './ModelNotesEditor';
 import RunParamsEditor from './RunParamsEditor';
 
@@ -223,98 +222,10 @@ function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
           </>
         )}
       </Box>
-      {hf.descriptionEN && (
-        <Box sx={{ mt: 1 }}>
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-            Description
-          </Typography>
-          {/* HF model cards are markdown — render to sanitized HTML so
-              headings, code blocks, tables, links and images resolve.
-              Relative paths are rewritten against the repo. */}
-          <Box
-            sx={(theme) => ({
-              maxHeight: 300,
-              overflow: 'auto',
-              fontSize: '0.85em',
-              backgroundColor: 'action.hover',
-              // Force theme text color — HF cards strip inline styles in
-              // sanitization, so the result inherits our color cleanly in
-              // both light and dark mode.
-              color: 'text.primary',
-              borderRadius: 1,
-              p: 1,
-              // Keep embedded media within the panel width.
-              '& img': { maxWidth: '100%', height: 'auto' },
-              '& pre': {
-                overflowX: 'auto',
-                fontSize: '0.85em',
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(0,0,0,0.04)',
-                color: 'text.primary',
-                p: 0.75,
-                borderRadius: 0.5,
-              },
-              '& code': {
-                fontSize: '0.9em',
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255,255,255,0.08)'
-                    : 'rgba(0,0,0,0.05)',
-                px: 0.5,
-                borderRadius: 0.25,
-              },
-              '& pre code': {
-                backgroundColor: 'transparent',
-                p: 0,
-              },
-              '& table': {
-                borderCollapse: 'collapse',
-                fontSize: '0.85em',
-                width: 'auto',
-              },
-              '& th, & td': {
-                border: 1,
-                borderColor: 'divider',
-                px: 0.75,
-                py: 0.35,
-                color: 'text.primary',
-              },
-              '& th': {
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255,255,255,0.08)'
-                    : 'rgba(0,0,0,0.05)',
-                fontWeight: 600,
-              },
-              '& a': {
-                color: 'primary.main',
-                textDecoration: 'underline',
-              },
-              '& h1, & h2, & h3, & h4': {
-                mt: 1,
-                mb: 0.5,
-                fontSize: '1em',
-                fontWeight: 600,
-                color: 'text.primary',
-              },
-              '& p': { my: 0.5, color: 'text.primary' },
-              '& ul, & ol': { pl: 2.5, my: 0.5 },
-              '& blockquote': {
-                borderLeft: 3,
-                borderColor: 'divider',
-                pl: 1,
-                ml: 0,
-                color: 'text.secondary',
-              },
-            })}
-            dangerouslySetInnerHTML={{
-              __html: renderHfMarkdown(hf.descriptionEN, hf.repo).html,
-            }}
-          />
-        </Box>
-      )}
+      {/* Description used to live here too, but it's now rendered as the
+          full preview surface (ModelFilePreview, replacing FileView in
+          EntryContainer). Keeping it in both places duplicates a couple
+          hundred kB of model-card HTML in the layout for no reason. */}
     </Box>
   );
 }
