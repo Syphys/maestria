@@ -31,6 +31,7 @@ import { useTaggingActionsContext } from '-/hooks/useTaggingActionsContext';
 import { getTagColor, getTagTextColor } from '-/reducers/settings';
 import { getTagColors } from '-/services/taglibrary-utils';
 import { TS } from '-/tagspaces.namespace';
+import { isAutoTag } from '-/modelhub/autoTags';
 import { convertToTimestamp, isDateTimeTag } from '-/utils/dates';
 import { isGeoTag } from '-/utils/geo';
 import { formatDateTime } from '@tagspaces/tagspaces-common/misc';
@@ -162,7 +163,14 @@ function TagContainer({
     'currentYear',
     'dateTagging',
   ].includes(functionality || '');
-  const isSystemTag = tag.system === true;
+  // Source of truth = the namespace prefix (arch:, tier:, dir:, …)
+  // in addition to the persisted `system: true` marker. Upstream TagSpaces
+  // tag-edit flows occasionally rewrite the sidecar `tags[]` from a
+  // flattened representation that drops custom fields like `system` and
+  // `origin`, which would un-lock our auto-tags. The namespace check is
+  // robust to that — any title matching a Models Hub auto-tag namespace
+  // stays read-only no matter what's in the JSON.
+  const isSystemTag = tag.system === true || isAutoTag(tag.title ?? '');
   /** System tags are read-only: force display mode regardless of caller intent. */
   const effectiveTagMode = isSystemTag ? 'display' : tagMode;
 
