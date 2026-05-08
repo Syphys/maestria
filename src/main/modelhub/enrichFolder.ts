@@ -15,6 +15,8 @@ import { enrichLocal } from './enrichLocal';
 import { enrichHf, EnrichHfOptions } from './enrichHf';
 import { listModelFiles } from './listModelFiles';
 import { loadModelMeta, patchModelMeta } from './sidecar';
+import { computeAutoTags } from '../../renderer/modelhub/autoTags';
+import { computeFolderSegments } from './folderTags';
 
 export type EnrichFolderMode = 'local' | 'hf';
 
@@ -116,6 +118,7 @@ export async function enrichFolder(
       try {
         if (!options.force) {
           const existing = await loadModelMeta(filePath);
+
           if (
             existing?.lastEnrichedAt &&
             isFreshEnough(existing.lastEnrichedAt, freshnessMs)
@@ -128,27 +131,34 @@ export async function enrichFolder(
             ) {
               status = 'skipped';
               summary.skipped += 1;
-              // Surface the cached autoTags so the UI can still aggregate them
-              // (e.g. into the Models Hub tag library group).
-              lastAutoTags = existing.autoTags;
+              // Re-derive autoTags from the cached header / hf / folder
+              // segments rather than reusing `existing.autoTags`. The
+              // computeAutoTags function is the source of truth and may
+              // have evolved (new namespaces, renames, refined buckets)
+              // since the last parse. Re-running it with the same input
+              // is free (~µs) and lets a code change propagate on the
+              // next Parse-all without forcing a full header reparse.
+              const folderSegments = computeFolderSegments(filePath, rootDir);
+              const freshAutoTags = computeAutoTags({
+                header: existing.header,
+                huggingface: existing.huggingface,
+                folderSegments,
+              });
+              lastAutoTags = freshAutoTags;
               lastMatchedRepo = existing.huggingface?.repo;
               // Tag-normalization pass: even when we skip re-parsing the
               // header, run patchModelMeta with `syncSystemTags` so the
-              // sidecar's `tags[]` is reconciled by `mergeSystemTagsIntoExisting`.
-              // This is what cleans up duplicate/legacy non-system tags
-              // that earlier code paths had left around — without it
-              // Parse-all is a no-op for already-enriched files and the
-              // visible duplicates persist forever.
-              if (
-                !options.skipWrite &&
-                Array.isArray(existing.autoTags) &&
-                existing.autoTags.length > 0
-              ) {
+              // sidecar's `tags[]` is reconciled by
+              // `mergeSystemTagsIntoExisting` and `modelMeta.autoTags`
+              // is refreshed with the freshly-computed list. Without
+              // this, Parse-all is a no-op for already-enriched files
+              // and visible duplicates / stale namespaces persist.
+              if (!options.skipWrite && freshAutoTags.length > 0) {
                 try {
                   await patchModelMeta(
                     filePath,
-                    {},
-                    { syncSystemTags: existing.autoTags },
+                    { autoTags: freshAutoTags },
+                    { syncSystemTags: freshAutoTags },
                   );
                 } catch {
                   /* normalization failure is non-fatal — continue the bulk */
