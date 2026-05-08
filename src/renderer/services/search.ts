@@ -104,7 +104,7 @@ function applyModelhubFilters(
         (b) => typeof b === 'string' && b.length > 0,
       )
     : [];
-  const wantedSizeTags = new Set(buckets.map((b) => `size:${b}`));
+  const wantedSizeTags = new Set(buckets.map((b) => `tier:${b}`));
   const bucketsActive = wantedSizeTags.size > 0;
 
   return results.filter((entry) => {

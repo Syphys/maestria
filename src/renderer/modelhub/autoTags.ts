@@ -11,7 +11,7 @@ import { HeaderMeta, HfMeta } from './types';
 export const AUTO_TAG_NAMESPACES = [
   'arch',
   'quant',
-  'sizuck', // Bucketed/Categorized size
+  'tier', // Bucketed/Categorized size
   'params', // Raw parameter count (exact)
   'ctx', // Context length
   'layers', // Block count
@@ -177,18 +177,18 @@ export function computeAutoTags(input: AutoTagInput): string[] {
   const sizeFromLabel = parseSizeLabel(h?.sizeLabel);
   const isSharded = !!h?.shardInfo && h.shardInfo.total > 1;
 
-  // 1. Bucketed size (sizuck)
+  // 1. Bucketed size (tier)
   if (sizeFromLabel !== undefined) {
-    tags.add(`sizuck:${sizeBucket(sizeFromLabel)}`);
+    tags.add(`tier:${sizeBucket(sizeFromLabel)}`);
   } else if (
     typeof h?.paramCount === 'number' &&
     h.paramCount > 0 &&
     !isSharded
   ) {
-    tags.add(`sizuck:${sizeBucket(h.paramCount)}`);
+    tags.add(`tier:${sizeBucket(h.paramCount)}`);
   } else if (typeof h?.totalBytes === 'number' && h.totalBytes > 0) {
     const estParams = h.totalBytes / bytesPerParam(h.quantization);
-    if (estParams > 0) tags.add(`sizuck:${sizeBucket(estParams)}`);
+    if (estParams > 0) tags.add(`tier:${sizeBucket(estParams)}`);
   }
 
   // 2. Raw / Precise data

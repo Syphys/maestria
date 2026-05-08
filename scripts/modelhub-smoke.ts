@@ -349,7 +349,7 @@ console.log(
     },
   });
   expect(
-    tags1.includes('size:13-30B') || tags1.includes('size:30-70B'),
+    tags1.includes('tier:13-30B') || tags1.includes('tier:30-70B'),
     `bucket from 30B (got: ${tags1.join(', ')})`,
   );
   // Models Hub treats shards as one logical model — no shard:* tag emitted.
@@ -368,8 +368,8 @@ console.log(
     },
   });
   expect(
-    !tags2.some((t) => t.startsWith('size:')),
-    `no size:* on shard without sizeLabel (got: ${tags2.join(', ')})`,
+    !tags2.some((t) => t.startsWith('tier:')),
+    `no tier:* on shard without sizeLabel (got: ${tags2.join(', ')})`,
   );
   expect(
     !tags2.some((t) => t.startsWith('shard:')),
@@ -381,7 +381,7 @@ console.log(
     header: { format: 'safetensors', architecture: 'llama', paramCount: 8e9 },
   });
   expect(
-    tags3.includes('size:7-13B'),
+    tags3.includes('tier:7-13B'),
     `single-file size tag (got: ${tags3.join(', ')})`,
   );
 
@@ -397,7 +397,7 @@ console.log(
     },
   });
   expect(
-    tags4.includes('size:70B+'),
+    tags4.includes('tier:70B+'),
     `size from totalBytes via Q5 multiplier (got: ${tags4.join(', ')})`,
   );
 
@@ -412,7 +412,7 @@ console.log(
     },
   });
   expect(
-    tags5.includes('size:70B+'),
+    tags5.includes('tier:70B+'),
     `size from totalBytes default Q4 (got: ${tags5.join(', ')})`,
   );
 }
@@ -463,7 +463,7 @@ console.log('--- Auto-tag derivation ---');
   });
   expect(tags.includes('arch:llama'), `arch:llama (got: ${tags.join(', ')})`);
   expect(tags.includes('quant:q4_k_m'), 'quant:q4_k_m');
-  expect(tags.includes('size:7-13B'), `size:7-13B (got: ${tags.join(', ')})`);
+  expect(tags.includes('tier:7-13B'), `tier:7-13B (got: ${tags.join(', ')})`);
   expect(tags.includes('mod:text'), 'mod:text');
   expect(tags.includes('fmt:gguf'), 'fmt:gguf');
 
@@ -585,9 +585,9 @@ console.log('--- paramBuckets filter via applyModelhubFilters ---');
     tags: tagTitles.map((t) => ({ title: t })),
   });
 
-  const small = mkEntry('llama-3b.gguf', ['size:1-3B']);
-  const mid = mkEntry('llama-13b.gguf', ['size:7-13B']);
-  const big = mkEntry('llama-70b.gguf', ['size:30-70B']);
+  const small = mkEntry('llama-3b.gguf', ['tier:1-3B']);
+  const mid = mkEntry('llama-13b.gguf', ['tier:7-13B']);
+  const big = mkEntry('llama-70b.gguf', ['tier:30-70B']);
   const untagged = mkEntry('mystery.gguf', []);
   const set = [small, mid, big, untagged];
 
@@ -626,9 +626,9 @@ console.log('--- paramBuckets filter via applyModelhubFilters ---');
 
   // Combine with size filter — 70B model wins on params but a strict
   // sizeMax should still drop it.
-  const big100 = mkEntry('big.gguf', ['size:30-70B']);
+  const big100 = mkEntry('big.gguf', ['tier:30-70B']);
   big100.size = 100_000_000_000;
-  const small5 = mkEntry('small.gguf', ['size:30-70B']);
+  const small5 = mkEntry('small.gguf', ['tier:30-70B']);
   small5.size = 5_000_000_000;
   const combo = _testApplyModelhubFilters([big100, small5], {
     paramBuckets: ['30-70B'],
