@@ -11,17 +11,14 @@ import { HeaderMeta, HfMeta } from './types';
 export const AUTO_TAG_NAMESPACES = [
   'arch',
   'quant',
-  'tier', // Bucketed/Categorized size
-  'params', // Raw parameter count (exact)
-  'ctx', // Context length
-  'layers', // Block count
-  'disk', // File size on disk
+  'tier', // Bucketed/Categorized size (MoE: total = N×Y; dense: equals params)
+  'ctx', // Context length bucket (powers-of-2 K)
   'mod',
   'fmt',
   'lic',
   'type',
   'dir',
-  'meta', // Generic raw metadata
+  'meta', // Generic raw metadata (categorical / enum / string only)
 ] as const;
 
 /**
@@ -224,34 +221,14 @@ export function computeAutoTags(input: AutoTagInput): string[] {
     if (estParams > 0) tags.add(`tier:${sizeBucket(estParams)}`);
   }
 
-  // 2. Raw / Precise data
-  if (h?.sizeLabel) {
-    tags.add(`params:${h.sizeLabel.toUpperCase().replace(/\s+/g, '')}`);
-  } else if (h?.paramCount && h.paramCount > 0 && !isSharded) {
-    // Format large numbers to human readable (e.g. 7.5B)
-    const p = h.paramCount;
-    const label =
-      p >= 1e9
-        ? (p / 1e9).toFixed(1) + 'B'
-        : p >= 1e6
-          ? (p / 1e6).toFixed(1) + 'M'
-          : p.toString();
-    tags.add(`params:${label}`);
-  }
-
+  // 2. Raw counts (params, layers, disk size) used to be emitted as tags but
+  // they're pure numbers — they belong as Properties variables, not as tags
+  // that clutter the tag library. The only categorical / bucketed survivor
+  // here is `ctx:` which buckets to powers-of-2 K (e.g. 4K, 32K, 198K).
   if (h?.contextMax) {
     const c = h.contextMax;
     const label = c >= 1024 ? Math.round(c / 1024) + 'K' : c.toString();
     tags.add(`ctx:${label}`);
-  }
-
-  if (h?.blockCount) {
-    tags.add(`layers:${h.blockCount}`);
-  }
-
-  if (h?.fileSize) {
-    const gb = (h.fileSize / (1024 * 1024 * 1024)).toFixed(1);
-    tags.add(`disk:${gb}GB`);
   }
 
   // Exhaustive meta-tagging: convert EVERYTHING from rawMetadata into tags
