@@ -504,6 +504,36 @@ console.log('--- Auto-tag derivation ---');
   );
 }
 
+console.log('--- MoE size_label parsing ---');
+{
+  // Mixtral-style "8x7B": 56B total → 30-70B.
+  const mixtral = computeAutoTags({
+    header: { format: 'gguf', architecture: 'mistral', sizeLabel: '8x7B' },
+  });
+  expect(
+    mixtral.includes('tier:30-70B'),
+    `mixtral 8x7B → tier:30-70B (got: ${mixtral.join(', ')})`,
+  );
+
+  // GLM-5.1 "256x22B": 5.6T total → 70B+. Regression for the <1B mis-bucket.
+  const glm = computeAutoTags({
+    header: { format: 'gguf', architecture: 'llama', sizeLabel: '256x22B' },
+  });
+  expect(
+    glm.includes('tier:70B+'),
+    `glm 256x22B → tier:70B+ (got: ${glm.join(', ')})`,
+  );
+
+  // Dense control: "8B" still buckets to 7-13B (no MoE multiplication).
+  const dense = computeAutoTags({
+    header: { format: 'gguf', architecture: 'llama', sizeLabel: '8B' },
+  });
+  expect(
+    dense.includes('tier:7-13B'),
+    `dense 8B → tier:7-13B (got: ${dense.join(', ')})`,
+  );
+}
+
 console.log('--- Folder segment auto-tags ---');
 {
   // Each path segment between rootDir and the file should become a `dir:` tag,

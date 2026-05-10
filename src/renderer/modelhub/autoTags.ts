@@ -108,20 +108,51 @@ function bytesPerParam(quant: string | undefined): number {
 }
 
 /**
- * Parse `general.size_label` style strings like "8B", "30B", "1.5B", "270M".
- * Returns the parameter count in absolute units, or undefined if unparseable.
+ * Parse `general.size_label` style strings.
+ *
+ * Dense models: "8B", "30B", "1.5B", "270M" → returns total only.
+ * MoE models:   "8x7B" (Mixtral), "256x22B" (GLM-5.1) → returns
+ *               { total = N*Y, perExpert = Y, expertCount = N }.
+ *
+ * Returns undefined if unparseable. The `total` field is what drives the
+ * `tier:` bucket (so MoE land in the correct big bucket instead of being
+ * read as a tiny dense model). `perExpert` / `expertCount` let callers
+ * surface MoE-specific signals (panel rows, secondary buckets).
  */
-function parseSizeLabel(label: string | undefined): number | undefined {
+export interface ParsedSizeLabel {
+  total: number;
+  perExpert?: number;
+  expertCount?: number;
+}
+
+export function parseSizeLabel(
+  label: string | undefined,
+): ParsedSizeLabel | undefined {
   if (!label) return undefined;
+  // MoE: NxYB (e.g. "8x7B", "256x22B", "1.8x14B"). The 'x' or '×' separator
+  // can be surrounded by spaces. Unit (B/M/K) applies to Y; N is a count.
+  const moe = label.match(
+    /^([0-9]+(?:\.[0-9]+)?)\s*[xX×]\s*([0-9]+(?:\.[0-9]+)?)\s*([BMK]?)/i,
+  );
+  if (moe) {
+    const n = parseFloat(moe[1]);
+    const y = parseFloat(moe[2]);
+    if (!Number.isFinite(n) || !Number.isFinite(y) || n <= 0 || y <= 0) {
+      return undefined;
+    }
+    const unit = (moe[3] || '').toUpperCase();
+    const mul =
+      unit === 'B' ? 1e9 : unit === 'M' ? 1e6 : unit === 'K' ? 1e3 : 1;
+    const perExpert = y * mul;
+    return { total: n * perExpert, perExpert, expertCount: n };
+  }
   const m = label.match(/^([0-9]+(?:\.[0-9]+)?)\s*([BMK]?)/i);
   if (!m) return undefined;
   const n = parseFloat(m[1]);
   if (!Number.isFinite(n) || n <= 0) return undefined;
   const unit = (m[2] || '').toUpperCase();
-  if (unit === 'B') return n * 1e9;
-  if (unit === 'M') return n * 1e6;
-  if (unit === 'K') return n * 1e3;
-  return n;
+  const mul = unit === 'B' ? 1e9 : unit === 'M' ? 1e6 : unit === 'K' ? 1e3 : 1;
+  return { total: n * mul };
 }
 
 /** Normalize a license string from HF (e.g. "apache-2.0" → "apache-2"). */
@@ -177,9 +208,11 @@ export function computeAutoTags(input: AutoTagInput): string[] {
   const sizeFromLabel = parseSizeLabel(h?.sizeLabel);
   const isSharded = !!h?.shardInfo && h.shardInfo.total > 1;
 
-  // 1. Bucketed size (tier)
+  // 1. Bucketed size (tier). For MoE labels like "256x22B", `parseSizeLabel`
+  // returns the total (N*Y), so the tier bucket reflects the full model
+  // weight rather than the literal first number.
   if (sizeFromLabel !== undefined) {
-    tags.add(`tier:${sizeBucket(sizeFromLabel)}`);
+    tags.add(`tier:${sizeBucket(sizeFromLabel.total)}`);
   } else if (
     typeof h?.paramCount === 'number' &&
     h.paramCount > 0 &&
