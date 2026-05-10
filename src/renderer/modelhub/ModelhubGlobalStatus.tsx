@@ -32,6 +32,7 @@ import {
   BulkRun,
   BulkSummary,
   upsertModelhubTagGroup,
+  _clearModelMetaCache,
 } from '-/modelhub';
 
 interface BulkUiState {
@@ -130,6 +131,10 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
           setInfo(
             `Done — ${s.ok} enriched, ${s.skipped} skipped, ${s.errors} errors`,
           );
+          // Force clear the renderer-side metadata cache so that opening a
+          // file panel after a bulk run actually reads the new sidecar from disk.
+          _clearModelMetaCache();
+
           // Sync collected auto-tags into a "Models Hub (auto)" tag group so
           // they show up in the search autocomplete + Tag Library panel.
           // Empty set → the group is removed entirely (clean-up).
