@@ -90,6 +90,13 @@ import {
   isCanonicalShard,
   stripShardSuffix,
 } from '-/modelhub/shard';
+import { fetchModelMeta } from '-/modelhub/useModelMeta';
+import { parseSizeLabel } from '-/modelhub/autoTags';
+import {
+  getCachedTotalBytes,
+  primeTotalBytes,
+} from '-/modelhub/shardSizeCache';
+import type { HeaderMeta } from '-/modelhub/types';
 import L from 'leaflet';
 import React, {
   ChangeEvent,
@@ -118,6 +125,15 @@ const ThumbnailTextField = styled(TsTextField)(({ theme }) => ({
     height: 220,
   },
 }));
+
+/** Compact parameter-count formatter (e.g. 22e9 → "22B", 270e6 → "270M"). */
+function formatParamCount(n: number | undefined): string {
+  if (typeof n !== 'number' || !isFinite(n) || n <= 0) return '';
+  if (n >= 1e9) return `${(n / 1e9).toFixed(n % 1e9 === 0 ? 0 : 1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1)}K`;
+  return String(n);
+}
 
 const CustomBackgroundDialog =
   Pro && Pro.UI ? Pro.UI.CustomBackgroundDialog : false;
@@ -183,6 +199,16 @@ function EntryProperties({ tileServer }: Props) {
   const [showSharingLinkDialog, setShowSharingLinkDialog] = useState(false);
   const [displayColorPicker, setDisplayColorPicker] = useState(false);
 
+  // Modelhub: aggregate shard size + sidecar header. Lets the "Taille" field
+  // show the sum across all sibling shards (not just shard 1) and surfaces
+  // a "Taille des experts" row for MoE models like GLM-5.1 256x22B.
+  const [modelHeaderForPanel, setModelHeaderForPanel] = useState<
+    HeaderMeta | undefined
+  >();
+  const [shardAggregateBytes, setShardAggregateBytes] = useState<
+    number | undefined
+  >();
+
   const backgroundImage = useRef<string>('none');
   const thumbImage = useRef<string>('none');
 
@@ -208,6 +234,35 @@ function EntryProperties({ tileServer }: Props) {
     reloadThumbnails();
     // eslint-disable-next-line
   }, [openedEntry]);
+
+  useEffect(() => {
+    let alive = true;
+    setModelHeaderForPanel(undefined);
+    setShardAggregateBytes(undefined);
+
+    const path = openedEntry?.path;
+    if (!openedEntry?.isFile || !path) return undefined;
+
+    fetchModelMeta(path).then((meta) => {
+      if (alive) setModelHeaderForPanel(meta?.header);
+    });
+
+    const name = extractFileName(path, location?.getDirSeparator() ?? '/');
+    if (isCanonicalShard(name) && detectShardInfo(name)) {
+      const cached = getCachedTotalBytes(path);
+      if (cached) {
+        setShardAggregateBytes(cached);
+      } else {
+        primeTotalBytes([path]).then(() => {
+          if (alive) setShardAggregateBytes(getCachedTotalBytes(path));
+        });
+      }
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [openedEntry, location]);
 
   useEffect(() => {
     if (!firstRender && metaActions && metaActions.length > 0 && openedEntry) {
@@ -355,14 +410,27 @@ function EntryProperties({ tileServer }: Props) {
     openedEntry,
   ]);
 
+  // MoE detection from `general.size_label` ("8x7B", "256x22B", …).
+  // Drives the read-only "Taille des experts" field below.
+  const moeExpertSize = useMemo(() => {
+    const parsed = parseSizeLabel(modelHeaderForPanel?.sizeLabel);
+    return parsed?.perExpert ? formatParamCount(parsed.perExpert) : undefined;
+  }, [modelHeaderForPanel]);
+
   const fileSize = useCallback(() => {
     if (openedEntry?.isFile) {
+      // For sharded canonical entries (e.g. shard 1 of 1810), `openedEntry.size`
+      // is just shard 1's bytes — wildly misleading. Prefer the freshly-summed
+      // aggregate from the shard-size cache when available.
+      if (shardAggregateBytes && shardAggregateBytes > 0) {
+        return formatBytes(shardAggregateBytes);
+      }
       return formatBytes(openedEntry.size);
     } else if (dirProps.current) {
       return formatBytes(dirProps.current.totalSize);
     }
     return t(location?.haveObjectStoreSupport() ? 'core:notAvailable' : '?');
-  }, [openedEntry, t, location]);
+  }, [openedEntry, shardAggregateBytes, t, location]);
 
   const toggleBackgroundColorPicker = useCallback(() => {
     if (location?.isReadOnly) return;
@@ -765,6 +833,26 @@ function EntryProperties({ tileServer }: Props) {
             />
           </Tooltip>
         </Grid>
+
+        {moeExpertSize && (
+          <Grid size={12}>
+            <TsTextField
+              value={moeExpertSize}
+              retrieveValue={() => moeExpertSize}
+              label={t('core:expertSize')}
+              slotProps={{
+                input: {
+                  readOnly: true,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SizeIcon />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Grid>
+        )}
 
         <Grid size={12}>
           <FormControl fullWidth={true}>
