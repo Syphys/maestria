@@ -138,3 +138,6 @@ third-party
 
 .ts
 .npmrc
+
+# Models Hub planning docs — kept local, never committed
+MODELS_HUB*.md
