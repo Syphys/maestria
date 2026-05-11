@@ -91,12 +91,16 @@ import {
   stripShardSuffix,
 } from '-/modelhub/shard';
 import { fetchModelMeta } from '-/modelhub/useModelMeta';
-import { parseSizeLabel } from '-/modelhub/autoTags';
+import { isAutoTag, parseSizeLabel } from '-/modelhub/autoTags';
 import {
   getCachedTotalBytes,
   primeTotalBytes,
 } from '-/modelhub/shardSizeCache';
+import { useModelhubActions } from '-/modelhub/useModelhubActions';
+import { isSupportedModelFile } from '-/modelhub/parsers';
 import type { HeaderMeta } from '-/modelhub/types';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import L from 'leaflet';
 import React, {
   ChangeEvent,
@@ -208,6 +212,22 @@ function EntryProperties({ tileServer }: Props) {
   const [shardAggregateBytes, setShardAggregateBytes] = useState<
     number | undefined
   >();
+
+  // Modelhub actions co-located near the tags chips — clicking "Generate"
+  // emits the system tags right above where they'll appear, so the user
+  // sees the cause-and-effect in one place.
+  const isModelFile = Boolean(
+    openedEntry?.isFile &&
+      openedEntry.path &&
+      isSupportedModelFile(openedEntry.path),
+  );
+  const modelhubActions = useModelhubActions({
+    filePath: openedEntry?.path,
+    readOnly: location?.isReadOnly,
+  });
+  const hasSystemTags = (openedEntry?.tags ?? []).some(
+    (tg) => tg.system === true || isAutoTag(tg.title ?? ''),
+  );
 
   const backgroundImage = useRef<string>('none');
   const thumbImage = useRef<string>('none');
@@ -724,6 +744,52 @@ function EntryProperties({ tileServer }: Props) {
               generateButton={true}
             />
           </TagDropContainer>
+          {isModelFile && (
+            <Stack
+              direction="row"
+              spacing={0.75}
+              alignItems="center"
+              sx={{ mt: 0.75, flexWrap: 'wrap' }}
+            >
+              <TsButton
+                variant="outlined"
+                onClick={modelhubActions.parseHeader}
+                disabled={
+                  modelhubActions.busy !== 'idle' || location?.isReadOnly
+                }
+                startIcon={
+                  modelhubActions.busy === 'parse' ? undefined : <RefreshIcon />
+                }
+                tooltip={t('core:modelhubGenerateTagsTooltip')}
+              >
+                {t('core:modelhubGenerateTags')}
+              </TsButton>
+              {hasSystemTags && (
+                <TsButton
+                  variant="outlined"
+                  color="warning"
+                  onClick={modelhubActions.resetTags}
+                  disabled={
+                    modelhubActions.busy !== 'idle' || location?.isReadOnly
+                  }
+                  startIcon={<DeleteOutlineIcon />}
+                  tooltip={t('core:modelhubResetTagsTooltip')}
+                >
+                  {t('core:modelhubResetTags')}
+                </TsButton>
+              )}
+              {modelhubActions.error && (
+                <Typography variant="caption" color="error">
+                  {modelhubActions.error}
+                </Typography>
+              )}
+              {modelhubActions.info && !modelhubActions.error && (
+                <Typography variant="caption" color="text.secondary">
+                  {modelhubActions.info}
+                </Typography>
+              )}
+            </Stack>
+          )}
         </Grid>
 
         {geoLocation && (

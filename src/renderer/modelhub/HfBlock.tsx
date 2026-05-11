@@ -12,7 +12,16 @@
  * sits below it.
  */
 
-import { Box, Typography } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { HfMeta } from './types';
 import { renderMarkdown } from './hfMarkdown';
 
@@ -36,11 +45,33 @@ function buildYaml(hf: HfMeta): string {
   return lines.join('\n');
 }
 
-export function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
+export interface HfBlockProps {
+  hf: HfMeta;
+  /** Re-runs the HF enrichment (re-fetch model card + metadata). */
+  onRefresh?: () => void;
+  /** Removes the HF block from the sidecar — the encart disappears. */
+  onRemove?: () => void;
+  /** When non-idle, the in-header action buttons spin / disable. */
+  busy?: 'idle' | 'hf' | 'resetHf' | string;
+  /** Refresh / remove tooltips (i18n strings, passed in from caller). */
+  refreshLabel?: string;
+  removeLabel?: string;
+}
+
+export function HfBlock({
+  hf,
+  onRefresh,
+  onRemove,
+  busy = 'idle',
+  refreshLabel,
+  removeLabel,
+}: HfBlockProps): JSX.Element {
   const description = hf.descriptionEN?.trim();
   const html = description
     ? renderMarkdown(description, hf.repo).html
     : undefined;
+  const refreshing = busy === 'hf';
+  const removing = busy === 'resetHf';
   return (
     <Box
       sx={{
@@ -52,19 +83,62 @@ export function HfBlock({ hf }: { hf: HfMeta }): JSX.Element {
         bgcolor: 'action.hover',
       }}
     >
-      <Typography
-        variant="caption"
-        sx={{
-          display: 'block',
-          mb: 0.5,
-          color: 'text.secondary',
-          fontWeight: 600,
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
-        }}
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 0.5 }}
       >
-        Hugging Face
-      </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            fontWeight: 600,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+          }}
+        >
+          Hugging Face
+        </Typography>
+        {(onRefresh || onRemove) && (
+          <Stack direction="row" spacing={0.25}>
+            {onRefresh && (
+              <Tooltip title={refreshLabel ?? 'Refresh'} arrow>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRefresh}
+                    disabled={busy !== 'idle'}
+                  >
+                    {refreshing ? (
+                      <CircularProgress size={14} />
+                    ) : (
+                      <RefreshIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+            {onRemove && (
+              <Tooltip title={removeLabel ?? 'Remove'} arrow>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRemove}
+                    disabled={busy !== 'idle'}
+                  >
+                    {removing ? (
+                      <CircularProgress size={14} />
+                    ) : (
+                      <DeleteOutlineIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+          </Stack>
+        )}
+      </Stack>
       <Box
         component="pre"
         sx={{
