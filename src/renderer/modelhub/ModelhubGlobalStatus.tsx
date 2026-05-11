@@ -33,6 +33,7 @@ import {
   BulkSummary,
   upsertModelhubTagGroup,
   _clearModelMetaCache,
+  clearFolderBulk,
 } from '-/modelhub';
 
 interface BulkUiState {
@@ -237,6 +238,37 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
     }
   }, [bulk.cancelHandle]);
 
+  // Bulk Clear: nuke description + system tags across every model file in
+  // the current location. Hits each sidecar once (no concurrency, no
+  // progress events — runs main-side and resolves with a summary). User
+  // tags survive; only system / auto-namespaced tags are removed.
+  const onClearAll = useCallback(async () => {
+    const path = currentLocation?.path;
+    if (!path || bulk.active || reindexing) return;
+    if (
+      !window.confirm(
+        'Vider les descriptions et supprimer les tags système pour TOUS les fichiers modèles de cette location ?\n\n' +
+          'Les tags manuels que vous avez ajoutés seront préservés.',
+      )
+    ) {
+      return;
+    }
+    setError(undefined);
+    setInfo(undefined);
+    const result = await clearFolderBulk(path);
+    if (!result.ok) {
+      setError(result.error ?? 'clear failed');
+      return;
+    }
+    _clearModelMetaCache();
+    setInfo(
+      `Cleared ${result.cleared ?? 0} file(s)` +
+        (result.skipped ? `, skipped ${result.skipped}` : '') +
+        (result.errors ? `, ${result.errors} error(s)` : '') +
+        '. Reindex recommended to refresh the search.',
+    );
+  }, [currentLocation, bulk.active, reindexing]);
+
   const dismissInfo = useCallback(() => {
     setInfo(undefined);
     setError(undefined);
@@ -307,6 +339,17 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
                   onClick={() => onStart('hf')}
                 >
                   HF
+                </Button>
+              </Tooltip>
+              <Tooltip title="Vider la description + les tags système pour tous les modèles (préserve les tags manuels)">
+                <Button
+                  size="small"
+                  variant="text"
+                  color="warning"
+                  sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.7em' }}
+                  onClick={onClearAll}
+                >
+                  Clear
                 </Button>
               </Tooltip>
             </>

@@ -263,6 +263,36 @@ export function _clearModelMetaCache(): void {
   inflight.clear();
 }
 
+// --- Bulk clear ----------------------------------------------------------
+
+export interface ClearFolderSummary {
+  ok: boolean;
+  total?: number;
+  cleared?: number;
+  skipped?: number;
+  errors?: number;
+  errorSamples?: Array<{ filePath: string; error: string }>;
+  error?: string;
+}
+
+/**
+ * Bulk-clear all model sidecars in `rootDir`: removes the TagSpaces
+ * description and every system / auto-namespaced tag. User-typed tags are
+ * preserved. Synchronous over IPC — resolves with the summary when done.
+ */
+export async function clearFolderBulk(
+  rootDir: string,
+): Promise<ClearFolderSummary> {
+  const ipc = getIpc();
+  if (!ipc?.invoke) {
+    return { ok: false, error: 'IPC not available (web build?)' };
+  }
+  return (await ipc.invoke(
+    MODELHUB_IPC.clearFolder,
+    rootDir,
+  )) as ClearFolderSummary;
+}
+
 // --- Bulk enrichment -----------------------------------------------------
 
 export interface BulkProgressEvent {

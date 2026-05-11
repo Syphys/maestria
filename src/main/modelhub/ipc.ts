@@ -19,6 +19,7 @@ import {
   EnrichFolderOptions,
   EnrichFolderProgress,
 } from './enrichFolder';
+import { clearFolder } from './clearFolder';
 import { detectHardwareProfile } from './hardware';
 import {
   detectAndMerge,
@@ -133,6 +134,15 @@ export default function registerModelhubEvents(): void {
       return { ok: true };
     },
   );
+
+  ipcMain.handle(MODELHUB_IPC.clearFolder, async (_event, rootDir: string) => {
+    try {
+      const summary = await clearFolder(rootDir);
+      return { ok: true, ...summary };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
 
   ipcMain.handle(
     MODELHUB_IPC.patchModelMeta,

@@ -259,6 +259,12 @@ export const MODELHUB_IPC = {
   enrichFolderStart: 'modelhub:enrichFolderStart',
   /** Invoke channel to cancel a bulk job by run id. */
   enrichFolderCancel: 'modelhub:enrichFolderCancel',
+  /**
+   * Bulk-clear every model-file sidecar under a root: remove the TagSpaces
+   * `description` and every system / modelhub-origin / auto-namespaced tag.
+   * Synchronous over IPC — returns a summary when done.
+   */
+  clearFolder: 'modelhub:clearFolder',
   /** Event channel: main → renderer progress updates. Payload includes runId. */
   enrichFolderProgress: 'modelhub:enrichFolderProgress',
   /** Event channel: main → renderer when the run finishes. Payload is the summary. */

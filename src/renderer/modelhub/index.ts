@@ -19,6 +19,7 @@ export {
   startBulkEnrichment,
   subscribeBulkEvents,
   _clearModelMetaCache,
+  clearFolderBulk,
 } from './useModelMeta';
 export type {
   BulkProgressEvent,
