@@ -20,17 +20,42 @@ import EditDescriptionButtons from '-/components/EditDescriptionButtons';
 import DescriptionMdEditor from '-/components/md/DescriptionMdEditor';
 import { CrepeRef } from '-/components/md/useCrepeHandler';
 import { useFilePropertiesContext } from '-/hooks/useFilePropertiesContext';
+import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
+import { HfBlock } from '-/modelhub/HfBlock';
+import { fetchModelMeta } from '-/modelhub/useModelMeta';
+import { isSupportedModelFile } from '-/modelhub/parsers';
+import type { HfMeta } from '-/modelhub/types';
 import { MilkdownProvider } from '@milkdown/react';
 import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function EditDescription() {
   const theme = useTheme();
   const { setEditDescriptionMode } = useFilePropertiesContext();
+  const { openedEntry } = useOpenedEntryContext();
 
   const milkdownDivRef = useRef<HTMLDivElement>(null);
   const fileDescriptionRef = useRef<CrepeRef>(null);
+
+  // Modelhub HF info lives here (not in the side panel) — Description is
+  // the natural surface for "what is this model" content. The block only
+  // renders when there's actually HF data on the sidecar.
+  const [hf, setHf] = useState<HfMeta | undefined>();
+  useEffect(() => {
+    let alive = true;
+    setHf(undefined);
+    const path = openedEntry?.path;
+    if (!openedEntry?.isFile || !path || !isSupportedModelFile(path)) {
+      return undefined;
+    }
+    fetchModelMeta(path).then((m) => {
+      if (alive) setHf(m?.huggingface);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [openedEntry]);
 
   useEffect(() => {
     return () => {
@@ -55,6 +80,11 @@ function EditDescription() {
         height: 'calc(100% - 50px)',
       }}
     >
+      {hf && (
+        <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
+          <HfBlock hf={hf} />
+        </Box>
+      )}
       <EditDescriptionButtons
         resetMdContent={resetMdContent}
         setEditMode={setEditMode}
