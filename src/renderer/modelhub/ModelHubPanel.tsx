@@ -22,7 +22,10 @@ import { ModelMeta } from './types';
 import RunModelButton from './runners/RunModelButton';
 import { canonicalShardName, detectShardInfo, isCanonicalShard } from './shard';
 import RunParamsEditor from './RunParamsEditor';
+import { isAutoTag } from './autoTags';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
+import { useIOActionsContext } from '-/hooks/useIOActionsContext';
+import { useTaggingActionsContext } from '-/hooks/useTaggingActionsContext';
 
 function basename(p: string): string {
   return p.replace(/^.*[\\/]/, '');
@@ -44,7 +47,7 @@ export function ModelHubPanel({
   readOnly,
 }: Props): JSX.Element | null {
   const [meta, setMeta] = useState<ModelMeta | undefined>();
-  const [busy, setBusy] = useState<'idle' | 'local' | 'hf'>('idle');
+  const [busy, setBusy] = useState<'idle' | 'local' | 'hf' | 'clear'>('idle');
   const [error, setError] = useState<string | undefined>();
   const [info, setInfo] = useState<string | undefined>();
 
@@ -70,7 +73,9 @@ export function ModelHubPanel({
     };
   }, [filePath, supported]);
 
-  const { reloadOpenedFile } = useOpenedEntryContext();
+  const { openedEntry, reloadOpenedFile } = useOpenedEntryContext();
+  const { setDescriptionChange } = useIOActionsContext();
+  const { removeTagsFromEntry } = useTaggingActionsContext();
 
   const onEnrichLocal = useCallback(async () => {
     if (!filePath) return;
@@ -142,6 +147,55 @@ export function ModelHubPanel({
     }
   }, [filePath, readOnly, reloadOpenedFile]);
 
+  // Reset button: nukes the auto-populated content for this one file —
+  // clears the description and removes every system / auto-namespaced
+  // tag. User-typed tags survive. Lets the user roll back a bad enrichment
+  // without manually deleting each tag and selecting-all in the editor.
+  const onClearAll = useCallback(async () => {
+    if (!openedEntry || readOnly) return;
+    if (
+      !window.confirm(
+        'Vider la description et supprimer les tags système pour ce fichier ?',
+      )
+    ) {
+      return;
+    }
+    setBusy('clear');
+    setError(undefined);
+    setInfo(undefined);
+    try {
+      if (openedEntry.meta?.description) {
+        await setDescriptionChange(openedEntry, '');
+      }
+      const sysTags = (openedEntry.tags ?? []).filter(
+        (t) => t.system === true || isAutoTag(t.title ?? ''),
+      );
+      if (sysTags.length > 0) {
+        await removeTagsFromEntry(openedEntry, sysTags);
+      }
+      try {
+        await reloadOpenedFile();
+      } catch {
+        /* non-fatal */
+      }
+      setInfo(
+        `Cleared description${
+          sysTags.length > 0 ? ` + ${sysTags.length} system tag(s)` : ''
+        }.`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy('idle');
+    }
+  }, [
+    openedEntry,
+    readOnly,
+    setDescriptionChange,
+    removeTagsFromEntry,
+    reloadOpenedFile,
+  ]);
+
   if (!supported) return null;
 
   // When the user opens a non-canonical shard (e.g. shard 7/12), surface a
@@ -209,6 +263,18 @@ export function ModelHubPanel({
             }
           >
             Fetch from HF
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            disabled={busy !== 'idle' || readOnly}
+            onClick={onClearAll}
+            startIcon={
+              busy === 'clear' ? <CircularProgress size={14} /> : undefined
+            }
+          >
+            Clear
           </Button>
         </Stack>
       </Stack>
