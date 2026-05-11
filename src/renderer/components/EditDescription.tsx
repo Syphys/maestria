@@ -26,12 +26,14 @@ import { fetchModelMeta } from '-/modelhub/useModelMeta';
 import { isSupportedModelFile } from '-/modelhub/parsers';
 import type { HfMeta } from '-/modelhub/types';
 import { MilkdownProvider } from '@milkdown/react';
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 function EditDescription() {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { setEditDescriptionMode } = useFilePropertiesContext();
   const { openedEntry } = useOpenedEntryContext();
 
@@ -40,22 +42,26 @@ function EditDescription() {
 
   // Modelhub HF info lives here (not in the side panel) — Description is
   // the natural surface for "what is this model" content. The block only
-  // renders when there's actually HF data on the sidecar.
+  // renders when there's actually HF data on the sidecar. For model files
+  // without HF data yet, a hint points the user at the Fetch from HF
+  // button in the Models Hub panel so the tab is never silently empty.
+  const isModelFile = Boolean(
+    openedEntry?.isFile &&
+      openedEntry.path &&
+      isSupportedModelFile(openedEntry.path),
+  );
   const [hf, setHf] = useState<HfMeta | undefined>();
   useEffect(() => {
     let alive = true;
     setHf(undefined);
-    const path = openedEntry?.path;
-    if (!openedEntry?.isFile || !path || !isSupportedModelFile(path)) {
-      return undefined;
-    }
-    fetchModelMeta(path).then((m) => {
+    if (!isModelFile || !openedEntry?.path) return undefined;
+    fetchModelMeta(openedEntry.path).then((m) => {
       if (alive) setHf(m?.huggingface);
     });
     return () => {
       alive = false;
     };
-  }, [openedEntry]);
+  }, [openedEntry, isModelFile]);
 
   useEffect(() => {
     return () => {
@@ -81,8 +87,15 @@ function EditDescription() {
       }}
     >
       {hf && (
-        <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
+        <Box sx={{ px: 2, pt: 1 }}>
           <HfBlock hf={hf} />
+        </Box>
+      )}
+      {isModelFile && !hf && (
+        <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('core:noHfDataYet')}
+          </Typography>
         </Box>
       )}
       <EditDescriptionButtons

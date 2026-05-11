@@ -41,7 +41,6 @@ import { getResizedImageThumbnail } from '-/services/thumbsgenerator';
 import { TS } from '-/tagspaces.namespace';
 import { base64ToUint8Array } from '-/utils/dom';
 import { isSupportedModelFile } from '-/modelhub/parsers';
-import ModelFilePreview from '-/modelhub/ModelFilePreview';
 
 /**
  * Models Hub: cap how much text we hand to a viewer iframe. A
@@ -764,27 +763,21 @@ function EntryContainer() {
             </Tooltip>
           )}
         </Box>
-        {openedEntry.isFile &&
-          (isSupportedModelFile(openedEntry.path) ? (
-            // Models Hub: replace the upstream FileView (iframe + viewer
-            // extension) with a React component that renders the HF model
-            // card directly. The iframe pipeline is useless for binary
-            // weights; this surface gives the preview area an actual
-            // purpose — the user lands on the .gguf and reads what the
-            // model is, while the panel on the right remains the source
-            // of truth for actions (Run, Notes, Run params, …).
-            <ModelFilePreview filePath={openedEntry.path} />
-          ) : (
-            <FileView
-              key="FileViewID"
-              fileViewer={fileViewer}
-              fileViewerContainer={fileViewerContainer}
-              height={
-                tabIndex !== TabNames.closedTabs ? '100%' : 'calc(100% - 100px)'
-              }
-              handleMessage={handleMessage}
-            />
-          ))}
+        {openedEntry.isFile && !isSupportedModelFile(openedEntry.path) && (
+          // Model files (.gguf, .safetensors, …) intentionally render no
+          // central preview: the right-side Properties + Description tabs
+          // carry the full picture (header fields, HF metadata, model card)
+          // and an iframe of binary weights would just hang.
+          <FileView
+            key="FileViewID"
+            fileViewer={fileViewer}
+            fileViewerContainer={fileViewerContainer}
+            height={
+              tabIndex !== TabNames.closedTabs ? '100%' : 'calc(100% - 100px)'
+            }
+            handleMessage={handleMessage}
+          />
+        )}
       </Box>
     </GlobalHotKeys>
   );

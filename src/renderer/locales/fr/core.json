@@ -304,6 +304,7 @@
   "fileTags": "Étiquettes",
   "fileSize": "Taille",
   "expertSize": "Taille des experts",
+  "noHfDataYet": "Pas encore de données Hugging Face. Cliquez « Fetch from HF » dans le panneau Models Hub à droite pour récupérer la model card.",
   "shardCount": "Nombre de fragments",
   "modelFormat": "Format",
   "modelArchitecture": "Architecture",

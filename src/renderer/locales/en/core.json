@@ -303,6 +303,7 @@
   "fileTags": "Tags",
   "fileSize": "Size",
   "expertSize": "Expert size",
+  "noHfDataYet": "No Hugging Face data yet. Click \"Fetch from HF\" in the Models Hub panel on the right to retrieve the model card.",
   "shardCount": "Shard count",
   "modelFormat": "Format",
   "modelArchitecture": "Architecture",
