@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Local fork — AI Models Hub
 
-This repo is being adapted into a specialized AI-model browser/manager for `D:\models`. See [MODELS_HUB.md](MODELS_HUB.md) for the project plan: phased features (header parsing, HF enrichment, treemap/calendar/graph perspectives, hardware-aware run delegation, in-app chat + MCP server), architecture decisions, and clean-room rules. **Do not read `tagspacespro/` source** — any feature inspired by Pro must be reimplemented from user-visible behavior only.
+This repo is being adapted into a specialized AI-model browser/manager for `D:\models`. Scope spans header parsing (GGUF / safetensors), HF metadata enrichment, sidecar persistence, perspectives (treemap / calendar / graph), hardware-aware autotune + run delegation, and an MCP server that exposes the library + orchestration to external agent runtimes. **Do not read `tagspacespro/` source** — any feature inspired by Pro must be reimplemented from user-visible behavior only.
 
-**Sharded models** — a model split into N files (e.g. `foo-00001-of-00012.gguf`) is one logical entity. Shard 1 is canonical: it carries the sidecar, drives autoTags, and is what the runner receives. Helpers in `src/renderer/modelhub/shard.ts` (pure) + `src/main/modelhub/shardFs.ts` (fs-backed). When adding any feature that touches a model file, check `isCanonicalShard(name)` and route through `resolveCanonicalShardPath(filePath)` in main process. See [MODELS_HUB_SHARDS.md](MODELS_HUB_SHARDS.md).
+**Engine** — llama.cpp's `llama-server` is the only supported runner. The autotuned run params (`ngl`, `ctx`, `threads`, `batchSize`, `flashAttn`, `mlock`, `port`) are llama-server flags. Ollama and LM Studio are out of scope and being removed from the runner abstraction — don't add new code paths that re-introduce them.
+
+**No in-app chat surface** — once a model is launched, TagSpaces opens `http://127.0.0.1:<port>/` in the user's default browser (the native llama-server UI). Conversational orchestration belongs to external agent runtimes (deer-flow, aider, custom). Don't reintroduce a ChatDialog or an embedded terminal — that path has been deliberately removed.
+
+**Agent orchestration** — a single agent runtime is configured by the user (no in-app catalog of agent kinds). It is described by a launch spec (`command`, `args`, `env`, `cwd`, `uiUrl`, optional `readiness`) with placeholder substitution at spawn time: `${MODEL_URL}`, `${MCP_URL}`, `${MCP_TOKEN}`, `${TASK}`, `${PORT}`, `${AGENT_ID}`. Each `agents.run` MCP call spawns a fresh instance of this same runtime with a different model + task — the MoE pattern on the local library. Lifecycle is **orchestrator**, not process-manager: agents are spawned detached and survive TagSpaces shutdown; reconciliation happens at the next start via `~/.tagspaces/agents/active-pids.json`. Stop is graceful by default (SIGTERM / Ctrl-C); `tree-kill` is opt-in via `agents.stop({ force: true })`.
+
+**MCP tools surface** — namespaced families: `models.*` (search / get / list_running / run / stop), `agents.*` (run / list_running / status / wait / get_result / stop / tree — no `list_available`, single agent kind), `tags.*`, `description.*`, `hf.*`, `hardware.*`. Tools are registered in a single `src/main/modelhub/mcp/registry.ts`. HTTP+SSE transport on `127.0.0.1:41541`, Bearer token auth, opt-in via Settings.
+
+**Sharded models** — a model split into N files (e.g. `foo-00001-of-00012.gguf`) is one logical entity. Shard 1 is canonical: it carries the sidecar, drives autoTags, and is what the runner receives. Helpers in `src/renderer/modelhub/shard.ts` (pure) + `src/main/modelhub/shardFs.ts` (fs-backed). When adding any feature that touches a model file, check `isCanonicalShard(name)` and route through `resolveCanonicalShardPath(filePath)` in main process.
 
 ## Build & Development
 
