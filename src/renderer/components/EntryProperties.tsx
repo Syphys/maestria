@@ -417,6 +417,63 @@ function EntryProperties({ tileServer }: Props) {
     return parsed?.perExpert ? formatParamCount(parsed.perExpert) : undefined;
   }, [modelHeaderForPanel]);
 
+  // Header fields promoted to native variables. Numbers (params, ctx, layers,
+  // disk, dims, shard count) live as Properties variables; categorical info
+  // (format, arch, quant) is also surfaced here for one-glance reading even
+  // though it's also available as a tag (`fmt:`, `arch:`, `quant:`).
+  const headerFieldRows = useMemo(() => {
+    const h = modelHeaderForPanel;
+    if (!h) return [] as Array<{ label: string; value: string }>;
+    const rows: Array<{ label: string; value: string }> = [];
+    if (h.format) {
+      rows.push({ label: t('core:modelFormat'), value: h.format });
+    }
+    if (h.architecture && h.architecture !== 'unknown') {
+      rows.push({
+        label: t('core:modelArchitecture'),
+        value: String(h.architecture),
+      });
+    }
+    if (h.name) rows.push({ label: t('core:modelName'), value: h.name });
+    if (h.basename && h.basename !== h.name) {
+      rows.push({ label: t('core:modelBasename'), value: h.basename });
+    }
+    if (h.sizeLabel) {
+      rows.push({ label: t('core:modelParameters'), value: h.sizeLabel });
+    }
+    if (h.quantization) {
+      rows.push({ label: t('core:modelQuantization'), value: h.quantization });
+    }
+    if (h.contextMax) {
+      rows.push({
+        label: t('core:modelContextMax'),
+        value: h.contextMax.toLocaleString(),
+      });
+    }
+    if (h.embeddingDim) {
+      rows.push({
+        label: t('core:modelEmbeddingDim'),
+        value: h.embeddingDim.toLocaleString(),
+      });
+    }
+    if (h.blockCount) {
+      rows.push({ label: t('core:modelBlocks'), value: String(h.blockCount) });
+    }
+    if (h.headCount) {
+      rows.push({
+        label: t('core:modelAttnHeads'),
+        value: String(h.headCount),
+      });
+    }
+    if (h.shardCount && h.shardCount > 1) {
+      rows.push({
+        label: t('core:shardCount'),
+        value: String(h.shardCount),
+      });
+    }
+    return rows;
+  }, [modelHeaderForPanel, t]);
+
   const fileSize = useCallback(() => {
     if (openedEntry?.isFile) {
       // For sharded canonical entries (e.g. shard 1 of 1810), `openedEntry.size`
@@ -853,6 +910,17 @@ function EntryProperties({ tileServer }: Props) {
             />
           </Grid>
         )}
+
+        {headerFieldRows.map((row) => (
+          <Grid key={row.label} size={12}>
+            <TsTextField
+              value={row.value}
+              retrieveValue={() => row.value}
+              label={row.label}
+              slotProps={{ input: { readOnly: true } }}
+            />
+          </Grid>
+        ))}
 
         <Grid size={12}>
           <FormControl fullWidth={true}>
