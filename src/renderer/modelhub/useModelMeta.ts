@@ -124,15 +124,30 @@ export async function enrichModelMetaHf(
   return result;
 }
 
+export interface FetchModelMetaOptions {
+  /**
+   * Bypass the in-memory cache for this read — useful when the sidecar
+   * may have been updated by another surface (Generate tags from
+   * Properties, bulk Parse all, etc.) and the caller wants a confirmed
+   * fresh snapshot. The cache is still *written* with the result so the
+   * next regular call benefits.
+   */
+  forceRefresh?: boolean;
+}
+
 /**
- * Imperative API: get the current sidecar modelMeta. Cached. Returns undefined
- * when no sidecar exists yet — caller should run enrichModelMeta to populate.
+ * Imperative API: get the current sidecar modelMeta. Cached unless
+ * `forceRefresh` is set. Returns undefined when no sidecar exists yet —
+ * caller should run enrichModelMeta to populate.
  */
 export async function fetchModelMeta(
   filePath: string,
+  options: FetchModelMetaOptions = {},
 ): Promise<ModelMeta | undefined> {
-  const cached = cache.get(filePath);
-  if (cached) return '_error' in cached ? undefined : cached;
+  if (!options.forceRefresh) {
+    const cached = cache.get(filePath);
+    if (cached) return '_error' in cached ? undefined : cached;
+  }
 
   let promise = inflight.get(filePath);
   if (!promise) {

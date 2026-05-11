@@ -58,7 +58,14 @@ function EditDescription() {
     let alive = true;
     setHf(undefined);
     if (!isModelFile || !openedEntry?.path) return undefined;
-    fetchModelMeta(openedEntry.path).then((m) => {
+    // forceRefresh: the sidecar's HF block may have been written to disk
+    // by a surface that bypasses the renderer cache — bulk HF enrichment
+    // from the sidebar status bar (runs in main process, sidecars touch
+    // disk without going through our `cache.set`), or external edits to
+    // the JSON. Per-file actions in this same renderer (Fetch / Remove
+    // HF on the encart, patchModelMeta) already keep the cache in sync,
+    // so this is harmless overhead in those cases.
+    fetchModelMeta(openedEntry.path, { forceRefresh: true }).then((m) => {
       if (alive) setHf(m?.huggingface);
     });
     return () => {
