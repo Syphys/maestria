@@ -3,7 +3,6 @@ import { MoreMenuIcon } from '-/components/CommonIcons';
 import { ProTooltip } from '-/components/HelperComponents';
 import TsButton from '-/components/TsButton';
 import TsIconButton from '-/components/TsIconButton';
-import AiGenDescButton from '-/components/chat/AiGenDescButton';
 import AiGenTagsButton from '-/components/chat/AiGenTagsButton';
 import DescriptionMenu from '-/components/md/DescriptionMenu';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
@@ -192,14 +191,6 @@ const EditDescriptionButtons: React.FC<ButtonsProps> = ({
           </TsButton>
         </Tooltip>
       </ButtonGroup>
-      <ProTooltip
-        tooltip={'Add AI generated description based on the file content'}
-      >
-        <AiGenDescButton
-          sx={{ marginLeft: AppConfig.defaultSpaceBetweenButtons }}
-          variant="outlined"
-        />
-      </ProTooltip>
       {openedEntry.meta?.description && (
         <>
           <ProTooltip
