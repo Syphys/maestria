@@ -1,11 +1,10 @@
 /**
  * "Open chat" for an active runner entry.
  *
- * Since the Models Hub fork standardised on `llama-server` (and its
- * ik_llama.cpp / koboldcpp siblings) — every supported runner ships a
- * built-in web UI on its HTTP port. So this routes universally: open
- * the URL in the user's default browser. No more Ollama-specific
- * terminal hop, no clipboard fallback.
+ * Models Hub only launches llama.cpp `llama-server` (and ik_llama.cpp
+ * forks that ship the same binary), which always exposes a built-in web
+ * UI on its HTTP port. So this routes universally: open the URL in the
+ * user's default browser.
  */
 
 import { shell } from 'electron';

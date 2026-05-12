@@ -137,9 +137,7 @@ export default function RunningModelsPanel(): JSX.Element | null {
           const busy = busyPid === entry.pid;
           const titleLabel =
             entry.modelName ?? entry.command[0] ?? `pid ${entry.pid}`;
-          const subLabel =
-            (entry.runnerLabel ? entry.runnerLabel : entry.runnerKind) ??
-            (entry.managed ? 'managed' : 'external');
+          const subLabel = entry.runnerLabel ?? 'llama-server';
           return (
             <Box
               key={entry.pid}
@@ -210,13 +208,7 @@ export default function RunningModelsPanel(): JSX.Element | null {
                     )}
                   </IconButton>
                 </Tooltip>
-                <Tooltip
-                  title={
-                    entry.managed
-                      ? 'Stop this runner'
-                      : 'Remove from list (does not stop the external daemon)'
-                  }
-                >
+                <Tooltip title="Stop this runner">
                   <IconButton
                     size="small"
                     onClick={() => onStop(entry)}

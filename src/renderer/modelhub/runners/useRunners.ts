@@ -112,10 +112,8 @@ export async function stopRunner(pid: number): Promise<void> {
 
 export interface RunningEntry {
   pid: number;
-  managed: boolean;
   command: string[];
   url?: string;
-  runnerKind?: string;
   runnerLabel?: string;
   modelName?: string;
   startedAt: string;

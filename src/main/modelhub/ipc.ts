@@ -319,7 +319,6 @@ export default function registerModelhubEvents(): void {
         const built = buildCommand(runner, canonical, params);
         const result = launchProcess(built.command, {
           url: built.url,
-          runnerKind: runner.kind,
           runnerLabel: runner.label,
           modelName: fileBasename,
         });
