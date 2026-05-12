@@ -57,32 +57,9 @@ const CANDIDATES: CandidateSpec[] = [
     capabilities: { chat: true, server: true, gguf: true, safetensors: false },
   },
   {
-    kind: 'ollama',
-    binaries: ['ollama'],
-    extraDirs: [
-      path.join(
-        process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'),
-        'Programs',
-        'Ollama',
-      ),
-      '/usr/local/bin',
-      '/Applications/Ollama.app/Contents/Resources',
-    ],
-    capabilities: { chat: true, server: true, gguf: true, safetensors: false },
-  },
-  {
     kind: 'koboldcpp',
     binaries: ['koboldcpp', 'koboldcpp_cuda', 'koboldcpp_rocm'],
     extraDirs: [path.join(os.homedir(), 'koboldcpp'), 'C:\\koboldcpp'],
-    capabilities: { chat: true, server: true, gguf: true, safetensors: false },
-  },
-  {
-    kind: 'lm-studio',
-    binaries: ['lms'],
-    extraDirs: [
-      path.join(os.homedir(), '.cache', 'lm-studio', 'bin'),
-      path.join(os.homedir(), '.lmstudio', 'bin'),
-    ],
     capabilities: { chat: true, server: true, gguf: true, safetensors: false },
   },
 ];

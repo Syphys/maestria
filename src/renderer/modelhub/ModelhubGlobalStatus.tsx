@@ -20,6 +20,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import RunningModelsPanel from './RunningModelsPanel';
+import RunningAgentsPanel from './agents/RunningAgentsPanel';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useLocationIndexContext } from '-/hooks/useLocationIndexContext';
 import { useEditedTagLibraryContext } from '-/hooks/useEditedTagLibraryContext';
@@ -438,6 +439,10 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
       {/* Persistent list of currently active runners. The panel hides
           itself when nothing is running so the sidebar stays compact. */}
       <RunningModelsPanel />
+
+      {/* Live agents tree (mock data for now — Phase 4.3 will wire it
+          to the active-pids ledger). Hides when no agents are around. */}
+      <RunningAgentsPanel />
     </Box>
   );
 }

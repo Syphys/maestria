@@ -56,24 +56,6 @@ function buildLlamaCpp(
   };
 }
 
-function buildOllama(
-  runner: RunnerConfig,
-  modelPath: string,
-  _params: RunParams,
-): BuildCommandResult {
-  // Ollama doesn't take a raw GGUF path on the CLI; the model has to be
-  // registered first via `ollama create -f Modelfile`. For the MVP we
-  // surface a usable command and a warning. Phase 4 will automate the
-  // Modelfile generation.
-  return {
-    command: [runner.path, 'serve'],
-    url: 'http://127.0.0.1:11434',
-    warnings: [
-      `Ollama can't load a raw .gguf path directly. Register it first: \`ollama create my-model -f Modelfile\` where Modelfile contains \`FROM ${modelPath}\`. Then run \`ollama run my-model\`.`,
-    ],
-  };
-}
-
 function buildKoboldcpp(
   runner: RunnerConfig,
   modelPath: string,
@@ -100,23 +82,6 @@ function buildKoboldcpp(
   };
 }
 
-function buildLmStudio(
-  runner: RunnerConfig,
-  modelPath: string,
-  _params: RunParams,
-): BuildCommandResult {
-  // `lms` CLI loads an already-imported model. We point it at the file and
-  // let LM Studio handle the rest. The user must have imported the model
-  // into LM Studio's library at least once.
-  return {
-    command: [runner.path, 'load', modelPath],
-    url: 'http://127.0.0.1:1234',
-    warnings: [
-      'LM Studio CLI requires the model to be in its library. If "lms load" fails, import the file via the LM Studio app once first.',
-    ],
-  };
-}
-
 export function buildCommand(
   runner: RunnerConfig,
   modelPath: string,
@@ -126,12 +91,8 @@ export function buildCommand(
     case 'llama.cpp':
     case 'ik_llama.cpp':
       return buildLlamaCpp(runner, modelPath, params);
-    case 'ollama':
-      return buildOllama(runner, modelPath, params);
     case 'koboldcpp':
       return buildKoboldcpp(runner, modelPath, params);
-    case 'lm-studio':
-      return buildLmStudio(runner, modelPath, params);
     case 'custom':
     default:
       // Unknown kind: pass model as the first arg and hope the user knows.

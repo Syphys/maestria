@@ -1,16 +1,19 @@
 /**
  * Action button placed inside the per-file ModelHubPanel.
  *
- * Default action (clicking the button): launch the auto-picked runner with
- * auto-tuned params and open the local server URL.
+ * Two entry points to "run something with this model":
  *
- * Dropdown options:
- *  - Copy command (clipboard) — for users who prefer their own terminal
- *  - Stop running instance (when one is active for this file)
- *  - Configure runners… (opens RunnerSetupDialog)
+ *   1. **Run** (test rapide) — launches the auto-picked runner with
+ *      auto-tuned params, then opens the runner's native web UI in the
+ *      user's default browser. No in-app chat any more — TagSpaces
+ *      orchestrates, the browser conducts the conversation.
  *
- * If no runner is configured, clicking the button opens the setup dialog
- * directly instead of launching.
+ *   2. **Run with agent** — pick a registered agent runtime, spawn it
+ *      wired to that model URL + the MCP server URL/token. The agent's
+ *      own UI opens in the browser.
+ *
+ * The agent path is currently mocked (UI scaffold only — no real spawn).
+ * The model-launch path is real and wired end-to-end.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -19,27 +22,36 @@ import {
   Button,
   ButtonGroup,
   CircularProgress,
+  Divider,
+  ListSubheader,
   Menu,
   MenuItem,
   Snackbar,
+  Stack,
   Tooltip,
+  Typography,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import OpenInBrowserIcon from '@mui/icons-material/OpenInBrowser';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StopIcon from '@mui/icons-material/Stop';
+import StopCircleIcon from '@mui/icons-material/StopCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { RunParams } from '../types';
+import { AgentRunningState, RunParams } from '../types';
 import {
   autotuneFor,
   buildCommand,
   launchRunner,
+  openChatForPid,
   pickRunnerFor,
   stopRunner,
   useRunners,
 } from './useRunners';
+import { useMainAgent } from '../agents/useMainAgent';
+import RunWithAgentDialog from '../agents/RunWithAgentDialog';
 import RunnerSetupDialog from './RunnerSetupDialog';
-import { dispatchModelhubChatOpen } from '../chat/openChatEvent';
 
 interface Props {
   filePath: string;
@@ -51,19 +63,27 @@ interface Active {
   runnerLabel: string;
 }
 
+type SnackSeverity = 'success' | 'error' | 'info' | 'warning';
+
 export default function RunModelButton({ filePath }: Props): JSX.Element {
   const { runners } = useRunners();
+  const { agent: mainAgent } = useMainAgent();
   const [setupOpen, setSetupOpen] = useState(false);
+  const [agentDialogOpen, setAgentDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [active, setActive] = useState<Active | undefined>();
+  const [activeAgent, setActiveAgent] = useState<
+    AgentRunningState | undefined
+  >();
   const [snack, setSnack] = useState<
-    { msg: string; severity: 'success' | 'error' | 'info' } | undefined
+    { msg: string; severity: SnackSeverity } | undefined
   >();
 
-  // Reset the per-file active state when the user navigates to another file.
+  // Reset per-file state when navigating to another file.
   useEffect(() => {
     setActive(undefined);
+    setActiveAgent(undefined);
   }, [filePath]);
 
   const runner = useMemo(
@@ -82,7 +102,8 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
     return r.params;
   }, [filePath]);
 
-  const onLaunch = useCallback(async () => {
+  const onLaunchModel = useCallback(async () => {
+    setMenuAnchor(null);
     if (!runner) {
       setSetupOpen(true);
       return;
@@ -99,15 +120,9 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
           runnerLabel: runner.label,
         });
         setSnack({
-          msg: `Launched ${runner.label} — chat opening…`,
+          msg: `Launched ${runner.label}${result.url ? ` on ${result.url}` : ` (pid ${result.pid})`}. Open in browser via 🌐.`,
           severity: 'success',
         });
-        // Auto-open the in-app ChatDialog. RunningModelsPanel (always
-        // mounted in the sidebar) listens for this event and pops the
-        // dialog. Identical flow to the file-context menu, so both
-        // entry points behave the same and never reach the useless
-        // `:11434/` "Ollama is running" page.
-        dispatchModelhubChatOpen({ pid: result.pid });
       } else {
         setSnack({ msg: result.error ?? 'launch failed', severity: 'error' });
       }
@@ -115,6 +130,60 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
       setBusy(false);
     }
   }, [runner, filePath, computeParams]);
+
+  const onRunWithAgent = useCallback(() => {
+    setMenuAnchor(null);
+    setAgentDialogOpen(true);
+  }, []);
+
+  const onAgentLaunched = useCallback((state: AgentRunningState) => {
+    setActiveAgent(state);
+    setSnack({
+      msg: `(stub) Spawned ${state.name}${state.uiUrl ? ` — UI at ${state.uiUrl}` : ''}. Real spawn coming in Phase 4.3.`,
+      severity: 'info',
+    });
+  }, []);
+
+  // Real: call `runnersOpenChat` IPC which does `shell.openExternal(url)`
+  // for the running engine. The agent path stays stubbed until Phase 4.5
+  // wires the actual spawn — we have no real pid for the mock instance.
+  const openModelInBrowser = useCallback(async (pid: number) => {
+    const r = await openChatForPid(pid);
+    if (!r.ok) {
+      setSnack({ msg: r.error ?? 'open failed', severity: 'error' });
+      return;
+    }
+    setSnack({ msg: 'Opened in your browser', severity: 'success' });
+  }, []);
+
+  const openAgentInBrowser = useCallback((url?: string, label?: string) => {
+    if (!url) {
+      setSnack({ msg: 'No UI URL for this agent', severity: 'warning' });
+      return;
+    }
+    setSnack({
+      msg: `(stub) Would open ${url}${label ? ` — ${label}` : ''}. Real wiring lands with Phase 4.5.`,
+      severity: 'info',
+    });
+  }, []);
+
+  const onPrimaryClick = useCallback(() => {
+    if (activeAgent) {
+      openAgentInBrowser(activeAgent.uiUrl, activeAgent.name);
+      return;
+    }
+    if (active) {
+      openModelInBrowser(active.pid);
+      return;
+    }
+    onLaunchModel();
+  }, [
+    activeAgent,
+    active,
+    openAgentInBrowser,
+    openModelInBrowser,
+    onLaunchModel,
+  ]);
 
   const onCopy = useCallback(async () => {
     setMenuAnchor(null);
@@ -143,50 +212,88 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
     }
   }, [runner, filePath, computeParams]);
 
-  const onStop = useCallback(async () => {
+  const onStopModel = useCallback(async () => {
     setMenuAnchor(null);
     if (!active) return;
     await stopRunner(active.pid);
     setActive(undefined);
-    setSnack({ msg: 'Stopped', severity: 'info' });
+    setSnack({ msg: 'Stopped model', severity: 'info' });
   }, [active]);
 
-  const onOpenChat = useCallback(() => {
-    if (!active) return;
-    // Re-open the in-app ChatDialog. The RunningModelsPanel listener
-    // resolves the pid against its polling cache and mounts the dialog.
-    // Avoids the dead-end where clicking "Open chat" used to open
-    // `:11434/` ("Ollama is running") in the browser.
-    dispatchModelhubChatOpen({ pid: active.pid });
-  }, [active]);
+  const onStopAgent = useCallback(
+    (force: boolean) => {
+      setMenuAnchor(null);
+      if (!activeAgent) return;
+      setActiveAgent(undefined);
+      setSnack({
+        msg: force
+          ? `(stub) Force-stopped ${activeAgent.name} — tree-kill in real impl`
+          : `(stub) Gracefully stopped ${activeAgent.name} — SIGTERM/Ctrl-C in real impl`,
+        severity: 'info',
+      });
+    },
+    [activeAgent],
+  );
+
+  // Visual: primary button label/icon depends on running state.
+  const primary = useMemo(() => {
+    if (activeAgent) {
+      return {
+        label: `Open ${activeAgent.name}`,
+        icon: <SmartToyIcon />,
+        tooltip: activeAgent.uiUrl
+          ? `Reopen ${activeAgent.uiUrl} in browser`
+          : `Agent running${activeAgent.pid ? ` (pid ${activeAgent.pid})` : ''}`,
+      };
+    }
+    if (active) {
+      return {
+        label: 'Open in browser',
+        icon: <OpenInBrowserIcon />,
+        tooltip: active.url
+          ? `Reopen ${active.url} in browser`
+          : `Running (pid ${active.pid})`,
+      };
+    }
+    if (!runner) {
+      return {
+        label: 'Configure runner…',
+        icon: busy ? <CircularProgress size={14} /> : <PlayArrowIcon />,
+        tooltip: 'No runner configured — click to set one up',
+      };
+    }
+    return {
+      label: 'Run',
+      icon: busy ? <CircularProgress size={14} /> : <PlayArrowIcon />,
+      tooltip: `Launch ${runner.label} with auto-tuned params, then open in browser`,
+    };
+  }, [activeAgent, active, runner, busy]);
+
+  const stopAgentItems = activeAgent
+    ? [
+        <MenuItem key="stop-graceful" onClick={() => onStopAgent(false)}>
+          <StopIcon fontSize="small" sx={{ mr: 1 }} />
+          Stop {activeAgent.name} (graceful)
+        </MenuItem>,
+        <MenuItem
+          key="stop-force"
+          onClick={() => onStopAgent(true)}
+          sx={{ color: 'error.main' }}
+        >
+          <StopCircleIcon fontSize="small" sx={{ mr: 1 }} />
+          Force stop {activeAgent.name}
+        </MenuItem>,
+      ]
+    : null;
 
   return (
     <>
       <ButtonGroup size="small" variant="contained" disabled={busy}>
-        {active ? (
-          <Tooltip title={active.url ? `Open ${active.url}` : 'Running'}>
-            <Button onClick={onOpenChat} startIcon={<PlayArrowIcon />}>
-              {active.url ? 'Open chat' : `pid ${active.pid}`}
-            </Button>
-          </Tooltip>
-        ) : (
-          <Tooltip
-            title={
-              runner
-                ? `Launch ${runner.label} with auto-tuned params`
-                : 'No runner configured — click to set one up'
-            }
-          >
-            <Button
-              onClick={onLaunch}
-              startIcon={
-                busy ? <CircularProgress size={14} /> : <PlayArrowIcon />
-              }
-            >
-              {runner ? 'Run' : 'Configure runner…'}
-            </Button>
-          </Tooltip>
-        )}
+        <Tooltip title={primary.tooltip}>
+          <Button onClick={onPrimaryClick} startIcon={primary.icon}>
+            {primary.label}
+          </Button>
+        </Tooltip>
         <Button onClick={(e) => setMenuAnchor(e.currentTarget)}>
           <ArrowDropDownIcon />
         </Button>
@@ -197,16 +304,80 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
         open={!!menuAnchor}
         onClose={() => setMenuAnchor(null)}
       >
+        <ListSubheader sx={{ lineHeight: '32px' }}>Launch</ListSubheader>
+        <MenuItem onClick={onLaunchModel}>
+          <PlayArrowIcon fontSize="small" sx={{ mr: 1 }} />
+          <Stack>
+            <Typography variant="body2">Run (test rapide)</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Launches the model + opens its web UI in your browser
+            </Typography>
+          </Stack>
+        </MenuItem>
+        {mainAgent ? (
+          <MenuItem onClick={onRunWithAgent}>
+            <SmartToyIcon fontSize="small" sx={{ mr: 1 }} />
+            <Stack>
+              <Typography variant="body2">Run with {mainAgent.name}</Typography>
+              {mainAgent.description ? (
+                <Typography variant="caption" color="text.secondary">
+                  {mainAgent.description}
+                </Typography>
+              ) : null}
+            </Stack>
+          </MenuItem>
+        ) : (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setSnack({
+                msg: '(stub) Settings ▸ AI ▸ Your agent — coming in Phase 4.4',
+                severity: 'info',
+              });
+            }}
+          >
+            <SmartToyIcon fontSize="small" sx={{ mr: 1 }} />
+            <Stack>
+              <Typography variant="body2">Configure agent…</Typography>
+              <Typography variant="caption" color="text.secondary">
+                No agent configured yet
+              </Typography>
+            </Stack>
+          </MenuItem>
+        )}
+        {mainAgent && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setSnack({
+                msg: '(stub) Settings ▸ AI ▸ Your agent — coming in Phase 4.4',
+                severity: 'info',
+              });
+            }}
+          >
+            <SettingsIcon fontSize="small" sx={{ mr: 1 }} />
+            Configure agent…
+          </MenuItem>
+        )}
+
+        <Divider />
+
         <MenuItem onClick={onCopy}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
           Copy command
         </MenuItem>
+
         {active && (
-          <MenuItem onClick={onStop}>
+          <MenuItem onClick={onStopModel}>
             <StopIcon fontSize="small" sx={{ mr: 1 }} />
-            Stop (pid {active.pid})
+            Stop model (pid {active.pid})
           </MenuItem>
         )}
+
+        {stopAgentItems}
+
+        <Divider />
+
         <MenuItem
           onClick={() => {
             setMenuAnchor(null);
@@ -219,6 +390,14 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
       </Menu>
 
       <RunnerSetupDialog open={setupOpen} onClose={() => setSetupOpen(false)} />
+
+      <RunWithAgentDialog
+        open={agentDialogOpen}
+        filePath={filePath}
+        modelUrl={active?.url}
+        onClose={() => setAgentDialogOpen(false)}
+        onLaunch={onAgentLaunched}
+      />
 
       <Snackbar
         open={!!snack}

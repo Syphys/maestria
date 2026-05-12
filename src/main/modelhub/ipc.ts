@@ -34,11 +34,9 @@ import {
   killAll,
   launchProcess,
   listRunning,
-  registerExternalModel,
   stopProcess,
 } from './runners/launch';
 import { openChatFor } from './runners/openChat';
-import { isOllamaDaemonRunning, prepareOllamaModel } from './runners/ollama';
 import { resolveCanonicalShardPath, sumShardBytes } from './shardFs';
 import { listModelHostingFolders } from './listModelHostingFolders';
 
@@ -318,62 +316,6 @@ export default function registerModelhubEvents(): void {
       try {
         const canonical = await resolveCanonicalShardPath(filePath);
         const fileBasename = canonical.replace(/^.*[\\/]/, '');
-        // Ollama needs a registration step before the file is usable. We
-        // also avoid spawning a second `ollama serve` when the installer
-        // already left a daemon running — that would fail with EADDRINUSE.
-        if (runner.kind === 'ollama') {
-          const prep = await prepareOllamaModel(runner.path, canonical, params);
-          const url = 'http://127.0.0.1:11434';
-          const info = [
-            prep.alreadyRegistered
-              ? `Model already registered as "${prep.modelName}".`
-              : prep.ok
-                ? `Registered as "${prep.modelName}".`
-                : `Registration failed: ${prep.error}`,
-            `Use it from any Ollama client: \`ollama run ${prep.modelName}\` or POST http://127.0.0.1:11434/api/chat with model="${prep.modelName}".`,
-          ];
-
-          if (isOllamaDaemonRunning(runner.path)) {
-            // Daemon belongs to the OS — we don't own it. Surface the
-            // registered model in the running list as a synthetic entry
-            // so the user gets a Stop / Open Chat button anyway.
-            const entry = prep.ok
-              ? registerExternalModel({
-                  command: [runner.path, 'run', prep.modelName],
-                  url,
-                  runnerKind: 'ollama',
-                  runnerLabel: runner.label,
-                  modelName: prep.modelName,
-                })
-              : undefined;
-            return {
-              ok: prep.ok,
-              url,
-              pid: entry?.pid,
-              modelName: prep.modelName,
-              warnings: info,
-              error: prep.ok ? undefined : prep.error,
-            };
-          }
-          // Daemon not reachable — start it ourselves.
-          const built = buildCommand(runner, canonical, params);
-          const spawned = launchProcess(built.command, {
-            url,
-            runnerKind: 'ollama',
-            runnerLabel: runner.label,
-            modelName: prep.modelName,
-          });
-          return {
-            ...spawned,
-            modelName: prep.modelName,
-            warnings: [
-              ...info,
-              ...(built.warnings ?? []),
-              'Started `ollama serve` in the background.',
-            ],
-          };
-        }
-
         const built = buildCommand(runner, canonical, params);
         const result = launchProcess(built.command, {
           url: built.url,

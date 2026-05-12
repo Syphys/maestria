@@ -48,17 +48,13 @@ const KIND_OPTIONS: { value: RunnerKind; label: string; help: string }[] = [
     label: 'ik_llama.cpp',
     help: 'llama.cpp fork with extra optimizations',
   },
-  { value: 'ollama', label: 'Ollama', help: 'Wrapper with model registry' },
   { value: 'koboldcpp', label: 'KoboldCpp', help: 'GGUF + KoboldAI HTTP API' },
-  { value: 'lm-studio', label: 'LM Studio', help: 'GUI app with `lms` CLI' },
   { value: 'custom', label: 'Custom', help: 'Anything else with a CLI' },
 ];
 
 const INSTALL_LINKS: Partial<Record<RunnerKind, string>> = {
   'llama.cpp': 'https://github.com/ggml-org/llama.cpp/releases',
-  ollama: 'https://ollama.com/download',
   koboldcpp: 'https://github.com/LostRuins/koboldcpp/releases',
-  'lm-studio': 'https://lmstudio.ai/',
 };
 
 function ManualForm({

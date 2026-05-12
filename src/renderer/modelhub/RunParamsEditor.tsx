@@ -404,7 +404,10 @@ function ParamRow({
   return (
     <>
       <Tooltip title={field.help} placement="left">
-        <Typography variant="body2" sx={{ fontSize: '0.85em', cursor: 'help' }}>
+        <Typography
+          variant="body2"
+          sx={{ fontSize: '0.85em', cursor: 'help', color: 'text.primary' }}
+        >
           {field.label}
         </Typography>
       </Tooltip>

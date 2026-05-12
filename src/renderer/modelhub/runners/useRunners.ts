@@ -8,7 +8,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LaunchResult, MODELHUB_IPC, RunnerConfig, RunParams } from '../types';
-import { dispatchModelhubChatOpen } from '../chat/openChatEvent';
 
 function ipc<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
   const r = window.electronIO?.ipcRenderer as
@@ -133,9 +132,7 @@ export async function listRunningModels(): Promise<RunningEntry[]> {
 export interface OpenChatResult {
   ok: boolean;
   /** What we ended up doing — drives the renderer's notification text. */
-  action?: 'browser' | 'terminal' | 'clipboard' | 'noop';
-  /** When action === 'clipboard', the command string we copied. */
-  copiedCommand?: string;
+  action?: 'browser' | 'noop';
   error?: string;
 }
 
@@ -268,12 +265,14 @@ export async function quickLaunchModel(
       error: launch.error ?? 'launch failed',
     };
   }
-  // Auto-open the in-app ChatDialog. The dialog lives in
-  // RunningModelsPanel; we ping it via a window-level event so this
-  // non-React entry point doesn't need a state library. Single click
-  // from the file menu now → chat surface ready.
+  // Auto-open the runner's native web UI in the user's default browser.
+  // Single click from the file menu → model running + chat surface
+  // ready, without any in-app dialog (intentionally removed).
   if (typeof launch.pid === 'number') {
-    dispatchModelhubChatOpen({ pid: launch.pid });
+    openChatForPid(launch.pid).catch(() => {
+      // best-effort: if shell.openExternal fails, the user can still
+      // click the row's "Open in browser" button in RunningModelsPanel
+    });
   }
   return {
     ok: true,

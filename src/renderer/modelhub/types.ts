@@ -144,13 +144,7 @@ export interface RunPreset {
 }
 
 /** Identifier for a known runner integration. Open-ended for future kinds. */
-export type RunnerKind =
-  | 'llama.cpp'
-  | 'ik_llama.cpp'
-  | 'ollama'
-  | 'lm-studio'
-  | 'koboldcpp'
-  | 'custom';
+export type RunnerKind = 'llama.cpp' | 'ik_llama.cpp' | 'koboldcpp' | 'custom';
 
 /** What a configured runner can do — drives which buttons appear. */
 export interface RunnerCapabilities {
@@ -247,6 +241,67 @@ export interface ModelMeta {
    * recomputing the estimate every render.
    */
   userRunParams?: RunParams;
+}
+
+/**
+ * Universal agent launch spec. No `kind` enum — agents are heterogeneous
+ * (deer-flow, aider, open-webui, custom Python script, Docker container…)
+ * and we adopt the industry pattern (MCP servers in Claude Desktop,
+ * GitHub Copilot custom agents, Bedrock prompt templates): a generic
+ * launch spec with placeholder substitution at run time.
+ *
+ * See MODELS_HUB_MCP.md for the design rationale.
+ */
+export interface AgentConfig {
+  id: string;
+  name: string;
+  description?: string;
+  /** Spawn-mode: binary to launch. Empty/undefined when `external` is true. */
+  command?: string;
+  /**
+   * CLI args. Supports placeholders substituted at `agents.run` time:
+   * `${MODEL_URL}`, `${MCP_URL}`, `${MCP_TOKEN}`, `${TASK}`, `${PORT}`,
+   * `${AGENT_ID}`. Anything else passes through unchanged.
+   */
+  args?: string[];
+  /** Env vars. Same placeholder substitution in values. */
+  env?: Record<string, string>;
+  cwd?: string;
+  /** External-mode: service already running, no spawn — just open `uiUrl`. */
+  external?: boolean;
+  externalUrl?: string;
+  /** URL to open in the user's default browser once ready. Supports `${PORT}`. */
+  uiUrl?: string;
+  /** Optional readiness probe before opening the UI. */
+  readiness?:
+    | { type: 'httpGet'; url: string; timeoutSec?: number }
+    | { type: 'logPattern'; pattern: string; timeoutSec?: number }
+    | { type: 'delay'; delayMs: number };
+}
+
+/**
+ * Live state of an agent instance launched by the orchestrator.
+ * Persisted to `~/.tagspaces/agents/active-pids.json` so a restart can
+ * reconcile and re-attach to survivors.
+ */
+export interface AgentRunningState {
+  /** Stable id assigned at launch, distinct from `AgentConfig.id`. */
+  agentInstanceId: string;
+  /** Reference to the config that spawned it. */
+  agentConfigId: string;
+  /** User-visible label, copied from the config at launch. */
+  name: string;
+  /** OS pid — undefined for external agents (nothing was spawned). */
+  pid?: number;
+  /** URL to re-open in the browser to reach the agent's UI. */
+  uiUrl?: string;
+  /** Substituted task text, for display in the sidebar tree. */
+  task?: string;
+  /** ISO timestamp. */
+  startedAt: string;
+  /** Parent agent if spawned by another agent via `agents.run`. */
+  parentAgentInstanceId?: string;
+  status: 'starting' | 'running' | 'done' | 'error' | 'dead';
 }
 
 /** IPC channel names exposed by the modelhub main process. */
