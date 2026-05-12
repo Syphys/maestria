@@ -29,7 +29,9 @@ function MenuKeyBinding(props: Props) {
     <Typography
       variant="body2"
       color="text.secondary"
-      sx={{ textTransform: 'uppercase' }}
+      // marginLeft: keep distance from the preceding ListItemText so the
+      // hint doesn't visually fuse with the label (e.g. "CopierCOMMAND + C").
+      sx={{ textTransform: 'uppercase', ml: 2 }}
     >
       {adjustKeyBinding(keyBinding)}
     </Typography>

@@ -91,7 +91,7 @@ import {
   stripShardSuffix,
 } from '-/modelhub/shard';
 import { fetchModelMeta } from '-/modelhub/useModelMeta';
-import { isAutoTag, parseSizeLabel } from '-/modelhub/autoTags';
+import { parseSizeLabel } from '-/modelhub/autoTags';
 import {
   getCachedTotalBytes,
   primeTotalBytes,
@@ -100,7 +100,6 @@ import { useModelhubActions } from '-/modelhub/useModelhubActions';
 import { isSupportedModelFile } from '-/modelhub/parsers';
 import type { HeaderMeta } from '-/modelhub/types';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import L from 'leaflet';
 import React, {
   ChangeEvent,
@@ -225,10 +224,6 @@ function EntryProperties({ tileServer }: Props) {
     filePath: openedEntry?.path,
     readOnly: location?.isReadOnly,
   });
-  const hasSystemTags = (openedEntry?.tags ?? []).some(
-    (tg) => tg.system === true || isAutoTag(tg.title ?? ''),
-  );
-
   const backgroundImage = useRef<string>('none');
   const thumbImage = useRef<string>('none');
 
@@ -742,53 +737,37 @@ function EntryProperties({ tileServer }: Props) {
               selectedEntry={openedEntry}
               // autoFocus={true}
               generateButton={true}
+              extraEndAdornment={
+                isModelFile ? (
+                  <TsButton
+                    variant="text"
+                    onClick={modelhubActions.regenerateTags}
+                    disabled={
+                      modelhubActions.busy !== 'idle' || location?.isReadOnly
+                    }
+                    startIcon={
+                      modelhubActions.busy === 'regenerate' ? undefined : (
+                        <RefreshIcon />
+                      )
+                    }
+                    loading={modelhubActions.busy === 'regenerate'}
+                    tooltip={t('core:modelhubRegenerateTagsTooltip')}
+                    data-tid="modelhubRegenerateTagsTID"
+                  >
+                    {t('core:modelhubRegenerateTags')}
+                  </TsButton>
+                ) : undefined
+              }
             />
           </TagDropContainer>
-          {isModelFile && (
-            <Stack
-              direction="row"
-              spacing={0.75}
-              alignItems="center"
-              sx={{ mt: 0.75, flexWrap: 'wrap' }}
+          {isModelFile && (modelhubActions.error || modelhubActions.info) && (
+            <Typography
+              variant="caption"
+              color={modelhubActions.error ? 'error' : 'text.secondary'}
+              sx={{ mt: 0.5, display: 'block' }}
             >
-              <TsButton
-                variant="outlined"
-                onClick={modelhubActions.parseHeader}
-                disabled={
-                  modelhubActions.busy !== 'idle' || location?.isReadOnly
-                }
-                startIcon={
-                  modelhubActions.busy === 'parse' ? undefined : <RefreshIcon />
-                }
-                tooltip={t('core:modelhubGenerateTagsTooltip')}
-              >
-                {t('core:modelhubGenerateTags')}
-              </TsButton>
-              {hasSystemTags && (
-                <TsButton
-                  variant="outlined"
-                  color="warning"
-                  onClick={modelhubActions.resetTags}
-                  disabled={
-                    modelhubActions.busy !== 'idle' || location?.isReadOnly
-                  }
-                  startIcon={<DeleteOutlineIcon />}
-                  tooltip={t('core:modelhubResetTagsTooltip')}
-                >
-                  {t('core:modelhubResetTags')}
-                </TsButton>
-              )}
-              {modelhubActions.error && (
-                <Typography variant="caption" color="error">
-                  {modelhubActions.error}
-                </Typography>
-              )}
-              {modelhubActions.info && !modelhubActions.error && (
-                <Typography variant="caption" color="text.secondary">
-                  {modelhubActions.info}
-                </Typography>
-              )}
-            </Stack>
+              {modelhubActions.error ?? modelhubActions.info}
+            </Typography>
           )}
         </Grid>
 

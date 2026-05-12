@@ -20,7 +20,13 @@ import {
 } from './useModelMeta';
 import { isAutoTag } from './autoTags';
 
-export type ModelhubBusy = 'idle' | 'parse' | 'hf' | 'resetTags' | 'resetHf';
+export type ModelhubBusy =
+  | 'idle'
+  | 'parse'
+  | 'hf'
+  | 'resetTags'
+  | 'resetHf'
+  | 'regenerate';
 
 export interface UseModelhubActionsState {
   busy: ModelhubBusy;
@@ -30,6 +36,12 @@ export interface UseModelhubActionsState {
   fetchHf: () => Promise<void>;
   resetTags: () => Promise<void>;
   resetHf: () => Promise<void>;
+  /**
+   * One-shot "clear + regenerate" for the system/auto tags surface.
+   * Calls resetTags then parseHeader so the file ends up with a fresh
+   * set of header-derived tags (and HF-cached ones if available).
+   */
+  regenerateTags: () => Promise<void>;
   dismissFeedback: () => void;
 }
 
@@ -175,6 +187,48 @@ export function useModelhubActions({
     }
   }, [filePath, readOnly, reloadOpenedFile]);
 
+  const regenerateTags = useCallback(async () => {
+    if (!filePath || !openedEntry) return;
+    setBusy('regenerate');
+    setError(undefined);
+    setInfo(undefined);
+    try {
+      // Step 1: drop existing system tags (if any). Skipped silently when
+      // there are none — keeps the UX symmetric whether or not the file
+      // had been tagged previously.
+      const sysTags = (openedEntry.tags ?? []).filter(
+        (t) => t.system === true || isAutoTag(t.title ?? ''),
+      );
+      if (sysTags.length > 0 && !readOnly) {
+        await removeTagsFromEntry(openedEntry, sysTags);
+      }
+      // Step 2: re-derive from header + HF cache + write back.
+      const result = await enrichModelMeta(filePath, {
+        skipWrite: !!readOnly,
+      });
+      if (!result.ok) {
+        setError(result.error ?? 'regenerate failed');
+        return;
+      }
+      try {
+        await reloadOpenedFile();
+      } catch {
+        /* non-fatal */
+      }
+      const generated = (result.autoTags ?? []).length;
+      const cleared = sysTags.length;
+      setInfo(
+        result.written
+          ? `${cleared} cleared, ${generated} regenerated.`
+          : `Computed in memory (read-only / skipWrite).`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy('idle');
+    }
+  }, [filePath, openedEntry, readOnly, removeTagsFromEntry, reloadOpenedFile]);
+
   return {
     busy,
     error,
@@ -183,6 +237,7 @@ export function useModelhubActions({
     fetchHf,
     resetTags,
     resetHf,
+    regenerateTags,
     dismissFeedback,
   };
 }

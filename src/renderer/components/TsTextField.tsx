@@ -76,6 +76,12 @@ const TsTextField = React.forwardRef<HTMLDivElement, TSTextFieldProps>(
           text4Clipboard = selection;
         } else if (retrieveValue) {
           text4Clipboard = retrieveValue();
+        } else {
+          // Fallback: copy the input's current value. Without this, a
+          // right-click → Copy on a read-only field that didn't pass
+          // `retrieveValue` ends up writing an empty string to the
+          // clipboard (= silent wipe).
+          text4Clipboard = textFieldRef.current?.value ?? '';
         }
         await navigator.clipboard.writeText(text4Clipboard);
         handleClose();

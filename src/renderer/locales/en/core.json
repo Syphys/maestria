@@ -308,6 +308,8 @@
   "modelhubGenerateTagsTooltip": "Parse the file header and emit system tags (arch, quant, layers, …).",
   "modelhubResetTags": "Reset system tags",
   "modelhubResetTagsTooltip": "Remove every system / auto-namespaced tag. Your manual tags are preserved.",
+  "modelhubRegenerateTags": "Regenerate tags",
+  "modelhubRegenerateTagsTooltip": "Clear every system / auto-namespaced tag, then re-derive them from the file header (and HF cache when available). Your manual tags are preserved.",
   "modelhubFetchHf": "Fetch from Hugging Face",
   "modelhubFetchHfTooltip": "Match the filename against Hugging Face and download the model card.",
   "modelhubRemoveHf": "Remove Hugging Face data",

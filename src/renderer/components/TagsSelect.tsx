@@ -37,6 +37,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import FormHelperText from '@mui/material/FormHelperText';
 import { getUuid } from '@tagspaces/tagspaces-common/utils-io';
 import React, {
+  ReactNode,
   useContext,
   useEffect,
   useReducer,
@@ -58,6 +59,13 @@ interface Props {
   selectedEntry?: TS.FileSystemEntry;
   autoFocus?: boolean;
   generateButton?: boolean;
+  /**
+   * Additional ReactNode rendered in the input's endAdornment, after the
+   * AI generate button. Lets caller-specific actions live on the same
+   * row as the tag chips instead of in a separate Stack below — e.g.
+   * the Models Hub "Régénérer les tags" button on model files.
+   */
+  extraEndAdornment?: ReactNode;
 }
 
 function TagsSelect(props: Props) {
@@ -100,6 +108,7 @@ function TagsSelect(props: Props) {
     handleNewTags,
     handleChange,
     generateButton,
+    extraEndAdornment,
     tagSearchType,
     dataTid,
   } = props;
@@ -246,9 +255,10 @@ function TagsSelect(props: Props) {
               slotProps={{
                 input: {
                   ...params.InputProps,
-                  endAdornment: generateButton && (
+                  endAdornment: (generateButton || extraEndAdornment) && (
                     <InputAdornment position="end">
-                      <AiGenTagsButton variant="text" />
+                      {generateButton && <AiGenTagsButton variant="text" />}
+                      {extraEndAdornment}
                     </InputAdornment>
                   ),
                 },
