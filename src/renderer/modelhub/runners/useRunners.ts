@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LaunchResult, MODELHUB_IPC, RunnerConfig, RunParams } from '../types';
+import { pickRunnerFor } from './pick';
 
 function ipc<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
   const r = window.electronIO?.ipcRenderer as
@@ -116,6 +117,12 @@ export interface RunningEntry {
   url?: string;
   runnerLabel?: string;
   modelName?: string;
+  /**
+   * Provenance label — undefined when the user clicked Run in the app
+   * ("Direct" bucket in the panel), a short string like
+   * "via MCP — deer-flow" when an MCP client called `models.run`.
+   */
+  launchedBy?: string;
   startedAt: string;
   recentLog: string[];
 }
@@ -194,26 +201,10 @@ export function useRunners(): UseRunnersState {
   return { runners, loading, refresh, detect, save, remove };
 }
 
-/**
- * Pick the best runner for a model file. Today: first runner that supports
- * the file kind (gguf for .gguf, etc.), ordered by saved priority.
- * If none match, returns undefined and the UI prompts setup.
- */
-export function pickRunnerFor(
-  runners: RunnerConfig[],
-  filePath: string,
-): RunnerConfig | undefined {
-  const lower = filePath.toLowerCase();
-  const wantGguf = lower.endsWith('.gguf');
-  const wantSafetensors = lower.endsWith('.safetensors');
-  const candidates = runners.filter((r) => {
-    if (wantGguf) return r.capabilities.gguf;
-    if (wantSafetensors) return r.capabilities.safetensors;
-    return false;
-  });
-  candidates.sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99));
-  return candidates[0];
-}
+// `pickRunnerFor` was extracted to `./pick.ts` so the main process can
+// import it without pulling React. Re-exported here for renderer callers
+// that already depend on it via this module.
+export { pickRunnerFor };
 
 export interface QuickLaunchResult {
   ok: boolean;

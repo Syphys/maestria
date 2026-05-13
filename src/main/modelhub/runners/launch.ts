@@ -23,6 +23,13 @@ export interface ActiveEntry {
   runnerLabel?: string;
   /** Basename of the model file we launched. */
   modelName?: string;
+  /**
+   * Origin tag — undefined when the user clicked Run in the app,
+   * "via MCP — deer-flow" / "via MCP — session …" when an MCP client
+   * invoked `models.run`. Drives the provenance grouping in
+   * `RunningModelsPanel`.
+   */
+  launchedBy?: string;
   startedAt: string;
   log: string[];
   child: ChildProcess;
@@ -43,6 +50,8 @@ export interface LaunchOptions {
   url?: string;
   runnerLabel?: string;
   modelName?: string;
+  /** See `ActiveEntry.launchedBy`. */
+  launchedBy?: string;
 }
 
 export function launchProcess(
@@ -68,6 +77,7 @@ export function launchProcess(
       url: options.url,
       runnerLabel: options.runnerLabel,
       modelName: options.modelName,
+      launchedBy: options.launchedBy,
       startedAt: new Date().toISOString(),
       log: [],
       child,
@@ -120,6 +130,7 @@ export interface RunningSummary {
   url?: string;
   runnerLabel?: string;
   modelName?: string;
+  launchedBy?: string;
   startedAt: string;
   recentLog: string[];
 }
@@ -131,6 +142,7 @@ export function listRunning(): RunningSummary[] {
     url: p.url,
     runnerLabel: p.runnerLabel,
     modelName: p.modelName,
+    launchedBy: p.launchedBy,
     startedAt: p.startedAt,
     recentLog: p.log.slice(-20),
   }));

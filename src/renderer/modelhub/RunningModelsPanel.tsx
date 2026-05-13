@@ -121,6 +121,25 @@ export default function RunningModelsPanel(): JSX.Element | null {
   // point in showing an empty "Running models (0)" header.
   if (!hydrated || running.length === 0) return null;
 
+  // Group by provenance: "Direct" bucket (user-initiated from the app)
+  // sorted first, then one bucket per unique `launchedBy` label
+  // (alphabetical for stability). Lets the user see at a glance which
+  // models a connected MCP client like deer-flow has booted.
+  const groups: { label: string; entries: RunningEntry[] }[] = [];
+  const directEntries = running.filter((e) => !e.launchedBy);
+  if (directEntries.length > 0) {
+    groups.push({ label: 'Direct', entries: directEntries });
+  }
+  const remoteLabels = Array.from(
+    new Set(running.map((e) => e.launchedBy).filter((x): x is string => !!x)),
+  ).sort();
+  for (const label of remoteLabels) {
+    groups.push({
+      label,
+      entries: running.filter((e) => e.launchedBy === label),
+    });
+  }
+
   return (
     <Box sx={{ mt: 1 }}>
       <Typography
@@ -132,97 +151,122 @@ export default function RunningModelsPanel(): JSX.Element | null {
       {/* Cap the list height so a user running many models doesn't push
           the bottom toolbar off-screen — the list scrolls internally
           beyond ~3 entries. */}
-      <Stack spacing={0.5} sx={{ maxHeight: 220, overflowY: 'auto', pr: 0.5 }}>
-        {running.map((entry) => {
-          const busy = busyPid === entry.pid;
-          const titleLabel =
-            entry.modelName ?? entry.command[0] ?? `pid ${entry.pid}`;
-          const subLabel = entry.runnerLabel ?? 'llama-server';
-          return (
-            <Box
-              key={entry.pid}
-              sx={{
-                p: 0.75,
-                borderRadius: 0.5,
-                border: 1,
-                borderColor: 'divider',
-                backgroundColor: 'action.hover',
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="caption"
+      <Stack spacing={0.75} sx={{ maxHeight: 260, overflowY: 'auto', pr: 0.5 }}>
+        {groups.map((group) => (
+          <Box key={group.label}>
+            {/* Hide the section header when there's only one group AND
+                it's the implicit Direct bucket — keeps the compact look
+                for the common case (no MCP clients connected). */}
+            {(groups.length > 1 || group.label !== 'Direct') && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  display: 'block',
+                  fontSize: '0.65em',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  mb: 0.25,
+                  pl: 0.25,
+                }}
+              >
+                {group.label}
+              </Typography>
+            )}
+            <Stack spacing={0.5}>
+              {group.entries.map((entry) => {
+                const busy = busyPid === entry.pid;
+                const titleLabel =
+                  entry.modelName ?? entry.command[0] ?? `pid ${entry.pid}`;
+                const subLabel = entry.runnerLabel ?? 'llama-server';
+                return (
+                  <Box
+                    key={entry.pid}
                     sx={{
-                      fontWeight: 500,
-                      display: 'block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: '0.78em',
+                      p: 0.75,
+                      borderRadius: 0.5,
+                      border: 1,
+                      borderColor: 'divider',
+                      backgroundColor: 'action.hover',
                     }}
                   >
-                    {titleLabel}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{
-                      display: 'block',
-                      fontSize: '0.7em',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {subLabel}
-                    {entry.url ? ` · ${entry.url}` : ''}
-                  </Typography>
-                </Box>
-                {entry.url && (
-                  <Tooltip title="Copy URL">
-                    <IconButton
-                      size="small"
-                      onClick={() => onCopyUrl(entry)}
-                      sx={{ p: 0.25 }}
-                    >
-                      <ContentCopyIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {/* Primary: open the runner's native web UI in the
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: 500,
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontSize: '0.78em',
+                          }}
+                        >
+                          {titleLabel}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: 'block',
+                            fontSize: '0.7em',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {subLabel}
+                          {entry.url ? ` · ${entry.url}` : ''}
+                        </Typography>
+                      </Box>
+                      {entry.url && (
+                        <Tooltip title="Copy URL">
+                          <IconButton
+                            size="small"
+                            onClick={() => onCopyUrl(entry)}
+                            sx={{ p: 0.25 }}
+                          >
+                            <ContentCopyIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* Primary: open the runner's native web UI in the
                     user's default browser. shell.openExternal handles
                     the platform specifics. */}
-                <Tooltip title="Open in browser">
-                  <IconButton
-                    size="small"
-                    onClick={() => onOpenInBrowser(entry)}
-                    disabled={busy || !entry.url}
-                    color="primary"
-                    sx={{ p: 0.25 }}
-                  >
-                    {busy ? (
-                      <CircularProgress size={12} />
-                    ) : (
-                      <OpenInNewIcon sx={{ fontSize: 14 }} />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Stop this runner">
-                  <IconButton
-                    size="small"
-                    onClick={() => onStop(entry)}
-                    disabled={busy}
-                    color="warning"
-                    sx={{ p: 0.25 }}
-                  >
-                    <StopIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
-            </Box>
-          );
-        })}
+                      <Tooltip title="Open in browser">
+                        <IconButton
+                          size="small"
+                          onClick={() => onOpenInBrowser(entry)}
+                          disabled={busy || !entry.url}
+                          color="primary"
+                          sx={{ p: 0.25 }}
+                        >
+                          {busy ? (
+                            <CircularProgress size={12} />
+                          ) : (
+                            <OpenInNewIcon sx={{ fontSize: 14 }} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Stop this runner">
+                        <IconButton
+                          size="small"
+                          onClick={() => onStop(entry)}
+                          disabled={busy}
+                          color="warning"
+                          sx={{ p: 0.25 }}
+                        >
+                          <StopIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Box>
+        ))}
       </Stack>
 
       <Snackbar
