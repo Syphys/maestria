@@ -14,6 +14,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { RunnerConfig } from '../../../renderer/modelhub/types';
 import { detectRunners } from './detect';
+import { tryProbeRunner } from './probe';
 
 const FILE_NAME = 'modelhub-runners.json';
 
@@ -72,6 +73,12 @@ function backfillIds(file: RegistryFile): boolean {
  * list so subsequent calls are instant. Subsequent calls do NOT re-detect
  * — that's what `detectAndMerge` is for. Without this split, a user who
  * removed a detected runner would see it pop back every load.
+ *
+ * Note: runners are NOT probed eagerly here. The probe (`<bin> --help`)
+ * runs on-demand when the user opens "Advanced parameters" — for the
+ * common case (modern llama.cpp build), the editor + buildCommand work
+ * fine against the hardcoded defaults and the probe data only matters
+ * for the helpText display in that dialog.
  */
 export async function listRunners(): Promise<RunnerConfig[]> {
   const file = await readFile();
@@ -100,10 +107,36 @@ export async function saveRunner(runner: RunnerConfig): Promise<RunnerConfig> {
   const id = runner.id || randomUUID();
   const next: RunnerConfig = { ...runner, id };
   const idx = file.runners.findIndex((r) => r.id === id);
+  // Invalidate the stale probe when the user moves the runner to a
+  // different binary (typically how upgrades land in the registry).
+  // Same path = same binary identity = keep the existing probe.
+  if (idx >= 0 && file.runners[idx].path !== next.path) {
+    delete next.probed;
+  }
   if (idx >= 0) file.runners[idx] = next;
   else file.runners.push(next);
   await writeFile(file);
   return next;
+}
+
+/**
+ * Force a fresh probe of a single runner, overwriting whatever
+ * `probed` snapshot was on file. Used by the "Re-probe" button in
+ * RunnerSetupDialog when the user updates the binary in place
+ * (typical llama.cpp build → drop new exe → flags changed).
+ */
+export async function reprobeRunner(
+  id: string,
+): Promise<RunnerConfig | undefined> {
+  const file = await readFile();
+  if (!file) return undefined;
+  const idx = file.runners.findIndex((r) => r.id === id);
+  if (idx < 0) return undefined;
+  const probe = await tryProbeRunner(file.runners[idx].path);
+  if (!probe) return file.runners[idx];
+  file.runners[idx] = { ...file.runners[idx], probed: probe };
+  await writeFile(file);
+  return file.runners[idx];
 }
 
 export async function removeRunner(id: string): Promise<void> {

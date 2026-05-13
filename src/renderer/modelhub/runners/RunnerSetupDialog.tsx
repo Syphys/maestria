@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -129,6 +130,7 @@ export default function RunnerSetupDialog({
   open,
   onClose,
 }: Props): JSX.Element {
+  const { t } = useTranslation();
   const { runners, loading, detect, save, remove } = useRunners();
   const [adding, setAdding] = useState(false);
   /** id of the runner currently being edited, or undefined when none. */

@@ -37,6 +37,8 @@ import { FitProbeResult, RunParams } from './types';
 import { autotuneFor, probeFitParams, useRunners } from './runners/useRunners';
 import { pickRunnerFor } from './runners/pick';
 import { patchModelMeta } from './useModelMeta';
+import AdvancedParamsDialog from './AdvancedParamsDialog';
+import TuneIcon from '@mui/icons-material/Tune';
 
 interface Props {
   filePath: string;
@@ -84,6 +86,14 @@ interface FieldDef {
    * explicit override. Toggling fit off re-enables the row.
    */
   managedByFit?: boolean;
+  /**
+   * Long-flag the row controls. When the resolved runner's probe
+   * exposes a `flagsKnown` list that doesn't include this flag, the
+   * row is hidden — emitting an unsupported flag at launch would
+   * crash llama-server at boot. Undefined → always render (e.g.
+   * `port` is enforced by us, not parsed from the binary's help).
+   */
+  flag?: string;
 }
 
 const FIELDS: FieldDef[] = [
@@ -92,6 +102,7 @@ const FIELDS: FieldDef[] = [
     labelKey: 'AutoFit',
     helpKey: 'AutoFitHelp',
     type: 'boolean',
+    flag: '--fit',
   },
   {
     key: 'ngl',
@@ -100,6 +111,7 @@ const FIELDS: FieldDef[] = [
     type: 'number',
     min: -1,
     managedByFit: true,
+    flag: '--n-gpu-layers',
   },
   {
     key: 'ctx',
@@ -108,6 +120,7 @@ const FIELDS: FieldDef[] = [
     type: 'number',
     min: 128,
     managedByFit: true,
+    flag: '--ctx-size',
   },
   {
     key: 'batchSize',
@@ -116,6 +129,7 @@ const FIELDS: FieldDef[] = [
     type: 'number',
     min: 1,
     managedByFit: true,
+    flag: '--batch-size',
   },
   {
     key: 'threads',
@@ -123,8 +137,12 @@ const FIELDS: FieldDef[] = [
     helpKey: 'ThreadsHelp',
     type: 'number',
     min: 1,
+    flag: '--threads',
   },
   {
+    // `--port` is always meaningful — we enforce it on launch even if
+    // the binary's help is silent about it, since llama-server binds
+    // one. Leaving `flag` undefined makes the row unconditional.
     key: 'port',
     labelKey: 'ServerPort',
     helpKey: 'ServerPortHelp',
@@ -137,14 +155,27 @@ const FIELDS: FieldDef[] = [
     labelKey: 'FlashAttn',
     helpKey: 'FlashAttnHelp',
     type: 'boolean',
+    flag: '--flash-attn',
   },
   {
     key: 'mlock',
     labelKey: 'Mlock',
     helpKey: 'MlockHelp',
     type: 'boolean',
+    flag: '--mlock',
   },
 ];
+
+/**
+ * `true` when the field has no `flag` (always render) OR the probe is
+ * missing (legacy runner without snapshot, show everything so the user
+ * isn't blocked) OR the probe exposes this flag.
+ */
+function fieldSupportedBy(field: FieldDef, flagsKnown?: string[]): boolean {
+  if (!field.flag) return true;
+  if (!flagsKnown) return true;
+  return flagsKnown.includes(field.flag.toLowerCase());
+}
 
 function formatVal(v: unknown): string {
   if (v === undefined || v === null) return '—';
@@ -184,7 +215,7 @@ export default function RunParamsEditor({
   onFitProbeSaved,
 }: Props): JSX.Element {
   const { t } = useTranslation();
-  const { runners } = useRunners();
+  const { runners, reprobe } = useRunners();
   const [estimated, setEstimated] = useState<RunParams | undefined>();
   const [user, setUser] = useState<Partial<RunParams>>(initialUserParams ?? {});
   const [preferredRunner, setPreferredRunner] = useState<string | undefined>(
@@ -195,6 +226,7 @@ export default function RunParamsEditor({
   );
   const [probing, setProbing] = useState(false);
   const [probeError, setProbeError] = useState<string | undefined>();
+  const [advOpen, setAdvOpen] = useState(false);
   const [loadingEst, setLoadingEst] = useState(true);
   const [estError, setEstError] = useState<string | undefined>();
   const [save, setSave] = useState<SaveState>('idle');
@@ -427,7 +459,7 @@ export default function RunParamsEditor({
   );
 
   const setField = useCallback(
-    (key: keyof RunParams, value: number | boolean | undefined) => {
+    (key: keyof RunParams, value: number | boolean | string | undefined) => {
       setUser((prev) => {
         const next: Partial<RunParams> = { ...prev };
         if (
@@ -622,9 +654,26 @@ export default function RunParamsEditor({
               );
             };
 
-            const fitField = FIELDS.find((f) => f.key === 'fit');
-            const probeFields = FIELDS.filter((f) => PROBE_KEYS.has(f.key));
-            const otherFields = FIELDS.filter(
+            // Filter rows by the resolved runner's probe — drop any
+            // field whose flag the binary doesn't advertise in --help.
+            // Emitting an unsupported flag at launch crashes the boot
+            // ("unknown argument: --foo"), so hiding the row is safer
+            // than letting the user toggle a no-op.
+            const flagsKnown = probeRunner?.probed?.flagsKnown;
+            const visibleFields = FIELDS.filter((f) =>
+              fieldSupportedBy(f, flagsKnown),
+            );
+            // Drop the Auto-fit row when the resolved runner's probe
+            // says `--fit` is absent — flipping the checkbox would
+            // emit an unsupported flag and crash the server boot.
+            const fitSupported = probeRunner?.probed?.quirks.fit !== 'absent';
+            const fitField = fitSupported
+              ? visibleFields.find((f) => f.key === 'fit')
+              : undefined;
+            const probeFields = visibleFields.filter((f) =>
+              PROBE_KEYS.has(f.key),
+            );
+            const otherFields = visibleFields.filter(
               (f) => f.key !== 'fit' && !PROBE_KEYS.has(f.key),
             );
 
@@ -655,15 +704,19 @@ export default function RunParamsEditor({
                   <Box />
                   {fitField && renderRow(fitField)}
                   {/*
-                   * Auto-fit on → those three rows are managed by llama-server
-                   * at boot. We render them inline (greyed via `disabled`) so
-                   * the user still sees what the runtime would pick. The
-                   * "Recalculer" sub-box only makes sense when fit is off.
+                   * Three cases:
+                   *   - fit unsupported by the runner → render ngl/ctx/batch
+                   *     inline as plain editable rows (no sub-box, the
+                   *     Auto-fit row was already hidden upstream).
+                   *   - fit on → render inline greyed (managedByFit) so
+                   *     the user sees what llama-server will pick at boot.
+                   *   - fit off → render inside the sub-box below.
                    */}
-                  {effective.fit === true && probeFields.map(renderRow)}
+                  {(!fitSupported || effective.fit === true) &&
+                    probeFields.map(renderRow)}
                 </Box>
 
-                {effective.fit === false && (
+                {fitSupported && effective.fit === false && (
                   <Box
                     sx={{
                       mt: 1,
@@ -774,6 +827,34 @@ export default function RunParamsEditor({
             );
           })()}
 
+          {/* Advanced parameters trigger — lets the user paste arbitrary
+              llama-server flags ("--cache-type-k f16", "--no-mmap", ...)
+              alongside the curated rows above. Saved verbatim in
+              userRunParams.customArgs and appended by buildCommand. */}
+          <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            sx={{ mt: 0.75 }}
+          >
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<TuneIcon sx={{ fontSize: 14 }} />}
+              onClick={() => setAdvOpen(true)}
+              sx={{ minWidth: 0, px: 1, py: 0, fontSize: '0.7em' }}
+            >
+              {effective.customArgs
+                ? t('core:mhAdvParamsEditBadge', {
+                    count: (effective.customArgs ?? '')
+                      .split(/\r?\n/)
+                      .filter((l) => l.trim() && !l.trim().startsWith('#'))
+                      .length,
+                  })
+                : t('core:mhAdvParamsButton')}
+            </Button>
+          </Stack>
+
           <RationaleTooltip
             rationale={estimated?.rationale}
             probeOverrodeFields={
@@ -784,6 +865,17 @@ export default function RunParamsEditor({
           />
         </>
       )}
+
+      <AdvancedParamsDialog
+        open={advOpen}
+        runner={probeRunner}
+        initial={effective.customArgs ?? ''}
+        onClose={() => setAdvOpen(false)}
+        onSave={(next) => {
+          setField('customArgs', next.length > 0 ? next : undefined);
+        }}
+        onReprobe={reprobe}
+      />
     </Box>
   );
 }

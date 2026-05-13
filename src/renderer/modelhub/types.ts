@@ -152,6 +152,65 @@ export interface RunnerCapabilities {
 }
 
 /**
+ * Three-state interpretation of a llama-server flag — derived from the
+ * binary's `--help` output. `bare` means the flag is a no-arg boolean
+ * (older builds); `on-off` and `on-off-auto` require an explicit value
+ * after the flag. `absent` means the runner doesn't know this flag at
+ * all and emitting it would crash the process at boot.
+ */
+export type FlagSyntax = 'absent' | 'bare' | 'on-off' | 'on-off-auto';
+
+/**
+ * Result of running `<binary> --help` and parsing the output. Lets
+ * `buildCommand` emit the right syntax per runner (a 2025 ik_llama
+ * build wants `--fit on` but an early-2024 vanilla build crashes on
+ * the same flag), and lets the editor hide knobs the runner can't
+ * honour (e.g. Auto-fit checkbox when `--fit` is absent).
+ */
+export interface RunnerProbe {
+  /** ISO timestamp of when the probe ran. */
+  probedAt: string;
+  /**
+   * Version string when parseable — usually the first line of `--help`
+   * or the `--version` output ("build: 4567 (abc1234)"). Display-only.
+   */
+  version?: string;
+  /**
+   * Full raw `--help` stdout/stderr from the probe. Kept verbatim so
+   * the "Advanced parameters" dialog can show the user every flag the
+   * runner accepts (the parsed `flagsKnown` set is convenient for
+   * lookups but strips the descriptions). ~30-80 KB per runner,
+   * negligible in the registry JSON. Truncated to 200 KB as a safety
+   * cap against runaway output.
+   */
+  helpText: string;
+  /**
+   * Every long flag the binary advertises in its help output
+   * (e.g. `--n-gpu-layers`, `--flash-attn`, `--fit`). Lowercased.
+   * Used as a cheap "does the runner know this flag" check before
+   * emitting it.
+   */
+  flagsKnown: string[];
+  /**
+   * Per-flag syntax quirks. Only set for flags whose syntax changed
+   * across recent llama.cpp builds — others can be looked up in
+   * `flagsKnown`.
+   */
+  quirks: {
+    /**
+     * `--flash-attn`. Late-2025 builds: `[on|off|auto]`. Pre-late-2025:
+     * bare. Older: absent entirely.
+     */
+    flashAttn: FlagSyntax;
+    /**
+     * `--fit`. Introduced mid-2025 in llama.cpp upstream. `[on|off]`
+     * everywhere except ik_llama.cpp older builds which take it bare.
+     */
+    fit: FlagSyntax;
+  };
+}
+
+/**
  * A llama.cpp binary the user has configured (or that we detected on disk).
  * Models Hub only supports the llama.cpp family — `llama.cpp` proper and
  * forks like `ik_llama.cpp` that ship the same `llama-server` CLI surface.
@@ -170,6 +229,13 @@ export interface RunnerConfig {
   autoDetected: boolean;
   /** Sort key — first runner that supports the model file format is the default. */
   priority?: number;
+  /**
+   * Snapshot of `<binary> --help` parsing — drives buildCommand flag
+   * syntax + UI flag-availability checks. Filled lazily by the registry
+   * (probed on first save / first list when missing). User can manually
+   * refresh via the "Re-probe" button in RunnerSetupDialog.
+   */
+  probed?: RunnerProbe;
 }
 
 /**
@@ -202,6 +268,21 @@ export interface RunParams {
    * verbatim — and the editor's manual rows become active.
    */
   fit?: boolean;
+  /**
+   * Free-form extra CLI args the user wants appended to the launch
+   * command. One flag per line; the parser splits on the FIRST
+   * whitespace so `--system "You are X"` works without quote handling.
+   * Lines starting with `#` are ignored as comments. Persists raw text
+   * (not a parsed array) so reopening the dialog shows exactly what
+   * the user typed — round-trips losslessly.
+   *
+   * Example:
+   *   # Disable mmap so the model lives entirely in RAM
+   *   --no-mmap
+   *   --cache-type-k f16
+   *   --repeat-penalty 1.1
+   */
+  customArgs?: string;
   /** Free-form notes the auto-tune attached for the user (why these values). */
   rationale?: string[];
 }
@@ -376,6 +457,13 @@ export const MODELHUB_IPC = {
   runnersRemove: 'modelhub:runnersRemove',
   /** Re-runs auto-detection (PATH + known install dirs). */
   runnersDetect: 'modelhub:runnersDetect',
+  /**
+   * Spawns `<runner.path> --help`, parses the output, and overwrites
+   * the runner's `probed` field with the fresh result. Returns the
+   * updated `RunnerConfig`. Triggered by the "Re-probe" button in the
+   * setup dialog or whenever buildCommand discovers an outdated probe.
+   */
+  runnersReprobe: 'modelhub:runnersReprobe',
   /** Computes auto-tuned launch params for a given model. */
   runnersAutotune: 'modelhub:runnersAutotune',
   /** Spawns a runner with the given params. Returns pid/url. */

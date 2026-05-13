@@ -81,6 +81,22 @@ export async function detectRunners(): Promise<RunnerConfig[]> {
   return r.ok && r.runners ? r.runners : [];
 }
 
+/**
+ * Force a fresh `<binary> --help` parse for a single runner. The main
+ * process overwrites the persisted `probed` snapshot in place; returns
+ * the updated `RunnerConfig` (with the new `probed.probedAt`).
+ */
+export async function reprobeRunner(
+  id: string,
+): Promise<RunnerConfig | undefined> {
+  const r = await ipc<{ ok: boolean; runner?: RunnerConfig; error?: string }>(
+    MODELHUB_IPC.runnersReprobe,
+    id,
+  );
+  if (!r.ok) throw new Error(r.error ?? 'reprobe failed');
+  return r.runner;
+}
+
 export async function autotuneFor(
   filePath: string,
   port?: number,
@@ -234,6 +250,7 @@ export interface UseRunnersState {
   detect: () => Promise<void>;
   save: (r: RunnerConfig) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  reprobe: (id: string) => Promise<void>;
 }
 
 export function useRunners(): UseRunnersState {
@@ -280,7 +297,15 @@ export function useRunners(): UseRunnersState {
     [refresh],
   );
 
-  return { runners, loading, refresh, detect, save, remove };
+  const reprobe = useCallback(
+    async (id: string) => {
+      await reprobeRunner(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  return { runners, loading, refresh, detect, save, remove, reprobe };
 }
 
 // `pickRunnerFor` was extracted to `./pick.ts` so the main process can

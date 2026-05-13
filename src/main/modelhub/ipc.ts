@@ -30,6 +30,7 @@ import {
   detectAndMerge,
   listRunners,
   removeRunner,
+  reprobeRunner,
   saveRunner,
 } from './runners/registry';
 import { autotune } from './runners/autotune';
@@ -290,6 +291,16 @@ export default function registerModelhubEvents(): void {
     try {
       const runners = await detectAndMerge();
       return { ok: true, runners };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.runnersReprobe, async (_event, id: string) => {
+    try {
+      const runner = await reprobeRunner(id);
+      if (!runner) return { ok: false, error: 'unknown runner id' };
+      return { ok: true, runner };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
