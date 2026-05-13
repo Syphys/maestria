@@ -109,6 +109,7 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
             filePath={filePath}
             initialUserParams={meta?.userRunParams}
             initialPreferredRunnerId={meta?.preferredRunnerId}
+            initialFitProbe={meta?.fitProbe}
             onSaved={(next) =>
               setMeta((prev) =>
                 prev ? { ...prev, userRunParams: next } : prev,
@@ -118,6 +119,9 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
               setMeta((prev) =>
                 prev ? { ...prev, preferredRunnerId: next } : prev,
               )
+            }
+            onFitProbeSaved={(next) =>
+              setMeta((prev) => (prev ? { ...prev, fitProbe: next } : prev))
             }
           />
         )}

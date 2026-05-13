@@ -256,6 +256,61 @@ export interface ModelMeta {
    * sensible without the user having to re-edit the sidecar.
    */
   preferredRunnerId?: string;
+  /**
+   * Cached result of the last `llama-fit-params` probe for this model.
+   * Surfaced in the Estimated column when the user toggles Auto-fit off
+   * — gives the actual VRAM/RAM cost predicted by llama.cpp itself (way
+   * more accurate than our heuristic on MoE / GLM-style architectures).
+   * Stored in the sidecar so reopening the editor shows the last numbers
+   * without re-running the probe (which costs ~5 s and reads the whole
+   * weights file).
+   */
+  fitProbe?: FitProbeResult;
+}
+
+/** Per-device memory cost predicted by `llama-fit-params --fit-print on`. */
+export interface FitProbeDevice {
+  /** e.g. "ROCm0 (RX 7900 XTX)", "Host", "CUDA0". */
+  name: string;
+  /** Weights footprint in MiB. */
+  modelMiB: number;
+  /** KV cache + activations footprint in MiB. */
+  contextMiB: number;
+  /** Compute / scratch buffer in MiB. */
+  computeMiB: number;
+}
+
+export interface FitProbeResult {
+  /** ISO timestamp the probe ran. */
+  ranAt: string;
+  /** Runner binary used (to invalidate if the user repoints the runner). */
+  runnerPath: string;
+  /** Params the probe was run with — invalidate cache when these change. */
+  params: {
+    ngl?: number;
+    ctx?: number;
+    batchSize?: number;
+    flashAttn?: boolean;
+    fit?: boolean;
+  };
+  /**
+   * Values llama-fit-params resolved during the load pass — these are the
+   * "what llama-server would actually pick" numbers, regardless of what we
+   * asked for. Parsed from verbose stderr lines (`offloaded N/M layers`,
+   * `n_ctx = X`, `n_batch = Y`). Used by the editor to override our
+   * cost-per-layer heuristic in the Estimated column.
+   */
+  resolved?: {
+    ngl?: number;
+    ctx?: number;
+    batchSize?: number;
+  };
+  /** Per-device cost breakdown, all values in MiB. */
+  devices: FitProbeDevice[];
+  /** Best-effort total VRAM (sum of non-Host devices), MiB. */
+  totalVramMiB?: number;
+  /** Host RAM cost, MiB. */
+  hostMiB?: number;
 }
 
 /** IPC channel names exposed by the modelhub main process. */
@@ -327,6 +382,13 @@ export const MODELHUB_IPC = {
   runnersLaunch: 'modelhub:runnersLaunch',
   /** Stops a previously launched runner by pid. */
   runnersStop: 'modelhub:runnersStop',
+  /**
+   * Runs `llama-fit-params --fit-print on` against a model and parses the
+   * per-device memory breakdown. Slow (~5 s on a 16 GB model, loads
+   * weights into VRAM/RAM). Renderer caches the result in
+   * `modelMeta.fitProbe`.
+   */
+  runnersFitProbe: 'modelhub:runnersFitProbe',
   /**
    * Lists currently tracked llama-server entries — both alive AND
    * recently-exited (the latter carry an `exited: { code, signal,

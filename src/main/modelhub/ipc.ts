@@ -34,6 +34,7 @@ import {
 } from './runners/registry';
 import { autotune } from './runners/autotune';
 import { buildCommand, formatCommandForShell } from './runners/command';
+import { probeFitParams } from './runners/fitProbe';
 import {
   dismissProcess,
   getActiveEntry,
@@ -388,6 +389,27 @@ export default function registerModelhubEvents(): void {
   ipcMain.handle(MODELHUB_IPC.runnersStop, async (_event, pid: number) => {
     return stopProcess(pid);
   });
+
+  ipcMain.handle(
+    MODELHUB_IPC.runnersFitProbe,
+    async (
+      _event,
+      runner: RunnerConfig,
+      filePath: string,
+      params: RunParams,
+      options?: { suggest?: boolean },
+    ) => {
+      try {
+        const canonical = await resolveCanonicalShardPath(filePath);
+        const outcome = await probeFitParams(runner, canonical, params, {
+          suggest: options?.suggest !== false,
+        });
+        return outcome;
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
 
   ipcMain.handle(MODELHUB_IPC.runnersRunning, async () => {
     return { ok: true, running: listRunning() };

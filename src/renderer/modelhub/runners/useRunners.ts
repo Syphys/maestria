@@ -7,7 +7,13 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { LaunchResult, MODELHUB_IPC, RunnerConfig, RunParams } from '../types';
+import {
+  FitProbeResult,
+  LaunchResult,
+  MODELHUB_IPC,
+  RunnerConfig,
+  RunParams,
+} from '../types';
 import { fetchModelMeta } from '../useModelMeta';
 import { pickRunnerFor } from './pick';
 
@@ -110,6 +116,45 @@ export async function launchRunner(
 
 export async function stopRunner(pid: number): Promise<void> {
   await ipc(MODELHUB_IPC.runnersStop, pid);
+}
+
+export interface FitProbeOutcome {
+  ok: boolean;
+  probe?: FitProbeResult;
+  error?: string;
+  /** Raw stderr from llama-fit-params — surfaced in the error tooltip. */
+  stderr?: string;
+}
+
+export interface ProbeOptions {
+  /**
+   * `true` (default) → llama-fit-params computes the best ngl/ctx/batch
+   * and we extract those into `probe.resolved`. `false` → we want a
+   * memory cost prediction for the user's explicit numbers; the
+   * breakdown comes back but `resolved` stays empty.
+   */
+  suggest?: boolean;
+}
+
+/**
+ * Spawns `llama-fit-params` against the model and parses the per-device
+ * memory breakdown + (in suggest mode) the resolved ngl/ctx/batch.
+ * ~5 s on a 16 GB model — the caller is expected to show a spinner
+ * and debounce repeated invocations.
+ */
+export async function probeFitParams(
+  runner: RunnerConfig,
+  filePath: string,
+  params: RunParams,
+  options: ProbeOptions = {},
+): Promise<FitProbeOutcome> {
+  return ipc<FitProbeOutcome>(
+    MODELHUB_IPC.runnersFitProbe,
+    runner,
+    filePath,
+    params,
+    { suggest: options.suggest !== false },
+  );
 }
 
 export interface RunningEntryExitInfo {
