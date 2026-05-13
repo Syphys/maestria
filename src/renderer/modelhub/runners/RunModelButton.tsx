@@ -47,6 +47,12 @@ import RunnerSetupDialog from './RunnerSetupDialog';
 
 interface Props {
   filePath: string;
+  /**
+   * Per-file runner override read from the sidecar by `ModelHubPanel`.
+   * Drives `pickRunnerFor` so the display + launch use the same runner
+   * the user picked in the dropdown below. Undefined → global priority.
+   */
+  preferredRunnerId?: string;
 }
 
 interface Active {
@@ -57,7 +63,10 @@ interface Active {
 
 type SnackSeverity = 'success' | 'error' | 'info' | 'warning';
 
-export default function RunModelButton({ filePath }: Props): JSX.Element {
+export default function RunModelButton({
+  filePath,
+  preferredRunnerId,
+}: Props): JSX.Element {
   const { runners } = useRunners();
   const [setupOpen, setSetupOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -73,8 +82,8 @@ export default function RunModelButton({ filePath }: Props): JSX.Element {
   }, [filePath]);
 
   const runner = useMemo(
-    () => pickRunnerFor(runners, filePath),
-    [runners, filePath],
+    () => pickRunnerFor(runners, filePath, { preferredRunnerId }),
+    [runners, filePath, preferredRunnerId],
   );
 
   const computeParams = useCallback(async (): Promise<

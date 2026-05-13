@@ -22,6 +22,8 @@ import {
   Checkbox,
   CircularProgress,
   IconButton,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Tooltip,
@@ -29,14 +31,26 @@ import {
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { RunParams } from './types';
-import { autotuneFor } from './runners/useRunners';
+import { autotuneFor, useRunners } from './runners/useRunners';
 import { patchModelMeta } from './useModelMeta';
 
 interface Props {
   filePath: string;
   /** Initial user override loaded from sidecar (if any). */
   initialUserParams?: RunParams;
+  /**
+   * Per-file runner override loaded from the sidecar by `ModelHubPanel`.
+   * Drives the dropdown's current value; changes are persisted via
+   * `patchModelMeta` and bubbled up via `onPreferredRunnerSaved`.
+   */
+  initialPreferredRunnerId?: string;
   onSaved?: (next: RunParams | undefined) => void;
+  /**
+   * Notifies the parent when the runner choice changes, so it can keep its
+   * cached `meta` in sync (and therefore feed `RunModelButton` the same
+   * value `pickRunnerFor` will use at launch).
+   */
+  onPreferredRunnerSaved?: (next: string | undefined) => void;
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -127,10 +141,16 @@ function formatVal(v: unknown): string {
 export default function RunParamsEditor({
   filePath,
   initialUserParams,
+  initialPreferredRunnerId,
   onSaved,
+  onPreferredRunnerSaved,
 }: Props): JSX.Element {
+  const { runners } = useRunners();
   const [estimated, setEstimated] = useState<RunParams | undefined>();
   const [user, setUser] = useState<Partial<RunParams>>(initialUserParams ?? {});
+  const [preferredRunner, setPreferredRunner] = useState<string | undefined>(
+    initialPreferredRunnerId,
+  );
   const [loadingEst, setLoadingEst] = useState(true);
   const [estError, setEstError] = useState<string | undefined>();
   const [save, setSave] = useState<SaveState>('idle');
@@ -142,9 +162,37 @@ export default function RunParamsEditor({
   useEffect(() => {
     filePathRef.current = filePath;
     setUser(initialUserParams ?? {});
+    setPreferredRunner(initialPreferredRunnerId);
     setSave('idle');
     setSaveErr(undefined);
-  }, [filePath, initialUserParams]);
+  }, [filePath, initialUserParams, initialPreferredRunnerId]);
+
+  const onRunnerChange = useCallback(
+    async (next: string | undefined) => {
+      const target = filePathRef.current;
+      setPreferredRunner(next);
+      setSave('saving');
+      setSaveErr(undefined);
+      try {
+        const r = await patchModelMeta(target, { preferredRunnerId: next });
+        if (filePathRef.current !== target) return;
+        if (!r.ok) {
+          setSave('error');
+          setSaveErr(r.error ?? 'save failed');
+          return;
+        }
+        setSave('saved');
+        onPreferredRunnerSaved?.(next);
+        setTimeout(() => {
+          if (filePathRef.current === target) setSave('idle');
+        }, 1500);
+      } catch (e) {
+        setSave('error');
+        setSaveErr((e as Error).message);
+      }
+    },
+    [onPreferredRunnerSaved],
+  );
 
   // Fetch fresh autotune for "estimated" column. Hardware can change between
   // sessions (new GPU, more RAM), so we don't cache this across sessions.
@@ -293,6 +341,46 @@ export default function RunParamsEditor({
           )}
         </Stack>
       </Stack>
+
+      {runners.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ mb: 0.75 }}
+        >
+          <Tooltip
+            title="Pick which llama.cpp binary launches this specific file. Auto = lowest priority across runners (set in the Configure runners dialog)."
+            placement="left"
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ cursor: 'help', minWidth: 56 }}
+            >
+              Runner
+            </Typography>
+          </Tooltip>
+          <Select
+            size="small"
+            value={preferredRunner ?? ''}
+            onChange={(e) => {
+              const v = e.target.value as string;
+              onRunnerChange(v === '' ? undefined : v);
+            }}
+            sx={{ flex: 1, fontSize: '0.85em' }}
+          >
+            <MenuItem value="">
+              <em>Auto (priority order)</em>
+            </MenuItem>
+            {runners.map((r) => (
+              <MenuItem key={r.id} value={r.id}>
+                {r.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </Stack>
+      )}
 
       {loadingEst ? (
         <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 1 }}>

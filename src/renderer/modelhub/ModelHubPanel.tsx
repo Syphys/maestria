@@ -95,7 +95,12 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
             <code>{canonicalSibling}</code>.
           </Typography>
         )}
-        {filePath && <RunModelButton filePath={filePath} />}
+        {filePath && (
+          <RunModelButton
+            filePath={filePath}
+            preferredRunnerId={meta?.preferredRunnerId}
+          />
+        )}
       </Stack>
 
       <Stack spacing={1.5}>
@@ -103,9 +108,15 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
           <RunParamsEditor
             filePath={filePath}
             initialUserParams={meta?.userRunParams}
+            initialPreferredRunnerId={meta?.preferredRunnerId}
             onSaved={(next) =>
               setMeta((prev) =>
                 prev ? { ...prev, userRunParams: next } : prev,
+              )
+            }
+            onPreferredRunnerSaved={(next) =>
+              setMeta((prev) =>
+                prev ? { ...prev, preferredRunnerId: next } : prev,
               )
             }
           />

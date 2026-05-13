@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LaunchResult, MODELHUB_IPC, RunnerConfig, RunParams } from '../types';
+import { fetchModelMeta } from '../useModelMeta';
 import { pickRunnerFor } from './pick';
 
 function ipc<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
@@ -263,7 +264,10 @@ export async function quickLaunchModel(
   filePath: string,
 ): Promise<QuickLaunchResult> {
   const runners = await listRunners();
-  const runner = pickRunnerFor(runners, filePath);
+  // Best-effort meta load — surfaces preferredRunnerId. Missing/error
+  // sidecar is fine; pickRunnerFor falls back to priority sort.
+  const meta = await fetchModelMeta(filePath).catch(() => undefined);
+  const runner = pickRunnerFor(runners, filePath, meta);
   if (!runner) {
     return { ok: false, needsSetup: true, error: 'no runner configured' };
   }

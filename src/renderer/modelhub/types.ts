@@ -247,6 +247,15 @@ export interface ModelMeta {
    * recomputing the estimate every render.
    */
   userRunParams?: RunParams;
+  /**
+   * Per-file runner override: id of the `RunnerConfig` to use when
+   * launching this model. Set via the dropdown in `RunParamsEditor`.
+   * Undefined → fall back to the global priority ordering (lowest
+   * priority value wins). Stale ids (referenced runner since removed)
+   * are treated as undefined so the launch path can still pick something
+   * sensible without the user having to re-edit the sidecar.
+   */
+  preferredRunnerId?: string;
 }
 
 /** IPC channel names exposed by the modelhub main process. */

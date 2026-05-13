@@ -75,7 +75,7 @@ export async function launchModelByPath(
     : estimated;
 
   const runners = await listRunners();
-  const runner = pickRunnerFor(runners, canonical);
+  const runner = pickRunnerFor(runners, canonical, meta);
   if (!runner) {
     return {
       ok: false,
