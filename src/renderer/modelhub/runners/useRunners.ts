@@ -111,6 +111,12 @@ export async function stopRunner(pid: number): Promise<void> {
   await ipc(MODELHUB_IPC.runnersStop, pid);
 }
 
+export interface RunningEntryExitInfo {
+  code: number | null;
+  signal: string | null;
+  exitedAt: string;
+}
+
 export interface RunningEntry {
   pid: number;
   command: string[];
@@ -124,7 +130,30 @@ export interface RunningEntry {
    */
   launchedBy?: string;
   startedAt: string;
+  /**
+   * Set when the process has exited. The entry stays in the panel
+   * (greyed-out, no Open in browser) until the user dismisses it,
+   * so they can read the captured logs.
+   */
+  exited?: RunningEntryExitInfo;
   recentLog: string[];
+}
+
+export async function getRunnerLog(pid: number): Promise<string[]> {
+  const r = await ipc<{ ok: boolean; log?: string[]; error?: string }>(
+    MODELHUB_IPC.runnersGetLog,
+    pid,
+  );
+  if (!r.ok || !r.log) throw new Error(r.error ?? 'log fetch failed');
+  return r.log;
+}
+
+export async function dismissRunner(pid: number): Promise<void> {
+  const r = await ipc<{ ok: boolean; error?: string }>(
+    MODELHUB_IPC.runnersDismiss,
+    pid,
+  );
+  if (!r.ok) throw new Error(r.error ?? 'dismiss failed');
 }
 
 export async function listRunningModels(): Promise<RunningEntry[]> {

@@ -40,6 +40,7 @@ import {
   getAIProviders,
   getDefaultAIProvider,
 } from '-/reducers/settings';
+import { formatBytes, useHardware } from '-/modelhub/hardware';
 import { buildClaudeDesktopConfig, useMcp } from '-/modelhub/mcp/useMcp';
 import { openURLExternally } from '-/services/utils-io';
 import { TS } from '-/tagspaces.namespace';
@@ -78,6 +79,28 @@ function SettingsAI(props: Props) {
   const { closeSettings } = props;
   const { changeCurrentModel, checkProviderAlive } = useChatContext();
   const mcp = useMcp();
+  const hw = useHardware();
+  const [hwDraft, setHwDraft] = React.useState<{
+    vendor: string;
+    name: string;
+    vramGb: string;
+    ramGb: string;
+  }>({ vendor: '', name: '', vramGb: '', ramGb: '' });
+  // Sync the draft from the persisted override every time it lands.
+  React.useEffect(() => {
+    setHwDraft({
+      vendor: hw.override.vendor ?? '',
+      name: hw.override.name ?? '',
+      vramGb:
+        typeof hw.override.vramBytes === 'number'
+          ? String(Math.round(hw.override.vramBytes / 1024 ** 3))
+          : '',
+      ramGb:
+        typeof hw.override.ramBytes === 'number'
+          ? String(Math.round(hw.override.ramBytes / 1024 ** 3))
+          : '',
+    });
+  }, [hw.override]);
   const [copyStatus, setCopyStatus] = React.useState<string | undefined>();
 
   const copy = async (value: string, label: string) => {
@@ -88,6 +111,23 @@ function SettingsAI(props: Props) {
     } catch (e) {
       setCopyStatus(`Copy failed: ${(e as Error).message}`);
     }
+  };
+
+  const saveHardwareDraft = async () => {
+    const vramGb = parseFloat(hwDraft.vramGb);
+    const ramGb = parseFloat(hwDraft.ramGb);
+    await hw.saveOverride({
+      vendor: hwDraft.vendor.trim() || undefined,
+      name: hwDraft.name.trim() || undefined,
+      vramBytes:
+        Number.isFinite(vramGb) && vramGb > 0
+          ? Math.round(vramGb * 1024 ** 3)
+          : undefined,
+      ramBytes:
+        Number.isFinite(ramGb) && ramGb > 0
+          ? Math.round(ramGb * 1024 ** 3)
+          : undefined,
+    });
   };
   const aiDefaultProvider: AIProvider = useSelector(getDefaultAIProvider);
   const aiProviders: AIProvider[] = useSelector(getAIProviders);
@@ -537,6 +577,152 @@ function SettingsAI(props: Props) {
           </AccordionDetails>
         </Accordion>
       ))}
+      <Accordion defaultExpanded>
+        <AccordionSummary
+          expandIcon={<ExpandIcon />}
+          aria-controls="modelhub-hardware"
+          id="modelhub-hardware-header"
+          data-tid="modelhubHardwareTID"
+        >
+          <Box sx={{ display: 'block' }}>
+            <Typography>Models Hub — Hardware</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Drives the autotune (number of GPU layers, context size, threads).
+              Overrides below are useful when detection misses your card
+              (AMD/Intel VRAM &gt; 4 GB on Windows) or to preview a config for
+              hardware you don't have yet.
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <FormGroup>
+            <Box
+              sx={{
+                p: 1,
+                mb: 1,
+                borderRadius: 1,
+                bgcolor: 'action.hover',
+                fontSize: '0.85em',
+              }}
+            >
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontWeight: 500, mb: 0.5 }}
+              >
+                Detected
+              </Typography>
+              <Typography variant="body2">
+                RAM&nbsp;
+                {hw.detected?.ramBytes
+                  ? formatBytes(hw.detected.ramBytes)
+                  : '—'}
+                {' · '}
+                CPU&nbsp;
+                {hw.detected?.cpu?.cores
+                  ? `${hw.detected.cpu.cores} cores`
+                  : '—'}
+                {' · '}
+                GPU&nbsp;
+                {hw.detected?.gpu?.name
+                  ? `${hw.detected.gpu.name}${
+                      hw.detected.gpu.vramBytes
+                        ? ` (${formatBytes(hw.detected.gpu.vramBytes)})`
+                        : ''
+                    }`
+                  : 'not detected'}
+              </Typography>
+              {hw.effective?.source === 'manual' && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  sx={{ display: 'block', mt: 0.25 }}
+                >
+                  Override active — autotune uses the values below.
+                </Typography>
+              )}
+            </Box>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5 }}
+            >
+              Override (leave a field empty to fall back on detection)
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              <TsTextField
+                label="GPU vendor"
+                placeholder="NVIDIA"
+                value={hwDraft.vendor}
+                updateValue={(v) => setHwDraft((d) => ({ ...d, vendor: v }))}
+                retrieveValue={() => hwDraft.vendor}
+              />
+              <TsTextField
+                label="GPU name"
+                placeholder="GeForce RTX 4090"
+                value={hwDraft.name}
+                updateValue={(v) => setHwDraft((d) => ({ ...d, name: v }))}
+                retrieveValue={() => hwDraft.name}
+              />
+              <TsTextField
+                label="VRAM (GB)"
+                placeholder="24"
+                value={hwDraft.vramGb}
+                updateValue={(v) => setHwDraft((d) => ({ ...d, vramGb: v }))}
+                retrieveValue={() => hwDraft.vramGb}
+              />
+              <TsTextField
+                label="RAM (GB)"
+                placeholder="64"
+                value={hwDraft.ramGb}
+                updateValue={(v) => setHwDraft((d) => ({ ...d, ramGb: v }))}
+                retrieveValue={() => hwDraft.ramGb}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <TsButton
+                onClick={() => void saveHardwareDraft()}
+                data-tid="hardwareSaveOverrideTID"
+              >
+                {t('core:save')}
+              </TsButton>
+              <TsButton
+                variant="text"
+                color="warning"
+                onClick={() => void hw.clearOverride()}
+                data-tid="hardwareClearOverrideTID"
+                tooltip="Wipe every override field and fall back on platform detection."
+              >
+                Clear override
+              </TsButton>
+              <TsButton
+                variant="text"
+                startIcon={<ReloadIcon />}
+                onClick={() => void hw.refresh()}
+                data-tid="hardwareReDetectTID"
+              >
+                Re-detect
+              </TsButton>
+            </Box>
+            {hw.error && (
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
+                {hw.error}
+              </Typography>
+            )}
+          </FormGroup>
+        </AccordionDetails>
+      </Accordion>
       <Accordion defaultExpanded>
         <AccordionSummary
           expandIcon={<ExpandIcon />}

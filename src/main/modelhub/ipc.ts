@@ -20,7 +20,12 @@ import {
   EnrichFolderProgress,
 } from './enrichFolder';
 import { clearFolder } from './clearFolder';
-import { detectHardwareProfile } from './hardware';
+import { detectHardwareProfile, detectRawHardwareProfile } from './hardware';
+import {
+  getOverride as getHardwareOverride,
+  setOverride as setHardwareOverride,
+  type HardwareOverride,
+} from './hardwareOverride';
 import {
   detectAndMerge,
   listRunners,
@@ -30,7 +35,9 @@ import {
 import { autotune } from './runners/autotune';
 import { buildCommand, formatCommandForShell } from './runners/command';
 import {
+  dismissProcess,
   getActiveEntry,
+  getEntryLog,
   killAll,
   launchProcess,
   listRunning,
@@ -181,6 +188,36 @@ export default function registerModelhubEvents(): void {
       return { ok: false, error: (e as Error).message };
     }
   });
+
+  ipcMain.handle(MODELHUB_IPC.detectHardwareRaw, async () => {
+    try {
+      const profile = await detectRawHardwareProfile();
+      return { ok: true, profile };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.getHardwareOverride, async () => {
+    try {
+      const override = await getHardwareOverride();
+      return { ok: true, override };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(
+    MODELHUB_IPC.setHardwareOverride,
+    async (_event, override: HardwareOverride) => {
+      try {
+        await setHardwareOverride(override ?? {});
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
 
   ipcMain.handle(
     MODELHUB_IPC.listModelHostingFolders,
@@ -346,6 +383,16 @@ export default function registerModelhubEvents(): void {
 
   ipcMain.handle(MODELHUB_IPC.runnersRunning, async () => {
     return { ok: true, running: listRunning() };
+  });
+
+  ipcMain.handle(MODELHUB_IPC.runnersGetLog, async (_event, pid: number) => {
+    const log = getEntryLog(pid);
+    if (!log) return { ok: false, error: 'unknown pid' };
+    return { ok: true, log };
+  });
+
+  ipcMain.handle(MODELHUB_IPC.runnersDismiss, async (_event, pid: number) => {
+    return dismissProcess(pid);
   });
 
   ipcMain.handle(MODELHUB_IPC.runnersOpenChat, async (_event, pid: number) => {

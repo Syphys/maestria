@@ -8,6 +8,9 @@
  *
  * - "Re-scan" button retriggers PATH/known-dir detection.
  * - "Add manually…" reveals a small form to point at a binary by hand.
+ * - "Edit" pencil per row reuses the same form to amend an existing
+ *   entry without going through delete-then-re-add. The id is
+ *   preserved so the entry keeps its place in the priority ordering.
  * - Links out to the upstream installer when the list is empty.
  *
  * The dialog is intentionally self-contained (no Redux dependency) so it
@@ -30,6 +33,7 @@ import {
   Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { RunnerConfig } from '../types';
@@ -42,27 +46,39 @@ interface Props {
 
 const LLAMA_CPP_RELEASES = 'https://github.com/ggml-org/llama.cpp/releases';
 
-function ManualForm({
-  onAdd,
+function RunnerForm({
+  initial,
+  onSubmit,
   onCancel,
 }: {
-  onAdd: (r: RunnerConfig) => void;
+  /** When set, the form is in edit mode: preserves id + other fields. */
+  initial?: RunnerConfig;
+  onSubmit: (r: RunnerConfig) => void;
   onCancel: () => void;
 }): JSX.Element {
-  const [path, setPath] = useState('');
-  const [label, setLabel] = useState('');
+  const [path, setPath] = useState(initial?.path ?? '');
+  const [label, setLabel] = useState(initial?.label ?? '');
+  const isEdit = !!initial;
 
   const submit = () => {
     if (!path.trim()) return;
     const basename = path.trim().split(/[\\/]/).pop() ?? 'llama-server';
-    onAdd({
-      id: '', // main process assigns
-      label: label.trim() || `llama-server (${basename})`,
-      path: path.trim(),
-      capabilities: { gguf: true, safetensors: false },
-      autoDetected: false,
-      priority: 50,
-    });
+    const finalLabel = label.trim() || `llama-server (${basename})`;
+    if (initial) {
+      // Edit mode: preserve everything else (id, version, capabilities,
+      // autoDetected flag, priority — keeps the entry's place in the
+      // priority ordering).
+      onSubmit({ ...initial, label: finalLabel, path: path.trim() });
+    } else {
+      onSubmit({
+        id: '', // main process assigns
+        label: finalLabel,
+        path: path.trim(),
+        capabilities: { gguf: true, safetensors: false },
+        autoDetected: false,
+        priority: 50,
+      });
+    }
   };
 
   return (
@@ -70,7 +86,9 @@ function ManualForm({
       spacing={1.5}
       sx={{ mt: 1, p: 1.5, borderRadius: 1, bgcolor: 'action.hover' }}
     >
-      <Typography variant="subtitle2">Add a llama.cpp binary</Typography>
+      <Typography variant="subtitle2">
+        {isEdit ? 'Edit llama.cpp binary' : 'Add a llama.cpp binary'}
+      </Typography>
       <TextField
         size="small"
         label="Binary path"
@@ -100,7 +118,7 @@ function ManualForm({
           onClick={submit}
           disabled={!path.trim()}
         >
-          Add
+          {isEdit ? 'Save' : 'Add'}
         </Button>
       </Stack>
     </Stack>
@@ -113,14 +131,17 @@ export default function RunnerSetupDialog({
 }: Props): JSX.Element {
   const { runners, loading, detect, save, remove } = useRunners();
   const [adding, setAdding] = useState(false);
+  /** id of the runner currently being edited, or undefined when none. */
+  const [editingId, setEditingId] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
 
-  const onAdd = useCallback(
+  const onSubmit = useCallback(
     async (r: RunnerConfig) => {
       try {
         setError(undefined);
         await save(r);
         setAdding(false);
+        setEditingId(undefined);
       } catch (e) {
         setError((e as Error).message);
       }
@@ -132,13 +153,23 @@ export default function RunnerSetupDialog({
     async (id: string) => {
       try {
         setError(undefined);
+        if (editingId === id) setEditingId(undefined);
         await remove(id);
       } catch (e) {
         setError((e as Error).message);
       }
     },
-    [remove],
+    [remove, editingId],
   );
+
+  const onStartEdit = useCallback((id: string) => {
+    setAdding(false);
+    setEditingId(id);
+  }, []);
+
+  const editingRunner = editingId
+    ? runners.find((r) => r.id === editingId)
+    : undefined;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -218,6 +249,15 @@ export default function RunnerSetupDialog({
                   {r.path}
                 </Typography>
               </Box>
+              <Tooltip title="Edit">
+                <IconButton
+                  size="small"
+                  onClick={() => onStartEdit(r.id)}
+                  data-tid={`editRunner_${r.id}TID`}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Remove">
                 <IconButton size="small" onClick={() => onRemove(r.id)}>
                   <DeleteIcon fontSize="small" />
@@ -232,8 +272,14 @@ export default function RunnerSetupDialog({
             </Typography>
           )}
 
-          {adding ? (
-            <ManualForm onAdd={onAdd} onCancel={() => setAdding(false)} />
+          {editingRunner ? (
+            <RunnerForm
+              initial={editingRunner}
+              onSubmit={onSubmit}
+              onCancel={() => setEditingId(undefined)}
+            />
+          ) : adding ? (
+            <RunnerForm onSubmit={onSubmit} onCancel={() => setAdding(false)} />
           ) : (
             <Stack direction="row" spacing={1}>
               <Button

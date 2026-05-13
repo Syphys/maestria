@@ -212,7 +212,11 @@ export function buildClaudeDesktopConfig(
   const cfg = {
     mcpServers: {
       tagspaces: {
-        transport: 'sse',
+        // MCP spec canonical key is `type`, not `transport`. Clients
+        // (Claude Desktop, Cursor, claude.json) silently skip the
+        // entry when the key is wrong — server responds 200 but no
+        // tools register.
+        type: 'sse',
         url,
         headers: {
           Authorization: `Bearer ${tokenValue}`,

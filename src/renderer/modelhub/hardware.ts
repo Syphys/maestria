@@ -10,7 +10,8 @@
  * See MODELS_HUB.md → Phase 3 (Hardware-aware execution).
  */
 
-import { MODELHUB_IPC } from './types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { HardwareOverride, MODELHUB_IPC } from './types';
 
 export type HardwareSource = 'detected' | 'manual' | 'unknown';
 
@@ -84,23 +85,163 @@ export function estimateRuntime(
   return { safetyMarginPct, maxVramFitBytes, maxRamFitBytes, safeBudgetBytes };
 }
 
-/** Calls the main process IPC to fetch the latest hardware profile. */
+function ipcInvoke<T = unknown>(
+  channel: string,
+  ...args: unknown[]
+): Promise<T | undefined> {
+  const r = window?.electronIO?.ipcRenderer as
+    | { invoke: (c: string, ...a: unknown[]) => Promise<unknown> }
+    | undefined;
+  if (!r) return Promise.resolve(undefined);
+  return r.invoke(channel, ...args) as Promise<T>;
+}
+
+/** Fetches the effective HardwareProfile (override applied on top of detection). */
 export async function fetchHardwareProfile(): Promise<
   HardwareProfile | undefined
 > {
-  if (
-    typeof window === 'undefined' ||
-    !window.electronIO?.ipcRenderer?.invoke
-  ) {
-    return undefined;
-  }
   try {
-    const result = (await window.electronIO.ipcRenderer.invoke(
+    const r = await ipcInvoke<{ ok: boolean; profile?: HardwareProfile }>(
       MODELHUB_IPC.detectHardware,
-    )) as { ok: boolean; profile?: HardwareProfile; error?: string };
-    if (result?.ok && result.profile) return result.profile;
-    return undefined;
+    );
+    return r?.ok ? r.profile : undefined;
   } catch {
     return undefined;
   }
+}
+
+/** Fetches the raw detected HardwareProfile (no override). */
+export async function fetchRawHardwareProfile(): Promise<
+  HardwareProfile | undefined
+> {
+  try {
+    const r = await ipcInvoke<{ ok: boolean; profile?: HardwareProfile }>(
+      MODELHUB_IPC.detectHardwareRaw,
+    );
+    return r?.ok ? r.profile : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getHardwareOverride(): Promise<HardwareOverride> {
+  try {
+    const r = await ipcInvoke<{ ok: boolean; override?: HardwareOverride }>(
+      MODELHUB_IPC.getHardwareOverride,
+    );
+    return r?.override ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function setHardwareOverride(
+  override: HardwareOverride,
+): Promise<void> {
+  const r = await ipcInvoke<{ ok: boolean; error?: string }>(
+    MODELHUB_IPC.setHardwareOverride,
+    override,
+  );
+  if (r && !r.ok) throw new Error(r.error ?? 'set failed');
+}
+
+export interface UseHardwareState {
+  /** Effective profile (override applied). */
+  effective: HardwareProfile | undefined;
+  /** Raw detected profile (no override). */
+  detected: HardwareProfile | undefined;
+  /** Current persisted override fields. */
+  override: HardwareOverride;
+  loading: boolean;
+  error?: string;
+  /** Refresh detected + effective + override from main. */
+  refresh: () => Promise<void>;
+  /** Persist a new override and refresh. */
+  saveOverride: (next: HardwareOverride) => Promise<void>;
+  /** Clear every override field and refresh. */
+  clearOverride: () => Promise<void>;
+}
+
+/**
+ * Hook backing the Settings ▸ Hardware Accordion. Pulls all three
+ * snapshots in parallel on mount. Polling is unnecessary — hardware
+ * doesn't change at runtime — so subsequent refreshes are explicit.
+ */
+export function useHardware(): UseHardwareState {
+  const [effective, setEffective] = useState<HardwareProfile | undefined>();
+  const [detected, setDetected] = useState<HardwareProfile | undefined>();
+  const [override, setOverride] = useState<HardwareOverride>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>();
+  const aliveRef = useRef(true);
+
+  const refresh = useCallback(async () => {
+    setError(undefined);
+    try {
+      const [eff, raw, ov] = await Promise.all([
+        fetchHardwareProfile(),
+        fetchRawHardwareProfile(),
+        getHardwareOverride(),
+      ]);
+      if (!aliveRef.current) return;
+      setEffective(eff);
+      setDetected(raw);
+      setOverride(ov);
+    } catch (e) {
+      if (aliveRef.current) setError((e as Error).message);
+    } finally {
+      if (aliveRef.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    void refresh();
+    return () => {
+      aliveRef.current = false;
+    };
+  }, [refresh]);
+
+  const saveOverride = useCallback(
+    async (next: HardwareOverride) => {
+      setError(undefined);
+      try {
+        await setHardwareOverride(next);
+        await refresh();
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    [refresh],
+  );
+
+  const clearOverrideCb = useCallback(async () => {
+    setError(undefined);
+    try {
+      await setHardwareOverride({});
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [refresh]);
+
+  return {
+    effective,
+    detected,
+    override,
+    loading,
+    error,
+    refresh,
+    saveOverride,
+    clearOverride: clearOverrideCb,
+  };
+}
+
+/** Format a byte count as a short "23.4 GB" / "512 MB" string. */
+export function formatBytes(bytes: number | undefined): string {
+  if (typeof bytes !== 'number' || bytes <= 0) return '—';
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
+  const mb = bytes / 1024 ** 2;
+  return `${Math.round(mb)} MB`;
 }

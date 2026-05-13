@@ -15,6 +15,12 @@ import { LaunchResult } from '../../../renderer/modelhub/types';
 
 const RING_LIMIT = 200;
 
+export interface ExitInfo {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  exitedAt: string;
+}
+
 export interface ActiveEntry {
   pid: number;
   command: string[];
@@ -32,7 +38,15 @@ export interface ActiveEntry {
   launchedBy?: string;
   startedAt: string;
   log: string[];
-  child: ChildProcess;
+  /**
+   * Undefined while the process is alive; populated when the child
+   * emits `exit`. We deliberately keep the entry around with this
+   * field set instead of deleting it, so the user can still see why
+   * a crashed runner died (log buffer + exit code) via the UI.
+   */
+  exited?: ExitInfo;
+  /** Cleared when the process exits — keeps the `entry.exited` shape clean. */
+  child?: ChildProcess;
 }
 
 const active = new Map<number, ActiveEntry>();
@@ -54,12 +68,47 @@ export interface LaunchOptions {
   launchedBy?: string;
 }
 
+/**
+ * Synthetic id counter for entries that never got a real OS pid
+ * (spawn threw, spawn returned no pid). Negative + monotonically
+ * decreasing so it can't collide with a real pid.
+ */
+let nextSyntheticId = -1;
+
+function recordSpawnFailure(
+  command: string[],
+  options: LaunchOptions,
+  reason: string,
+): { id: number; entry: ActiveEntry } {
+  const id = nextSyntheticId;
+  nextSyntheticId -= 1;
+  const entry: ActiveEntry = {
+    pid: id,
+    command,
+    url: options.url,
+    runnerLabel: options.runnerLabel,
+    modelName: options.modelName,
+    launchedBy: options.launchedBy,
+    startedAt: new Date().toISOString(),
+    log: [`[spawn failed] ${reason}`],
+    exited: {
+      code: null,
+      signal: null,
+      exitedAt: new Date().toISOString(),
+    },
+    child: undefined,
+  };
+  active.set(id, entry);
+  return { id, entry };
+}
+
 export function launchProcess(
   command: string[],
   options: LaunchOptions = {},
 ): LaunchResult {
   if (command.length < 1) {
-    return { ok: false, error: 'empty command' };
+    const { id } = recordSpawnFailure(command, options, 'empty command');
+    return { ok: false, error: 'empty command', pid: id };
   }
   const [bin, ...args] = command;
   try {
@@ -69,7 +118,12 @@ export function launchProcess(
       windowsHide: true,
     });
     if (!child.pid) {
-      return { ok: false, error: 'spawn returned no pid', command };
+      const { id } = recordSpawnFailure(
+        command,
+        options,
+        'spawn returned no pid',
+      );
+      return { ok: false, error: 'spawn returned no pid', pid: id, command };
     }
     const entry: ActiveEntry = {
       pid: child.pid,
@@ -86,17 +140,32 @@ export function launchProcess(
 
     child.stdout?.on('data', (d) => appendLog(entry, d));
     child.stderr?.on('data', (d) => appendLog(entry, d));
-    child.on('exit', () => {
-      active.delete(entry.pid);
+    child.on('exit', (code, signal) => {
+      // Don't drop the entry — keep it around so the user can read the
+      // captured log + exit code. `stopProcess` / dismissProcess remove
+      // it explicitly.
+      entry.exited = {
+        code: code ?? null,
+        signal: signal ?? null,
+        exitedAt: new Date().toISOString(),
+      };
+      entry.child = undefined;
     });
     child.on('error', (err) => {
       appendLog(entry, `[spawn error] ${err.message}`);
-      active.delete(entry.pid);
+      entry.exited = {
+        code: null,
+        signal: null,
+        exitedAt: new Date().toISOString(),
+      };
+      entry.child = undefined;
     });
 
     return { ok: true, pid: child.pid, url: options.url, command };
   } catch (e) {
-    return { ok: false, error: (e as Error).message, command };
+    const reason = (e as Error).message;
+    const { id } = recordSpawnFailure(command, options, reason);
+    return { ok: false, error: reason, pid: id, command };
   }
 }
 
@@ -107,12 +176,19 @@ export function getActiveEntry(pid: number): ActiveEntry | undefined {
 export function stopProcess(pid: number): { ok: boolean; error?: string } {
   const p = active.get(pid);
   if (!p) return { ok: false, error: 'unknown pid' };
+  // Already-exited entries: nothing to kill, just drop the record so
+  // the row disappears from the UI.
+  if (p.exited || !p.child) {
+    active.delete(pid);
+    return { ok: true };
+  }
   try {
     p.child.kill(process.platform === 'win32' ? undefined : 'SIGTERM');
     setTimeout(() => {
-      if (active.has(pid)) {
+      const cur = active.get(pid);
+      if (cur && !cur.exited && cur.child) {
         try {
-          p.child.kill('SIGKILL');
+          cur.child.kill('SIGKILL');
         } catch {
           /* swallow */
         }
@@ -124,6 +200,26 @@ export function stopProcess(pid: number): { ok: boolean; error?: string } {
   }
 }
 
+/** Read the captured stdout/stderr ring buffer of an entry. */
+export function getEntryLog(pid: number): string[] | undefined {
+  const p = active.get(pid);
+  return p ? [...p.log] : undefined;
+}
+
+/** Drop a dead entry from the registry. No-op on live entries. */
+export function dismissProcess(pid: number): { ok: boolean; error?: string } {
+  const p = active.get(pid);
+  if (!p) return { ok: false, error: 'unknown pid' };
+  if (!p.exited && p.child) {
+    return {
+      ok: false,
+      error: 'process is still running — stop it first',
+    };
+  }
+  active.delete(pid);
+  return { ok: true };
+}
+
 export interface RunningSummary {
   pid: number;
   command: string[];
@@ -132,6 +228,8 @@ export interface RunningSummary {
   modelName?: string;
   launchedBy?: string;
   startedAt: string;
+  /** Set when the process has terminated; absent while running. */
+  exited?: ExitInfo;
   recentLog: string[];
 }
 
@@ -144,6 +242,7 @@ export function listRunning(): RunningSummary[] {
     modelName: p.modelName,
     launchedBy: p.launchedBy,
     startedAt: p.startedAt,
+    exited: p.exited,
     recentLog: p.log.slice(-20),
   }));
 }
@@ -151,6 +250,7 @@ export function listRunning(): RunningSummary[] {
 /** Called from app `before-quit` to avoid orphan processes. */
 export function killAll(): void {
   for (const p of active.values()) {
+    if (!p.child) continue;
     try {
       p.child.kill('SIGKILL');
     } catch {

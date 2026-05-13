@@ -259,8 +259,22 @@ export const MODELHUB_IPC = {
   enrichFolderProgress: 'modelhub:enrichFolderProgress',
   /** Event channel: main → renderer when the run finishes. Payload is the summary. */
   enrichFolderDone: 'modelhub:enrichFolderDone',
-  /** Returns a HardwareProfile (Phase 3 — currently stub data). */
+  /**
+   * Returns the *effective* HardwareProfile (manual override applied on
+   * top of platform detection). Used by `autotune` + the in-app size
+   * filter "Safe" preset + the MCP `hardware.detect` tool.
+   */
   detectHardware: 'modelhub:detectHardware',
+  /**
+   * Returns the raw HardwareProfile from platform detection only, no
+   * override applied. Settings UI uses this to show "Detected: …" next
+   * to the editable override fields.
+   */
+  detectHardwareRaw: 'modelhub:detectHardwareRaw',
+  /** Returns the persisted manual override fields (any subset). */
+  getHardwareOverride: 'modelhub:getHardwareOverride',
+  /** Persists the override; pass an empty object to clear every field. */
+  setHardwareOverride: 'modelhub:setHardwareOverride',
   /**
    * Patch arbitrary fields on the sidecar's `modelMeta` (e.g. userNotes,
    * userRunParams). Resolves the canonical shard internally so the user
@@ -294,8 +308,18 @@ export const MODELHUB_IPC = {
   runnersLaunch: 'modelhub:runnersLaunch',
   /** Stops a previously launched runner by pid. */
   runnersStop: 'modelhub:runnersStop',
-  /** Lists currently running child processes started via runnersLaunch. */
+  /**
+   * Lists currently tracked llama-server entries — both alive AND
+   * recently-exited (the latter carry an `exited: { code, signal,
+   * exitedAt }` field). The renderer keeps showing exited entries
+   * until the user dismisses them, so a crash is visible instead of
+   * "the row just disappeared".
+   */
   runnersRunning: 'modelhub:runnersRunning',
+  /** Returns the captured stdout/stderr ring buffer of an entry. */
+  runnersGetLog: 'modelhub:runnersGetLog',
+  /** Removes a dead entry from the registry. No-op on live entries. */
+  runnersDismiss: 'modelhub:runnersDismiss',
   /** Builds the shell command without launching (for the "copy" button). */
   runnersBuildCommand: 'modelhub:runnersBuildCommand',
   /**
@@ -322,6 +346,14 @@ export const MODELHUB_IPC = {
   /** Persists the flag; if turning on while server is idle, starts it. */
   mcpSetAutoStart: 'modelhub:mcpSetAutoStart',
 } as const;
+
+/** Manual hardware override fields surfaced by Settings UI. */
+export interface HardwareOverride {
+  vendor?: string;
+  name?: string;
+  vramBytes?: number;
+  ramBytes?: number;
+}
 
 /** Snapshot of the MCP server state for the renderer. */
 export type McpStatus =

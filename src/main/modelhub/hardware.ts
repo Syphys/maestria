@@ -1,31 +1,66 @@
 /**
- * Hardware detection — Phase 3 placeholder.
+ * Hardware profile resolver — merges the platform detection with the
+ * persisted user override.
  *
- * Returns the data we can read trivially today (RAM/CPU from `os` module).
- * GPU detection is intentionally NOT wired yet: it requires per-OS calls
- * (`nvidia-smi`, DXGI on Windows, `system_profiler` on macOS, `lspci` on Linux)
- * and benches better in Phase 3 alongside the run-fit estimator.
+ * Two entry points the rest of the app uses:
  *
- * The renderer hook (`fetchHardwareProfile`) and the IPC channel are in place
- * so UI components can already call the function. They get a partial profile
- * (RAM only) for now and graceful undefined for GPU.
+ *  - `detectHardwareProfile()` returns the *effective* profile (override
+ *    fields applied on top of detection). This is what `autotune` and
+ *    the MCP `hardware.detect` tool see.
+ *  - `detectRawHardwareProfile()` returns the detection result alone,
+ *    no override applied. The Settings UI uses this to render the
+ *    "Detected" read-only line next to the override editor.
+ *
+ * GPU detection delegated to `hardwareDetect.ts`; override persistence
+ * in `hardwareOverride.ts`. RAM + CPU come from Node's `os` module —
+ * reliable cross-platform without spawning subprocesses.
  */
 
 import os from 'os';
-import { HardwareProfile } from '../../renderer/modelhub/hardware';
+import { GpuInfo, HardwareProfile } from '../../renderer/modelhub/hardware';
+import { detectGpu } from './hardwareDetect';
+import {
+  HardwareOverride,
+  getOverride,
+  hasAnyOverride,
+} from './hardwareOverride';
+
+function mergeGpu(
+  detected: GpuInfo | undefined,
+  override: HardwareOverride,
+): GpuInfo | undefined {
+  const gpuOverridden =
+    !!override.vendor || !!override.name || !!override.vramBytes;
+  if (!detected && !gpuOverridden) return undefined;
+  return {
+    vendor: override.vendor ?? detected?.vendor,
+    name: override.name ?? detected?.name,
+    vramBytes: override.vramBytes ?? detected?.vramBytes,
+  };
+}
 
 export async function detectHardwareProfile(): Promise<HardwareProfile> {
-  const profile: HardwareProfile = {
+  const override = await getOverride();
+  const detectedGpu = await detectGpu();
+  const gpu = mergeGpu(detectedGpu, override);
+  return {
+    source: hasAnyOverride(override) ? 'manual' : 'detected',
+    ramBytes: override.ramBytes ?? os.totalmem(),
+    freeRamBytes: os.freemem(),
+    cpu: { model: os.cpus()?.[0]?.model, cores: os.cpus()?.length },
+    gpu,
+    detectedAt: new Date().toISOString(),
+  };
+}
+
+export async function detectRawHardwareProfile(): Promise<HardwareProfile> {
+  const detectedGpu = await detectGpu();
+  return {
     source: 'detected',
     ramBytes: os.totalmem(),
     freeRamBytes: os.freemem(),
-    cpu: {
-      model: os.cpus()?.[0]?.model,
-      cores: os.cpus()?.length,
-    },
+    cpu: { model: os.cpus()?.[0]?.model, cores: os.cpus()?.length },
+    gpu: detectedGpu,
     detectedAt: new Date().toISOString(),
   };
-  // GPU detection deferred to Phase 3. Intentionally left undefined so callers
-  // know the profile is partial.
-  return profile;
 }

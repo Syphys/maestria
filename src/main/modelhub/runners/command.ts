@@ -32,6 +32,34 @@ export function buildCommand(
   const args: string[] = ['-m', modelPath];
   if (typeof params.ngl === 'number') {
     args.push('--n-gpu-layers', String(params.ngl));
+    // Force every offloaded layer onto the main GPU when we offload to
+    // GPU at all. Without this:
+    //   - Recent upstream llama.cpp crashes with "invalid kernel file"
+    //     when it tries to dispatch ops on an iGPU whose architecture
+    //     isn't in the build.
+    //   - ik_llama.cpp's `--split-mode none` only controls graph
+    //     scheduling, NOT layer-to-device assignment — it still spreads
+    //     layers across every visible adapter. We've observed the
+    //     resulting cross-GPU graph trigger the
+    //     GGML_SCHED_MAX_SPLIT_INPUTS=10 assert when flash_attn is on.
+    //
+    // `--tensor-split` is the unambiguous knob: 1,0,0,… forces 100 % of
+    // the tensors onto device 0. Surplus values are ignored on systems
+    // with fewer GPUs. `--split-mode none --main-gpu 0` is kept as
+    // belt-and-suspenders for upstream builds that honour them.
+    //
+    // Configurable per-runner policy lands with 4.0.16 (Settings →
+    // Hardware → GPU policy).
+    if (params.ngl > 0) {
+      args.push(
+        '--tensor-split',
+        '1,0,0,0,0,0,0,0',
+        '--split-mode',
+        'none',
+        '--main-gpu',
+        '0',
+      );
+    }
   }
   if (typeof params.ctx === 'number') {
     args.push('-c', String(params.ctx));
@@ -43,7 +71,13 @@ export function buildCommand(
     args.push('-b', String(params.batchSize));
   }
   if (params.flashAttn) {
-    args.push('--flash-attn');
+    // Recent llama.cpp builds (late 2025+) made `--flash-attn` a
+    // 3-state option: `on|off|auto`. A bare `--flash-attn` consumes
+    // the NEXT positional as its value and crashes
+    // ("unknown value for --flash-attn: '--mlock'"). Always emit the
+    // explicit value — older binaries that took it as bare boolean
+    // are out of scope at this point.
+    args.push('--flash-attn', 'on');
   }
   if (params.mlock) {
     args.push('--mlock');
