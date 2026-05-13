@@ -47,6 +47,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
+import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
+import { useSelectedEntriesContext } from '-/hooks/useSelectedEntriesContext';
 import {
   RunningEntry,
   dismissRunner,
@@ -74,6 +76,9 @@ interface LogDialogState {
 export default function RunningModelsPanel(): JSX.Element {
   const { t } = useTranslation();
   const { openEntry } = useOpenedEntryContext();
+  const { openDirectory, getAllPropertiesPromise } =
+    useDirectoryContentContext();
+  const { setSelectedEntries } = useSelectedEntriesContext();
   const [running, setRunning] = useState<RunningEntry[]>([]);
   const [snack, setSnack] = useState<SnackState | undefined>();
   const [busyPid, setBusyPid] = useState<number | undefined>();
@@ -170,11 +175,36 @@ export default function RunningModelsPanel(): JSX.Element {
     [t],
   );
 
+  /**
+   * Three-step navigation so the model actually stands out in the file
+   * list, not just the right-hand properties panel:
+   *   1. `openDirectory(parentDir)` switches the perspective view to
+   *      the model's containing folder.
+   *   2. `getAllPropertiesPromise` resolves the FsEntry from the path.
+   *   3. `setSelectedEntries([entry])` highlights the row, then
+   *      `openEntry` opens the properties tab.
+   * Falls back to a plain `openEntry` if anything goes wrong — the
+   * user still gets the properties panel even when the directory
+   * load fails (e.g. the file's location is currently disconnected).
+   */
   const onNavigateToFile = useCallback(
     async (entry: RunningEntry) => {
       if (!entry.filePath) return;
+      const filePath = entry.filePath;
       try {
-        await openEntry(entry.filePath);
+        const parentDir = filePath.replace(/[\\/][^\\/]+$/, '');
+        if (parentDir && parentDir !== filePath) {
+          await openDirectory(parentDir);
+        }
+        try {
+          const fsEntry = await getAllPropertiesPromise(filePath);
+          if (fsEntry) {
+            setSelectedEntries([fsEntry]);
+          }
+        } catch {
+          /* selection is best-effort — properties panel still opens */
+        }
+        await openEntry(filePath);
       } catch (e) {
         setSnack({
           msg: t('core:mhRunLogNavigateFailed', {
@@ -184,7 +214,7 @@ export default function RunningModelsPanel(): JSX.Element {
         });
       }
     },
-    [openEntry, t],
+    [openDirectory, getAllPropertiesPromise, setSelectedEntries, openEntry, t],
   );
 
   const onOpenLog = useCallback(async (entry: RunningEntry) => {
