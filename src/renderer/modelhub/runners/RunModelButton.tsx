@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Button,
@@ -67,6 +68,7 @@ export default function RunModelButton({
   filePath,
   preferredRunnerId,
 }: Props): JSX.Element {
+  const { t } = useTranslation();
   const { runners } = useRunners();
   const [setupOpen, setSetupOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -182,26 +184,26 @@ export default function RunModelButton({
   const primary = useMemo(() => {
     if (active) {
       return {
-        label: 'Open in browser',
+        label: t('core:mhOpenInBrowser'),
         icon: <OpenInBrowserIcon />,
         tooltip: active.url
-          ? `Reopen ${active.url} in browser`
-          : `Running (pid ${active.pid})`,
+          ? t('core:mhReopenTooltip', { url: active.url })
+          : t('core:mhRunningTooltip', { pid: active.pid }),
       };
     }
     if (!runner) {
       return {
-        label: 'Configure runner…',
+        label: t('core:mhConfigureRunner'),
         icon: busy ? <CircularProgress size={14} /> : <PlayArrowIcon />,
-        tooltip: 'No runner configured — click to set one up',
+        tooltip: t('core:mhNoRunnerTooltip'),
       };
     }
     return {
-      label: 'Run',
+      label: t('core:mhRun'),
       icon: busy ? <CircularProgress size={14} /> : <PlayArrowIcon />,
-      tooltip: `Launch ${runner.label} with auto-tuned params, then open in browser`,
+      tooltip: t('core:mhRunTooltip', { label: runner.label }),
     };
-  }, [active, runner, busy]);
+  }, [active, runner, busy, t]);
 
   return (
     <>
@@ -221,13 +223,15 @@ export default function RunModelButton({
         open={!!menuAnchor}
         onClose={() => setMenuAnchor(null)}
       >
-        <ListSubheader sx={{ lineHeight: '32px' }}>Launch</ListSubheader>
+        <ListSubheader sx={{ lineHeight: '32px' }}>
+          {t('core:mhMenuLaunch')}
+        </ListSubheader>
         <MenuItem onClick={onLaunchModel}>
           <PlayArrowIcon fontSize="small" sx={{ mr: 1 }} />
           <Stack>
-            <Typography variant="body2">Run</Typography>
+            <Typography variant="body2">{t('core:mhRun')}</Typography>
             <Typography variant="caption" color="text.secondary">
-              Launches the model + opens its web UI in your browser
+              {t('core:mhRunDescription')}
             </Typography>
           </Stack>
         </MenuItem>
@@ -236,13 +240,13 @@ export default function RunModelButton({
 
         <MenuItem onClick={onCopy}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
-          Copy command
+          {t('core:mhCopyCommand')}
         </MenuItem>
 
         {active && (
           <MenuItem onClick={onStopModel}>
             <StopIcon fontSize="small" sx={{ mr: 1 }} />
-            Stop model (pid {active.pid})
+            {t('core:mhStopModel', { pid: active.pid })}
           </MenuItem>
         )}
 
@@ -255,7 +259,7 @@ export default function RunModelButton({
           }}
         >
           <SettingsIcon fontSize="small" sx={{ mr: 1 }} />
-          Configure runners…
+          {t('core:mhConfigureRunners')}
         </MenuItem>
       </Menu>
 

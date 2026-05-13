@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -58,9 +59,10 @@ const SAVE_DEBOUNCE_MS = 800;
 
 interface FieldDef {
   key: keyof RunParams;
-  label: string;
-  /** Brief help shown in tooltip. */
-  help: string;
+  /** i18n key suffix; the full key is `core:mhParam${labelKey}`. */
+  labelKey: string;
+  /** i18n key suffix for the tooltip help. */
+  helpKey: string;
   type: 'number' | 'boolean';
   min?: number;
   max?: number;
@@ -75,59 +77,59 @@ interface FieldDef {
 const FIELDS: FieldDef[] = [
   {
     key: 'fit',
-    label: 'Auto-fit (--fit on)',
-    help: 'Let llama-server size GPU layers / context / batch-size itself from free VRAM at boot. More accurate than our heuristics for MoE and exotic-quant models, at the cost of 1-3 s extra startup. Uncheck to edit those fields manually.',
+    labelKey: 'AutoFit',
+    helpKey: 'AutoFitHelp',
     type: 'boolean',
   },
   {
     key: 'ngl',
-    label: 'GPU layers (-ngl)',
-    help: 'How many model layers to offload to GPU. -1 = all, 0 = pure CPU.',
+    labelKey: 'GpuLayers',
+    helpKey: 'GpuLayersHelp',
     type: 'number',
     min: -1,
     managedByFit: true,
   },
   {
     key: 'ctx',
-    label: 'Context size (-c)',
-    help: 'Max prompt + response tokens. Larger = more KV cache memory.',
+    labelKey: 'ContextSize',
+    helpKey: 'ContextSizeHelp',
     type: 'number',
     min: 128,
     managedByFit: true,
   },
   {
     key: 'batchSize',
-    label: 'Batch size (-b)',
-    help: 'Logical prompt-processing batch. Bigger benefits GPU runs, hurts CPU.',
+    labelKey: 'BatchSize',
+    helpKey: 'BatchSizeHelp',
     type: 'number',
     min: 1,
     managedByFit: true,
   },
   {
     key: 'threads',
-    label: 'Threads (-t)',
-    help: 'CPU worker threads. ≈ physical cores − 1 for best throughput.',
+    labelKey: 'Threads',
+    helpKey: 'ThreadsHelp',
     type: 'number',
     min: 1,
   },
   {
     key: 'port',
-    label: 'Server port',
-    help: 'Local HTTP port for runners that expose an OpenAI-compatible API.',
+    labelKey: 'ServerPort',
+    helpKey: 'ServerPortHelp',
     type: 'number',
     min: 1,
     max: 65535,
   },
   {
     key: 'flashAttn',
-    label: 'Flash attention',
-    help: 'Faster + lower memory attention. Requires GPU build with FA enabled.',
+    labelKey: 'FlashAttn',
+    helpKey: 'FlashAttnHelp',
     type: 'boolean',
   },
   {
     key: 'mlock',
-    label: 'mlock (lock in RAM)',
-    help: 'Prevents the OS from swapping the model out. Good for desktops, risky for laptops on battery.',
+    labelKey: 'Mlock',
+    helpKey: 'MlockHelp',
     type: 'boolean',
   },
 ];
@@ -145,6 +147,7 @@ export default function RunParamsEditor({
   onSaved,
   onPreferredRunnerSaved,
 }: Props): JSX.Element {
+  const { t } = useTranslation();
   const { runners } = useRunners();
   const [estimated, setEstimated] = useState<RunParams | undefined>();
   const [user, setUser] = useState<Partial<RunParams>>(initialUserParams ?? {});
@@ -308,24 +311,24 @@ export default function RunParamsEditor({
         justifyContent="space-between"
         sx={{ mb: 0.5 }}
       >
-        <Typography variant="subtitle2">Run parameters</Typography>
+        <Typography variant="subtitle2">{t('core:mhRunParams')}</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           {save === 'saving' && (
             <Stack direction="row" spacing={0.5} alignItems="center">
               <CircularProgress size={10} />
               <Typography variant="caption" color="text.secondary">
-                Saving…
+                {t('core:mhSaving')}
               </Typography>
             </Stack>
           )}
           {save === 'saved' && (
             <Typography variant="caption" color="success.main">
-              Saved
+              {t('core:mhSaved')}
             </Typography>
           )}
           {save === 'error' && (
             <Typography variant="caption" color="error">
-              {saveErr ?? 'save failed'}
+              {saveErr ?? t('core:mhSaveFailed')}
             </Typography>
           )}
           {overrideCount > 0 && (
@@ -336,7 +339,7 @@ export default function RunParamsEditor({
               startIcon={<RestartAltIcon sx={{ fontSize: 14 }} />}
               sx={{ minWidth: 0, px: 1, py: 0, fontSize: '0.7em' }}
             >
-              Reset all ({overrideCount})
+              {t('core:mhResetAll', { count: overrideCount })}
             </Button>
           )}
         </Stack>
@@ -349,16 +352,13 @@ export default function RunParamsEditor({
           alignItems="center"
           sx={{ mb: 0.75 }}
         >
-          <Tooltip
-            title="Pick which llama.cpp binary launches this specific file. Auto = lowest priority across runners (set in the Configure runners dialog)."
-            placement="left"
-          >
+          <Tooltip title={t('core:mhRunnerHelp')} placement="left">
             <Typography
               variant="caption"
               color="text.secondary"
               sx={{ cursor: 'help', minWidth: 56 }}
             >
-              Runner
+              {t('core:mhRunner')}
             </Typography>
           </Tooltip>
           <Select
@@ -381,7 +381,7 @@ export default function RunParamsEditor({
                       fontSize: '0.85em',
                     }}
                   >
-                    Auto (priority order)
+                    {t('core:mhRunnerAuto')}
                   </Typography>
                 );
               }
@@ -395,7 +395,7 @@ export default function RunParamsEditor({
             sx={{ flex: 1, fontSize: '0.85em' }}
           >
             <MenuItem value="">
-              <em>Auto (priority order)</em>
+              <em>{t('core:mhRunnerAuto')}</em>
             </MenuItem>
             {runners.map((r) => (
               <MenuItem key={r.id} value={r.id}>
@@ -410,7 +410,7 @@ export default function RunParamsEditor({
         <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 1 }}>
           <CircularProgress size={14} />
           <Typography variant="caption" color="text.secondary">
-            Estimating…
+            {t('core:mhEstimating')}
           </Typography>
         </Stack>
       ) : estError ? (
@@ -436,21 +436,21 @@ export default function RunParamsEditor({
               color="text.secondary"
               sx={{ fontWeight: 600 }}
             >
-              Parameter
+              {t('core:mhColParameter')}
             </Typography>
             <Typography
               variant="caption"
               color="text.secondary"
               sx={{ fontWeight: 600 }}
             >
-              Estimated
+              {t('core:mhColEstimated')}
             </Typography>
             <Typography
               variant="caption"
               color="text.secondary"
               sx={{ fontWeight: 600 }}
             >
-              Used
+              {t('core:mhColUsed')}
             </Typography>
             <Box />
 
@@ -505,7 +505,7 @@ export default function RunParamsEditor({
                   textDecoration: 'underline dotted',
                 }}
               >
-                Why these estimates? (hover for breakdown)
+                {t('core:mhWhyEstimates')}
               </Typography>
             </Tooltip>
           )}
@@ -535,9 +535,10 @@ function ParamRow({
   onChange,
   onReset,
 }: ParamRowProps): JSX.Element {
+  const { t } = useTranslation();
   return (
     <>
-      <Tooltip title={field.help} placement="left">
+      <Tooltip title={t(`core:mhParam${field.helpKey}`)} placement="left">
         <Typography
           variant="body2"
           sx={{
@@ -546,7 +547,7 @@ function ParamRow({
             color: disabled ? 'text.disabled' : 'text.primary',
           }}
         >
-          {field.label}
+          {t(`core:mhParam${field.labelKey}`)}
         </Typography>
       </Tooltip>
       <Typography
@@ -598,7 +599,7 @@ function ParamRow({
         </Box>
       )}
       {isOverridden && !disabled ? (
-        <Tooltip title="Reset to estimated">
+        <Tooltip title={t('core:mhResetToEstimated')}>
           <IconButton size="small" onClick={onReset} sx={{ p: 0.25 }}>
             <RestartAltIcon sx={{ fontSize: 16 }} />
           </IconButton>
