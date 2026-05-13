@@ -24,7 +24,6 @@ import {
   OptionsIcon,
 } from '-/components/CommonIcons';
 import DraggablePaper from '-/components/DraggablePaper';
-import { BetaLabel } from '-/components/HelperComponents';
 import TsButton from '-/components/TsButton';
 import SettingsAI from '-/components/dialogs/components/SettingsAI';
 import SettingsAdvanced from '-/components/dialogs/components/SettingsAdvanced';
@@ -196,7 +195,6 @@ function SettingsDialog(props: Props) {
           label={
             <span style={{ whiteSpace: 'nowrap' }}>
               {t('core:aiSettingsTab')}
-              <BetaLabel />
             </span>
           }
         />
