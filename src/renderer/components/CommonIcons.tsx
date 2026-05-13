@@ -274,6 +274,8 @@ export { default as ArrowRightIcon } from '@mui/icons-material/ArrowCircleRightO
 
 export { default as PlayIcon } from '@mui/icons-material/PlayCircleFilledWhiteOutlined';
 
+export { default as InferenceIcon } from '@mui/icons-material/RocketLaunchOutlined';
+
 export { default as FullScreenIcon } from '@mui/icons-material/ScreenshotMonitor'; // ZoomOutMap
 
 export { default as FullWidthIcon } from '@mui/icons-material/SettingsEthernet';

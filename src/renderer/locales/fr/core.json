@@ -864,6 +864,7 @@
   "generatedHTMLCopied": "Télécharger les liens copiés dans le presse-papier",
   "generatedHTMLFailed": "Échec de la copie dans le presse-papier",
   "details": "Détails",
+  "inferenceTab": "Inférence",
   "editDisabled": "Il n'est pas possible de modifier la description d'un fichier que l'on est en train d'éditer",
   "togglePreviewSize": "Changer la taille de l'aperçu des fichiers",
   "newAudioRecording": "Nouveau fichier audio",

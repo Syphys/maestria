@@ -51,6 +51,9 @@ const TabAI = React.lazy(
 const TabLinks = React.lazy(
   () => import(/* webpackChunkName: "LinksTab" */ './LinksTab'),
 );
+const TabInference = React.lazy(
+  () => import(/* webpackChunkName: "TabInference" */ './TabInference'),
+);
 
 interface EntryContainerTabsProps {
   openPanel: () => void;
@@ -146,7 +149,9 @@ function EntryContainerTabs(props: EntryContainerTabsProps) {
   const selectedTabIndex = getSelectedTabIndex();
 
   function getTabContainer(tabName: string) {
-    if (tabName === TabNames.propertiesTab) {
+    if (tabName === TabNames.inferenceTab) {
+      return <TabInference key={openedEntry.path} />;
+    } else if (tabName === TabNames.propertiesTab) {
       return <TabProperties key={openedEntry.path} tileServer={tileServer} />;
     } else if (tabName === TabNames.descriptionTab) {
       return <TabDescription />;

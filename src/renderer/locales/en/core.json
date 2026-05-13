@@ -869,6 +869,7 @@
   "generatedHTMLCopied": "Download links copied to clipboard",
   "generatedHTMLFailed": "Error while copying to clipboard",
   "details": "Details",
+  "inferenceTab": "Inference",
   "editDisabled": "Editing the description is disabled while editing the current file",
   "togglePreviewSize": "Toggle file preview size",
   "newAudioRecording": "New Audio File",

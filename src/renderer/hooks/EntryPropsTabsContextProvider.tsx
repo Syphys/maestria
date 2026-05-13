@@ -21,6 +21,7 @@ import {
   AIIcon,
   DescriptionIcon,
   EntryPropertiesIcon,
+  InferenceIcon,
   LinkIcon,
   RevisionIcon,
 } from '-/components/CommonIcons';
@@ -45,6 +46,7 @@ export type TabItem = {
 };
 
 export const TabNames = {
+  inferenceTab: 'inferenceTab',
   propertiesTab: 'detailsTab',
   descriptionTab: 'descriptionTab',
   revisionsTab: 'revisionsTab',
@@ -142,7 +144,20 @@ export const EntryPropsTabsContextProvider = ({
       name: TabNames.descriptionTab,
     };
 
-    const tabsArray: TabItem[] = [tab1, tab2];
+    const tabsArray: TabItem[] = [];
+    // Inference tab — only shown for model files (gguf/safetensors/...).
+    // Sits first so opening a model lands on the Run panel by default,
+    // which is what users actually came for; Détails / Description /
+    // Links remain accessible via the tab strip.
+    if (oEntry?.isFile && oEntry.path && isSupportedModelFile(oEntry.path)) {
+      tabsArray.push({
+        icon: <InferenceIcon />,
+        showBadge: false,
+        title: t('core:inferenceTab'),
+        name: TabNames.inferenceTab,
+      });
+    }
+    tabsArray.push(tab1, tab2);
     const revisions = await haveRevisions(oEntry);
     if (revisions) {
       const tab3: TabItem = {

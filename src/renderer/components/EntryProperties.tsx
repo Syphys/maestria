@@ -44,7 +44,6 @@ import TsButton from '-/components/TsButton';
 import TsIconButton from '-/components/TsIconButton';
 import TsTextField from '-/components/TsTextField';
 import LinkGeneratorDialog from '-/components/dialogs/LinkGeneratorDialog';
-import ModelHubPanel from '-/modelhub/ModelHubPanel';
 import { useMenuContext } from '-/components/dialogs/hooks/useMenuContext';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useEditedEntryMetaContext } from '-/hooks/useEditedEntryMetaContext';
@@ -1331,14 +1330,6 @@ function EntryProperties({ tileServer }: Props) {
             }}
           />
         </Grid>
-        {openedEntry?.isFile && openedEntry?.path && (
-          <Grid size={12}>
-            <ModelHubPanel
-              filePath={openedEntry.path}
-              readOnly={location?.isReadOnly}
-            />
-          </Grid>
-        )}
       </Grid>
       {showSharingLinkDialog && (
         <LinkGeneratorDialog
