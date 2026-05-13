@@ -41,6 +41,7 @@ import {
   killAll,
   launchProcess,
   listRunning,
+  pickFreePort,
   stopProcess,
 } from './runners/launch';
 import { openChatFor } from './runners/openChat';
@@ -364,7 +365,14 @@ export default function registerModelhubEvents(): void {
       try {
         const canonical = await resolveCanonicalShardPath(filePath);
         const fileBasename = canonical.replace(/^.*[\\/]/, '');
-        const built = buildCommand(runner, canonical, params);
+        // Re-pin to a free port. The renderer's autotune always emits
+        // 8080; two consecutive Runs would otherwise share the URL and
+        // the second server would crash on EADDRINUSE.
+        const effectiveParams: RunParams = {
+          ...params,
+          port: pickFreePort(params.port ?? 8080),
+        };
+        const built = buildCommand(runner, canonical, effectiveParams);
         const result = launchProcess(built.command, {
           url: built.url,
           runnerLabel: runner.label,

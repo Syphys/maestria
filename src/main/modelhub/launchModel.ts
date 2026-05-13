@@ -21,7 +21,7 @@ import { detectHardwareProfile } from './hardware';
 import { readModelHeader } from './parseHeader';
 import { autotune } from './runners/autotune';
 import { buildCommand } from './runners/command';
-import { launchProcess } from './runners/launch';
+import { launchProcess, pickFreePort } from './runners/launch';
 import { listRunners } from './runners/registry';
 import { loadModelMeta } from './sidecar';
 import { resolveCanonicalShardPath } from './shardFs';
@@ -68,10 +68,18 @@ export async function launchModelByPath(
   }
 
   const hardware = await detectHardwareProfile();
-  const estimated = autotune({ header, hardware, port: options.port });
+  // Resolve a free port BEFORE autotune so the rationale string mentions
+  // the port we'll actually bind. Without this two concurrent launches
+  // both autotuned to 8080 and the second one bounced on EADDRINUSE.
+  const requestedPort = meta?.userRunParams?.port ?? options.port ?? 8080;
+  const port = pickFreePort(requestedPort);
+  const estimated = autotune({ header, hardware, port });
   const userOverride = meta?.userRunParams;
+  // Merge order matters: user override wins for everything EXCEPT port,
+  // which we re-pin to the collision-free value. A user that pinned port
+  // 9000 on two models would otherwise still collide.
   const params: RunParams = userOverride
-    ? { ...estimated, ...userOverride }
+    ? { ...estimated, ...userOverride, port }
     : estimated;
 
   const runners = await listRunners();

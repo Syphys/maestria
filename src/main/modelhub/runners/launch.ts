@@ -173,25 +173,53 @@ export function getActiveEntry(pid: number): ActiveEntry | undefined {
   return active.get(pid);
 }
 
+/**
+ * Pick a port that no currently-running entry occupies, starting from
+ * `requested` and scanning upward. Two consecutive launches that both
+ * autotune to 8080 used to collide silently — only the first server
+ * actually bound, the second exited with EADDRINUSE, and the panel
+ * showed two rows with identical URLs because we never rewrote the port.
+ *
+ * Only live (non-exited) entries count — a crashed runner whose ring
+ * buffer is still around isn't holding the port.
+ *
+ * Bounded scan to avoid an infinite loop if every port in the range is
+ * taken; falls through to `requested + range` which will most likely
+ * fail to bind, which is a strictly better failure mode than colliding.
+ */
+export function pickFreePort(requested = 8080, range = 1000): number {
+  const used = new Set<number>();
+  for (const e of active.values()) {
+    if (e.exited || !e.url) continue;
+    const m = e.url.match(/:(\d+)/);
+    if (m) used.add(Number(m[1]));
+  }
+  let p = requested;
+  while (used.has(p) && p < requested + range) p += 1;
+  return p;
+}
+
 export function stopProcess(pid: number): { ok: boolean; error?: string } {
   const p = active.get(pid);
   if (!p) return { ok: false, error: 'unknown pid' };
-  // Already-exited entries: nothing to kill, just drop the record so
-  // the row disappears from the UI.
-  if (p.exited || !p.child) {
-    active.delete(pid);
-    return { ok: true };
-  }
+  // Drop the entry from `active` immediately so RunningModelsPanel sees
+  // it disappear instead of flashing a red "exited" row when the user
+  // clicks Stop. The on('exit') handler still runs (it's bound to the
+  // closed-over entry object) and sets entry.exited, but that object
+  // is no longer in the map so listRunning() can't surface it. Real
+  // crashes — where the user did NOT click Stop — still land in the
+  // panel as expected because they reach the on('exit') handler with
+  // the entry still in the map.
+  const child = p.child;
+  active.delete(pid);
+  if (!child) return { ok: true };
   try {
-    p.child.kill(process.platform === 'win32' ? undefined : 'SIGTERM');
+    child.kill(process.platform === 'win32' ? undefined : 'SIGTERM');
     setTimeout(() => {
-      const cur = active.get(pid);
-      if (cur && !cur.exited && cur.child) {
-        try {
-          cur.child.kill('SIGKILL');
-        } catch {
-          /* swallow */
-        }
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        /* swallow — already dead */
       }
     }, 3000);
     return { ok: true };
