@@ -21,6 +21,7 @@ import App from '-/containers/App';
 import DialogsRoot from '-/containers/DialogsRoot';
 import MainPage from '-/containers/MainPage';
 import TsAuth from '-/containers/TsAuth';
+import { BookmarksContextProvider } from '-/hooks/BookmarksContextProvider';
 import { BrowserHistoryContextProvider } from '-/hooks/BrowserHistoryContextProvider';
 import { ChatContextProvider } from '-/hooks/ChatProvider';
 import { CurrentLocationContextProvider } from '-/hooks/CurrentLocationContextProvider';
@@ -78,27 +79,27 @@ const DndWrapper: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <DndProvider backend={HTML5Backend}>{children}</DndProvider>
 );
 
-/* The stack of Pro-only feature providers (WorkSpaces removed from here). */
+/* The stack of Pro-only feature providers (WorkSpaces removed from here).
+ * Bookmarks are no longer here — the open-source `BookmarksContextProvider`
+ * wraps both branches below so the bookmark toggle works without Pro. */
 const ProFeatureStack: React.FC = () => (
-  <Pro.contextProviders.BookmarksContextProvider>
-    <Pro.contextProviders.KanBanImportDialogContextProvider>
-      <Pro.contextProviders.ThumbDialogContextProvider>
-        <Pro.contextProviders.BgndDialogContextProvider>
-          <Pro.contextProviders.AiTemplatesContextProvider>
-            <Pro.contextProviders.FileTemplatesContextProvider>
-              <Pro.contextProviders.WorkSpacesContextProvider>
-                <ChatContextProvider>
-                  <DialogsRoot>
-                    <MainPage />
-                  </DialogsRoot>
-                </ChatContextProvider>
-              </Pro.contextProviders.WorkSpacesContextProvider>
-            </Pro.contextProviders.FileTemplatesContextProvider>
-          </Pro.contextProviders.AiTemplatesContextProvider>
-        </Pro.contextProviders.BgndDialogContextProvider>
-      </Pro.contextProviders.ThumbDialogContextProvider>
-    </Pro.contextProviders.KanBanImportDialogContextProvider>
-  </Pro.contextProviders.BookmarksContextProvider>
+  <Pro.contextProviders.KanBanImportDialogContextProvider>
+    <Pro.contextProviders.ThumbDialogContextProvider>
+      <Pro.contextProviders.BgndDialogContextProvider>
+        <Pro.contextProviders.AiTemplatesContextProvider>
+          <Pro.contextProviders.FileTemplatesContextProvider>
+            <Pro.contextProviders.WorkSpacesContextProvider>
+              <ChatContextProvider>
+                <DialogsRoot>
+                  <MainPage />
+                </DialogsRoot>
+              </ChatContextProvider>
+            </Pro.contextProviders.WorkSpacesContextProvider>
+          </Pro.contextProviders.FileTemplatesContextProvider>
+        </Pro.contextProviders.AiTemplatesContextProvider>
+      </Pro.contextProviders.BgndDialogContextProvider>
+    </Pro.contextProviders.ThumbDialogContextProvider>
+  </Pro.contextProviders.KanBanImportDialogContextProvider>
 );
 
 /* Non-pro fallback content */
@@ -138,6 +139,7 @@ const SHARED_PROVIDERS = [
   FileUploadContextProvider,
   FileUploadDialogContextProvider,
   HistoryContextProvider,
+  BookmarksContextProvider,
 ] as React.ComponentType<any>[];
 
 export default function Root({ store, persistor }: RootType) {

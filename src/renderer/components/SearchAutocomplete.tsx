@@ -47,6 +47,7 @@ import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
 import { useEditedTagLibraryContext } from '-/hooks/useEditedTagLibraryContext';
 import { useHistoryContext } from '-/hooks/useHistoryContext';
+import { useBookmarksContext } from '-/hooks/BookmarksContextProvider';
 import { useLocationIndexContext } from '-/hooks/useLocationIndexContext';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { useSavedSearchesContext } from '-/hooks/useSavedSearchesContext';
@@ -110,9 +111,7 @@ function SearchAutocomplete(props: Props) {
   const { fileOpenHistory, fileEditHistory, folderOpenHistory, searchHistory } =
     useHistoryContext();
 
-  const bookmarksContext = Pro?.contextProviders?.BookmarksContext
-    ? useContext<TS.BookmarksContextData>(Pro.contextProviders.BookmarksContext)
-    : undefined;
+  const bookmarksContext = useBookmarksContext();
   const dispatch: AppDispatch = useDispatch();
   const maxSearchResults = useSelector(getMaxSearchResults);
   const showUnixHiddenEntries = useSelector(getShowUnixHiddenEntries);
@@ -639,8 +638,7 @@ function SearchAutocomplete(props: Props) {
     } else if (isAction(action, SearchActions.BOOK)) {
       if (currentOptions.current !== action) {
         currentOptions.current = action;
-        const bookmarks: Array<TS.BookmarkItem> =
-          Pro && bookmarksContext && bookmarksContext.bookmarks; //getBookmarks();
+        const bookmarks: Array<TS.BookmarkItem> = bookmarksContext.bookmarks;
 
         function getOptions(
           items: TS.BookmarkItem[],

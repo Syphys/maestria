@@ -30,6 +30,10 @@ import TsIconButton from '-/components/TsIconButton';
 import BookmarksMenu from '-/components/menus/BookmarksMenu';
 import HistoryMenu from '-/components/menus/HistoryMenu';
 import SearchMenu from '-/components/menus/SearchMenu';
+import {
+  BOOKMARKS_KEY,
+  useBookmarksContext,
+} from '-/hooks/BookmarksContextProvider';
 import { historyKeys } from '-/hooks/HistoryContextProvider';
 import { useHistoryContext } from '-/hooks/useHistoryContext';
 import { useSavedSearchesContext } from '-/hooks/useSavedSearchesContext';
@@ -76,11 +80,7 @@ function StoredSearches(props: Props) {
   const { openSaveSearchDialog } = useSearchQueryContext();
   const { delAllHistory, fileOpenHistory, fileEditHistory, folderOpenHistory } =
     useHistoryContext();
-  const bookmarksContext = Pro?.contextProviders?.BookmarksContext
-    ? useContext<TS.BookmarksContextData>(
-        Pro?.contextProviders?.BookmarksContext,
-      )
-    : undefined;
+  const bookmarksContext = useBookmarksContext();
   const [searchMenuAnchorEl, setSearchMenuAnchorEl] =
     useState<null | HTMLElement>(null);
   const [historyMenuAnchorEl, setHistoryMenuAnchorEl] =
@@ -124,10 +124,7 @@ function StoredSearches(props: Props) {
 
   const { reduceHeightBy } = props;
 
-  const bookmarkItems: Array<TS.BookmarkItem> =
-    Pro && bookmarksContext
-      ? bookmarksContext.bookmarks //getBookmarks()
-      : [];
+  const bookmarkItems: Array<TS.BookmarkItem> = bookmarksContext.bookmarks;
 
   const bookmarksAvailable = bookmarkItems && bookmarkItems.length > 0;
   const openedFilesAvailable = fileOpenHistory && fileOpenHistory.length > 0;
@@ -304,9 +301,9 @@ function StoredSearches(props: Props) {
             </Grid>
           )}
         </Grid>
-        {Pro && props.showBookmarks && (
+        {props.showBookmarks && (
           <RenderHistory
-            historyKey={Pro.keys.bookmarksKey}
+            historyKey={BOOKMARKS_KEY}
             items={bookmarkItems}
             update={forceUpdate}
           />
@@ -472,9 +469,7 @@ function StoredSearches(props: Props) {
           onClose={() => setBookmarksMenuAnchorEl(null)}
           refresh={() => forceUpdate()}
           clearAll={() => {
-            if (Pro && bookmarksContext) {
-              bookmarksContext.delAllBookmarks();
-            }
+            bookmarksContext.delAllBookmarks();
             forceUpdate();
           }}
         />

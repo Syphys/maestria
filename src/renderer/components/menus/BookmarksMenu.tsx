@@ -18,7 +18,6 @@
 
 import { DeleteIcon, ReloadIcon } from '-/components/CommonIcons';
 import TsMenuList from '-/components/TsMenuList';
-import { Pro } from '-/pro';
 import { Menu, MenuItem } from '@mui/material';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -38,7 +37,6 @@ function BookmarksMenu(props: Props) {
   const menuItems = [];
   menuItems.push(
     <MenuItem
-      disabled={!Pro}
       key="refreshBookmarks"
       data-tid="refreshBookmarksTID"
       onClick={() => {
@@ -54,7 +52,6 @@ function BookmarksMenu(props: Props) {
   );
   menuItems.push(
     <MenuItem
-      disabled={!Pro}
       key="clearBookmarksTID"
       data-tid="clearBookmarksTID"
       onClick={() => {

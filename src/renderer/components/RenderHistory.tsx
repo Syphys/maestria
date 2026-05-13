@@ -28,9 +28,12 @@ import {
 } from '-/components/CommonIcons';
 import TsButton from '-/components/TsButton';
 import TsIconButton from '-/components/TsIconButton';
+import {
+  BOOKMARKS_KEY,
+  useBookmarksContext,
+} from '-/hooks/BookmarksContextProvider';
 import { useBrowserHistoryContext } from '-/hooks/useBrowserHistoryContext';
 import { useHistoryContext } from '-/hooks/useHistoryContext';
-import { Pro } from '-/pro';
 import { dataTidFormat } from '-/services/test';
 import { createNewInstance } from '-/services/utils-io';
 import { TS } from '-/tagspaces.namespace';
@@ -44,7 +47,7 @@ import {
   extractDirectoryName,
   extractFileName,
 } from '@tagspaces/tagspaces-common/paths';
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TooltipTS from './Tooltip';
 import TsMenuList from './TsMenuList';
@@ -67,9 +70,7 @@ function RenderHistory({
   const { t } = useTranslation();
   const { openHistoryItem } = useBrowserHistoryContext();
   const { delHistory } = useHistoryContext();
-  const bookmarksContext = Pro?.contextProviders?.BookmarksContext
-    ? useContext<TS.BookmarksContextData>(Pro.contextProviders.BookmarksContext)
-    : undefined;
+  const bookmarksContext = useBookmarksContext();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedItem, setSelectedItem] = useState<
@@ -141,8 +142,8 @@ function RenderHistory({
       handleMenuClose();
       return;
     }
-    if (historyKey === Pro?.keys.bookmarksKey) {
-      bookmarksContext?.delBookmark(selectedItem.path);
+    if (historyKey === BOOKMARKS_KEY) {
+      bookmarksContext.delBookmark(selectedItem.path);
     } else {
       delHistory(historyKey, selectedItem.creationTimeStamp);
     }
@@ -201,7 +202,7 @@ function RenderHistory({
                   </span>
                 }
               >
-                {historyKey === Pro?.keys.bookmarksKey ? (
+                {historyKey === BOOKMARKS_KEY ? (
                   <EntryBookmarkIcon />
                 ) : (
                   <HistoryIcon />
