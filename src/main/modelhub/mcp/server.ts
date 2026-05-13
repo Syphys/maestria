@@ -26,6 +26,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { Server as HttpServer } from 'http';
+import { appendCallLog } from './logger';
 import { getTool, listTools, type McpCallContext } from './registry';
 import { getOrCreateToken } from './token';
 
@@ -102,15 +103,33 @@ function buildMcpServer(): McpServer {
     const ctx: McpCallContext = (extra as any)?._ctx ?? {
       callerLabel: 'via MCP',
     };
+    const args = req.params.arguments ?? {};
+    const startedAt = Date.now();
     try {
-      const result = await tool.handler(req.params.arguments ?? {}, ctx);
+      const result = await tool.handler(args, ctx);
+      void appendCallLog({
+        caller: ctx.callerLabel,
+        tool: name,
+        args,
+        durationMs: Date.now() - startedAt,
+        ok: true,
+      });
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       };
     } catch (e) {
+      const error = (e as Error).message ?? 'tool error';
+      void appendCallLog({
+        caller: ctx.callerLabel,
+        tool: name,
+        args,
+        durationMs: Date.now() - startedAt,
+        ok: false,
+        error,
+      });
       return {
         isError: true,
-        content: [{ type: 'text', text: (e as Error).message ?? 'tool error' }],
+        content: [{ type: 'text', text: error }],
       };
     }
   });
