@@ -15,5 +15,10 @@
 import './tools/models';
 
 export { start, stop, isRunning, getStatus } from './server';
-export { getOrCreateToken, regenerateToken } from './token';
+export {
+  getAutoStart,
+  getOrCreateToken,
+  regenerateToken,
+  setAutoStart,
+} from './token';
 export { listTools } from './registry';

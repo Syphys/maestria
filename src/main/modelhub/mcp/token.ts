@@ -1,14 +1,15 @@
 /**
- * Bearer token persistence for the MCP server.
+ * Bearer token + auto-start flag for the MCP server.
  *
- * Generated lazily on first use (`crypto.randomUUID()` without dashes for
- * a 32-char hex string). Stored in the Electron user-data dir as
- * `modelhub-mcp.json`. OS-level filesystem permissions are the only
- * gate — the token is a local-machine password, no cryptographic
+ * Token is generated lazily on first use (`crypto.randomUUID()` without
+ * dashes for a 32-char hex string). Stored in the Electron user-data
+ * dir as `modelhub-mcp.json`. OS-level filesystem permissions are the
+ * only gate — the token is a local-machine password, no cryptographic
  * properties beyond unpredictability.
  *
- * The Settings UI surfaces both copy + regenerate; regeneration
- * invalidates the previous token immediately (next request fails 401).
+ * The same file holds the `autoStart` flag (default false). When true,
+ * `registerModelhubEvents` starts the server at app boot; the toggle
+ * in Settings ▸ AI ▸ MCP Server writes it through here.
  */
 
 import { app } from 'electron';
@@ -22,6 +23,8 @@ interface TokenFile {
   version: 1;
   token: string;
   createdAt: string;
+  /** Auto-start the MCP server at app boot. Default false. */
+  autoStart?: boolean;
 }
 
 function getFilePath(): string {
@@ -67,11 +70,36 @@ export async function getOrCreateToken(): Promise<string> {
 }
 
 export async function regenerateToken(): Promise<string> {
+  const prev = await readFile();
   const fresh: TokenFile = {
     version: 1,
     token: makeToken(),
     createdAt: new Date().toISOString(),
+    autoStart: prev?.autoStart,
   };
   await writeFile(fresh);
   return fresh.token;
+}
+
+export async function getAutoStart(): Promise<boolean> {
+  const f = await readFile();
+  return !!f?.autoStart;
+}
+
+export async function setAutoStart(enabled: boolean): Promise<void> {
+  const prev = await readFile();
+  if (prev) {
+    await writeFile({ ...prev, autoStart: enabled });
+    return;
+  }
+  // No file yet → create one with a fresh token + the flag, so the
+  // user doesn't lose their toggle state if they enable BEFORE first
+  // start (e.g. they enable autostart in Settings, then quit before
+  // ever opening the server).
+  await writeFile({
+    version: 1,
+    token: makeToken(),
+    createdAt: new Date().toISOString(),
+    autoStart: enabled,
+  });
 }

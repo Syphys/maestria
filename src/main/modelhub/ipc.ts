@@ -40,11 +40,13 @@ import { openChatFor } from './runners/openChat';
 import { resolveCanonicalShardPath, sumShardBytes } from './shardFs';
 import { listModelHostingFolders } from './listModelHostingFolders';
 import {
+  getAutoStart as mcpGetAutoStart,
   getOrCreateToken as mcpGetOrCreateToken,
   getStatus as mcpGetStatus,
   isRunning as mcpIsRunning,
   listTools as mcpListTools,
   regenerateToken as mcpRegenerateToken,
+  setAutoStart as mcpSetAutoStart,
   start as mcpStart,
   stop as mcpStop,
 } from './mcp';
@@ -403,6 +405,50 @@ export default function registerModelhubEvents(): void {
       })),
     };
   });
+
+  ipcMain.handle(MODELHUB_IPC.mcpGetAutoStart, async () => {
+    try {
+      const autoStart = await mcpGetAutoStart();
+      return { ok: true, autoStart };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(
+    MODELHUB_IPC.mcpSetAutoStart,
+    async (_event, enabled: boolean) => {
+      try {
+        await mcpSetAutoStart(!!enabled);
+        // If we just flipped it on AND nothing is bound yet, start the
+        // server now so the user can use it immediately without
+        // restarting the app. Flipping it off does NOT stop a running
+        // server — the user can press Stop in the UI if they want.
+        if (enabled && !mcpIsRunning()) {
+          await mcpStart();
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  // Auto-start the MCP server if the user enabled it last session.
+  // Fire-and-forget so a binding failure (port busy, etc.) doesn't
+  // wedge the modelhub IPC bootstrap.
+  (async () => {
+    try {
+      if (await mcpGetAutoStart()) {
+        await mcpStart();
+      }
+    } catch (e) {
+      console.warn(
+        '[modelhub-mcp] auto-start failed:',
+        (e as Error).message ?? e,
+      );
+    }
+  })();
 
   // Don't leave runner child processes — or the MCP listener — orphaned
   // when the app quits.

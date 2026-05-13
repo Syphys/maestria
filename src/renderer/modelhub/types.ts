@@ -317,6 +317,10 @@ export const MODELHUB_IPC = {
   mcpRegenerateToken: 'modelhub:mcpRegenerateToken',
   /** Lists registered tool names + descriptions (for the Settings UI). */
   mcpListTools: 'modelhub:mcpListTools',
+  /** Reads the persisted "start at app boot" flag. */
+  mcpGetAutoStart: 'modelhub:mcpGetAutoStart',
+  /** Persists the flag; if turning on while server is idle, starts it. */
+  mcpSetAutoStart: 'modelhub:mcpSetAutoStart',
 } as const;
 
 /** Snapshot of the MCP server state for the renderer. */

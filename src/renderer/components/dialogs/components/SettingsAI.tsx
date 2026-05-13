@@ -40,6 +40,7 @@ import {
   getAIProviders,
   getDefaultAIProvider,
 } from '-/reducers/settings';
+import { buildClaudeDesktopConfig, useMcp } from '-/modelhub/mcp/useMcp';
 import { openURLExternally } from '-/services/utils-io';
 import { TS } from '-/tagspaces.namespace';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
@@ -76,6 +77,18 @@ function SettingsAI(props: Props) {
   const { t } = useTranslation();
   const { closeSettings } = props;
   const { changeCurrentModel, checkProviderAlive } = useChatContext();
+  const mcp = useMcp();
+  const [copyStatus, setCopyStatus] = React.useState<string | undefined>();
+
+  const copy = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatus(`${label} copied`);
+      setTimeout(() => setCopyStatus(undefined), 2000);
+    } catch (e) {
+      setCopyStatus(`Copy failed: ${(e as Error).message}`);
+    }
+  };
   const aiDefaultProvider: AIProvider = useSelector(getDefaultAIProvider);
   const aiProviders: AIProvider[] = useSelector(getAIProviders);
   //const ollamaAlive = useRef<boolean | null>(null);
@@ -524,6 +537,190 @@ function SettingsAI(props: Props) {
           </AccordionDetails>
         </Accordion>
       ))}
+      <Accordion defaultExpanded>
+        <AccordionSummary
+          expandIcon={<ExpandIcon />}
+          aria-controls="modelhub-mcp"
+          id="modelhub-mcp-header"
+          data-tid="modelhubMcpTID"
+        >
+          <Box sx={{ display: 'block' }}>
+            <Typography>Models Hub — MCP Server</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Exposes your local model library to external MCP clients (Claude
+              Desktop, Cursor, deer-flow, scripts). HTTP+SSE on{' '}
+              <code>127.0.0.1:41541</code>, Bearer-authed, opt-in.
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <FormGroup>
+            <FormControlLabel
+              labelPlacement="start"
+              sx={{ justifyContent: 'space-between', marginLeft: 0 }}
+              control={
+                <Switch
+                  data-tid="mcpAutoStartTID"
+                  checked={mcp.autoStart}
+                  onChange={(e) => void mcp.setAutoStart(e.target.checked)}
+                />
+              }
+              label="Start the MCP server at app boot"
+            />
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, mb: 1 }}>
+              {mcp.status.running ? (
+                <>
+                  <FiberManualRecordIcon
+                    sx={{ color: 'green', fontSize: 19, mt: 0.4 }}
+                  />
+                  <Typography variant="caption" sx={{ mt: 0.5 }}>
+                    Listening ({mcp.status.sessions}{' '}
+                    {mcp.status.sessions === 1 ? 'session' : 'sessions'})
+                  </Typography>
+                  <TsButton
+                    variant="text"
+                    color="warning"
+                    onClick={() => void mcp.stop()}
+                    data-tid="mcpStopTID"
+                  >
+                    Stop
+                  </TsButton>
+                </>
+              ) : (
+                <>
+                  <FiberManualRecordIcon
+                    sx={{ color: 'gray', fontSize: 19, mt: 0.4 }}
+                  />
+                  <Typography variant="caption" sx={{ mt: 0.5 }}>
+                    Stopped
+                  </Typography>
+                  <TsButton
+                    variant="text"
+                    onClick={() => void mcp.start()}
+                    data-tid="mcpStartTID"
+                  >
+                    Start now
+                  </TsButton>
+                </>
+              )}
+            </Box>
+            <TsTextField
+              fullWidth
+              label="MCP URL"
+              data-tid="mcpUrlTID"
+              value={
+                mcp.status.running
+                  ? mcp.status.url
+                  : 'http://127.0.0.1:41541/sse (server stopped)'
+              }
+              retrieveValue={() =>
+                mcp.status.running
+                  ? mcp.status.url
+                  : 'http://127.0.0.1:41541/sse'
+              }
+              slotProps={{
+                input: {
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <TsButton
+                        variant="text"
+                        onClick={() =>
+                          copy(
+                            mcp.status.running
+                              ? mcp.status.url
+                              : 'http://127.0.0.1:41541/sse',
+                            'URL',
+                          )
+                        }
+                        data-tid="mcpCopyUrlTID"
+                      >
+                        {t('core:copy')}
+                      </TsButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <TsTextField
+              fullWidth
+              label="Bearer token"
+              data-tid="mcpTokenTID"
+              value={mcp.token}
+              retrieveValue={() => mcp.token}
+              slotProps={{
+                input: {
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <TsButton
+                        variant="text"
+                        onClick={() => copy(mcp.token, 'Token')}
+                        data-tid="mcpCopyTokenTID"
+                      >
+                        {t('core:copy')}
+                      </TsButton>
+                      <TsButton
+                        variant="text"
+                        color="warning"
+                        onClick={() => void mcp.regenerate()}
+                        data-tid="mcpRegenerateTokenTID"
+                        tooltip="Generate a new token. The previous one is invalidated immediately — any connected client will hit 401 on the next call."
+                      >
+                        {t('core:resetBtn')}
+                      </TsButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <TsButton
+              sx={{ mt: 1 }}
+              onClick={() =>
+                copy(
+                  buildClaudeDesktopConfig(
+                    mcp.status.running
+                      ? mcp.status.url
+                      : 'http://127.0.0.1:41541/sse',
+                    mcp.token,
+                  ),
+                  'Claude Desktop config',
+                )
+              }
+              data-tid="mcpCopyClaudeConfigTID"
+              startIcon={<CreateFileIcon />}
+            >
+              Copy Claude Desktop config
+            </TsButton>
+            {copyStatus && (
+              <Typography
+                variant="caption"
+                color="success.main"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
+                {copyStatus}
+              </Typography>
+            )}
+            {mcp.error && (
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
+                {mcp.error}
+              </Typography>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 1, display: 'block' }}
+            >
+              {mcp.tools.length} tool{mcp.tools.length === 1 ? '' : 's'}{' '}
+              exposed: {mcp.tools.map((tool) => tool.name).join(', ')}
+            </Typography>
+          </FormGroup>
+        </AccordionDetails>
+      </Accordion>
       {Pro && aiTemplatesContext && (
         <Accordion>
           <AccordionSummary
