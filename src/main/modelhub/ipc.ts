@@ -39,6 +39,15 @@ import {
 import { openChatFor } from './runners/openChat';
 import { resolveCanonicalShardPath, sumShardBytes } from './shardFs';
 import { listModelHostingFolders } from './listModelHostingFolders';
+import {
+  getOrCreateToken as mcpGetOrCreateToken,
+  getStatus as mcpGetStatus,
+  isRunning as mcpIsRunning,
+  listTools as mcpListTools,
+  regenerateToken as mcpRegenerateToken,
+  start as mcpStart,
+  stop as mcpStop,
+} from './mcp';
 
 interface RunState {
   cancelToken: { cancelled: boolean };
@@ -343,8 +352,65 @@ export default function registerModelhubEvents(): void {
     return openChatFor(entry);
   });
 
-  // Don't leave runner child processes orphaned when the app quits.
+  // ---- MCP server -----------------------------------------------------
+
+  ipcMain.handle(MODELHUB_IPC.mcpStart, async () => {
+    try {
+      const r = await mcpStart();
+      return { ok: true, ...r };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpStop, async () => {
+    try {
+      await mcpStop();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpStatus, async () => {
+    return { ok: true, status: mcpGetStatus() };
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpGetToken, async () => {
+    try {
+      const token = await mcpGetOrCreateToken();
+      return { ok: true, token };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpRegenerateToken, async () => {
+    try {
+      const token = await mcpRegenerateToken();
+      return { ok: true, token };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpListTools, async () => {
+    return {
+      ok: true,
+      tools: mcpListTools().map((t) => ({
+        name: t.name,
+        description: t.description,
+      })),
+    };
+  });
+
+  // Don't leave runner child processes — or the MCP listener — orphaned
+  // when the app quits.
   app.on('before-quit', () => {
     killAll();
+    if (mcpIsRunning()) {
+      // Best-effort, fire-and-forget — Electron doesn't await before-quit.
+      void mcpStop();
+    }
   });
 }

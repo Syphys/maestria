@@ -303,4 +303,29 @@ export const MODELHUB_IPC = {
    * (`shell.openExternal`).
    */
   runnersOpenChat: 'modelhub:runnersOpenChat',
+
+  // ---- MCP server (Phase 4.1) ------------------------------------------
+  /** Starts the MCP HTTP+SSE server. Returns `{ url, token }`. */
+  mcpStart: 'modelhub:mcpStart',
+  /** Stops the MCP server. */
+  mcpStop: 'modelhub:mcpStop',
+  /** Returns running state + URL + session count. */
+  mcpStatus: 'modelhub:mcpStatus',
+  /** Returns the current Bearer token (creates one if missing). */
+  mcpGetToken: 'modelhub:mcpGetToken',
+  /** Generates a fresh token, invalidating the previous one. */
+  mcpRegenerateToken: 'modelhub:mcpRegenerateToken',
+  /** Lists registered tool names + descriptions (for the Settings UI). */
+  mcpListTools: 'modelhub:mcpListTools',
 } as const;
+
+/** Snapshot of the MCP server state for the renderer. */
+export type McpStatus =
+  | { running: false }
+  | { running: true; url: string; port: number; sessions: number };
+
+/** Single tool exposure as visible from the renderer (no handler ref). */
+export interface McpToolInfo {
+  name: string;
+  description: string;
+}
