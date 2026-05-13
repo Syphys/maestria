@@ -24,51 +24,57 @@ export interface BuildCommandResult {
   warnings?: string[];
 }
 
+/**
+ * Single-GPU pinning args. Without them llama.cpp's default `--split-mode
+ * layer` spreads tensors across every visible adapter, which crashes on
+ * heterogeneous boxes (e.g. AMD dGPU + iGPU compiled only for the dGPU's
+ * gfx target) with "invalid kernel file", and triggers the
+ * GGML_SCHED_MAX_SPLIT_INPUTS=10 assert in ik_llama when FA is on.
+ * `--tensor-split 1,0,0,…` is the unambiguous knob — surplus values are
+ * harmless on systems with fewer GPUs. Configurable per-runner policy
+ * lands with 4.0.16.
+ */
+const SINGLE_GPU_ARGS = [
+  '--tensor-split',
+  '1,0,0,0,0,0,0,0',
+  '--split-mode',
+  'none',
+  '--main-gpu',
+  '0',
+];
+
 export function buildCommand(
   runner: RunnerConfig,
   modelPath: string,
   params: RunParams,
 ): BuildCommandResult {
   const args: string[] = ['-m', modelPath];
-  if (typeof params.ngl === 'number') {
-    args.push('--n-gpu-layers', String(params.ngl));
-    // Force every offloaded layer onto the main GPU when we offload to
-    // GPU at all. Without this:
-    //   - Recent upstream llama.cpp crashes with "invalid kernel file"
-    //     when it tries to dispatch ops on an iGPU whose architecture
-    //     isn't in the build.
-    //   - ik_llama.cpp's `--split-mode none` only controls graph
-    //     scheduling, NOT layer-to-device assignment — it still spreads
-    //     layers across every visible adapter. We've observed the
-    //     resulting cross-GPU graph trigger the
-    //     GGML_SCHED_MAX_SPLIT_INPUTS=10 assert when flash_attn is on.
-    //
-    // `--tensor-split` is the unambiguous knob: 1,0,0,… forces 100 % of
-    // the tensors onto device 0. Surplus values are ignored on systems
-    // with fewer GPUs. `--split-mode none --main-gpu 0` is kept as
-    // belt-and-suspenders for upstream builds that honour them.
-    //
-    // Configurable per-runner policy lands with 4.0.16 (Settings →
-    // Hardware → GPU policy).
-    if (params.ngl > 0) {
-      args.push(
-        '--tensor-split',
-        '1,0,0,0,0,0,0,0',
-        '--split-mode',
-        'none',
-        '--main-gpu',
-        '0',
-      );
+
+  // --fit on tells llama-server to size ngl / ctx / batch-size itself
+  // from free VRAM at boot. It only fills in UNSET memory args, so when
+  // fit is on we must NOT emit --n-gpu-layers / -c / -b — sending them
+  // explicitly would nullify the fit pass on those fields. Threads,
+  // flash-attn, mlock, host, port are orthogonal and stay.
+  const fitOn = params.fit === true;
+  if (fitOn) {
+    args.push('--fit', 'on');
+    args.push(...SINGLE_GPU_ARGS);
+  } else {
+    if (typeof params.ngl === 'number') {
+      args.push('--n-gpu-layers', String(params.ngl));
+      if (params.ngl > 0) {
+        args.push(...SINGLE_GPU_ARGS);
+      }
     }
-  }
-  if (typeof params.ctx === 'number') {
-    args.push('-c', String(params.ctx));
+    if (typeof params.ctx === 'number') {
+      args.push('-c', String(params.ctx));
+    }
+    if (typeof params.batchSize === 'number') {
+      args.push('-b', String(params.batchSize));
+    }
   }
   if (typeof params.threads === 'number') {
     args.push('-t', String(params.threads));
-  }
-  if (typeof params.batchSize === 'number') {
-    args.push('-b', String(params.batchSize));
   }
   if (params.flashAttn) {
     // Recent llama.cpp builds (late 2025+) made `--flash-attn` a

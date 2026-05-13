@@ -19,7 +19,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Button,
-  ButtonGroup,
   Checkbox,
   CircularProgress,
   IconButton,
@@ -51,15 +50,28 @@ interface FieldDef {
   type: 'number' | 'boolean';
   min?: number;
   max?: number;
+  /**
+   * When true, this row is disabled while `fit` is on — llama-server
+   * computes the value itself at boot from free VRAM and ignores any
+   * explicit override. Toggling fit off re-enables the row.
+   */
+  managedByFit?: boolean;
 }
 
 const FIELDS: FieldDef[] = [
+  {
+    key: 'fit',
+    label: 'Auto-fit (--fit on)',
+    help: 'Let llama-server size GPU layers / context / batch-size itself from free VRAM at boot. More accurate than our heuristics for MoE and exotic-quant models, at the cost of 1-3 s extra startup. Uncheck to edit those fields manually.',
+    type: 'boolean',
+  },
   {
     key: 'ngl',
     label: 'GPU layers (-ngl)',
     help: 'How many model layers to offload to GPU. -1 = all, 0 = pure CPU.',
     type: 'number',
     min: -1,
+    managedByFit: true,
   },
   {
     key: 'ctx',
@@ -67,18 +79,20 @@ const FIELDS: FieldDef[] = [
     help: 'Max prompt + response tokens. Larger = more KV cache memory.',
     type: 'number',
     min: 128,
-  },
-  {
-    key: 'threads',
-    label: 'Threads (-t)',
-    help: 'CPU worker threads. ≈ physical cores − 1 for best throughput.',
-    type: 'number',
-    min: 1,
+    managedByFit: true,
   },
   {
     key: 'batchSize',
     label: 'Batch size (-b)',
     help: 'Logical prompt-processing batch. Bigger benefits GPU runs, hurts CPU.',
+    type: 'number',
+    min: 1,
+    managedByFit: true,
+  },
+  {
+    key: 'threads',
+    label: 'Threads (-t)',
+    help: 'CPU worker threads. ≈ physical cores − 1 for best throughput.',
     type: 'number',
     min: 1,
   },
@@ -333,6 +347,10 @@ export default function RunParamsEditor({
               const userVal = user[f.key];
               const eff = effective[f.key];
               const isOverridden = userVal !== undefined;
+              // `fit` on → llama-server picks ngl/ctx/batchSize itself.
+              // Disable those rows so the user can't tune values that
+              // the runner will ignore anyway.
+              const disabled = !!f.managedByFit && effective.fit === true;
               return (
                 <ParamRow
                   key={String(f.key)}
@@ -340,6 +358,7 @@ export default function RunParamsEditor({
                   est={est}
                   effective={eff}
                   isOverridden={isOverridden}
+                  disabled={disabled}
                   onChange={(v) => setField(f.key, v)}
                   onReset={() => resetField(f.key)}
                 />
@@ -389,6 +408,8 @@ interface ParamRowProps {
   est: unknown;
   effective: unknown;
   isOverridden: boolean;
+  /** Greyed out + non-editable — used when --fit on subsumes this field. */
+  disabled?: boolean;
   onChange: (v: number | boolean | undefined) => void;
   onReset: () => void;
 }
@@ -398,6 +419,7 @@ function ParamRow({
   est,
   effective,
   isOverridden,
+  disabled,
   onChange,
   onReset,
 }: ParamRowProps): JSX.Element {
@@ -406,7 +428,11 @@ function ParamRow({
       <Tooltip title={field.help} placement="left">
         <Typography
           variant="body2"
-          sx={{ fontSize: '0.85em', cursor: 'help', color: 'text.primary' }}
+          sx={{
+            fontSize: '0.85em',
+            cursor: 'help',
+            color: disabled ? 'text.disabled' : 'text.primary',
+          }}
         >
           {field.label}
         </Typography>
@@ -422,6 +448,7 @@ function ParamRow({
         <TextField
           size="small"
           type="number"
+          disabled={disabled}
           value={
             typeof effective === 'number' && Number.isFinite(effective)
               ? effective
@@ -451,13 +478,14 @@ function ParamRow({
         <Box>
           <Checkbox
             checked={!!effective}
+            disabled={disabled}
             onChange={(e) => onChange(e.target.checked)}
             size="small"
             sx={{ p: 0.25 }}
           />
         </Box>
       )}
-      {isOverridden ? (
+      {isOverridden && !disabled ? (
         <Tooltip title="Reset to estimated">
           <IconButton size="small" onClick={onReset} sx={{ p: 0.25 }}>
             <RestartAltIcon sx={{ fontSize: 16 }} />

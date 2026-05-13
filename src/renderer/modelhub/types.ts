@@ -192,6 +192,16 @@ export interface RunParams {
   flashAttn?: boolean;
   /** Server bind port. */
   port?: number;
+  /**
+   * When true, delegates ngl / ctx / batchSize sizing to llama.cpp's
+   * built-in `--fit on` pass — llama-server inspects free VRAM at boot
+   * and fills in those args itself. More accurate for MoE / tied-weight /
+   * exotic-quant models where our cost-per-layer heuristic underestimates,
+   * at the cost of 1-3 s of extra boot time. When false (or undefined on
+   * legacy sidecars) the explicit ngl / ctx / batchSize above are sent
+   * verbatim — and the editor's manual rows become active.
+   */
+  fit?: boolean;
   /** Free-form notes the auto-tune attached for the user (why these values). */
   rationale?: string[];
 }

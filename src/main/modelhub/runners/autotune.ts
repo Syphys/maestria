@@ -160,6 +160,13 @@ export function autotune(input: AutotuneInput): RunParams {
     (input.hardware?.ramBytes ?? 0) > modelBytes(input.header) + 4 * GB;
   if (mlock) rationale.push('mlock: on (RAM ≥ weights + 4 GB)');
 
+  // Default to llama.cpp's built-in `--fit on` autosizing. It supersedes
+  // the ngl / ctx / batchSize numbers we just computed (those become
+  // hints the user can fall back to by toggling fit off in the editor).
+  // More accurate than our heuristic for MoE / tied-weight / exotic-quant
+  // shapes our cost-per-layer estimate gets wrong.
+  rationale.push('fit: on (llama-server sizes ngl/ctx/batch at boot)');
+
   return {
     ngl,
     ctx,
@@ -168,6 +175,7 @@ export function autotune(input: AutotuneInput): RunParams {
     mlock,
     flashAttn,
     port: input.port ?? 8080,
+    fit: true,
     rationale,
   };
 }
