@@ -59,6 +59,45 @@ export async function loadSidecar(filePath: string): Promise<SidecarPayload> {
   return readSidecarJson(sidecarPathFor(filePath));
 }
 
+/**
+ * Shallow-merge a patch into the sidecar at any top-level field
+ * (description, tags, color, …). Used by the MCP `tags.*` / `description.*`
+ * tools; for the `modelMeta` block specifically prefer `patchModelMeta`
+ * which knows how to merge nested fields.
+ *
+ * Honours `skipWrite` (read-only locations) and the EROFS/EACCES/EPERM
+ * filesystem-says-no fallback the same way as `patchModelMeta`.
+ */
+export async function patchSidecar(
+  filePath: string,
+  patch: Record<string, unknown>,
+  options: { skipWrite?: boolean } = {},
+): Promise<{ written: boolean; sidecarPath: string }> {
+  const metaPath = sidecarPathFor(filePath);
+  const existing = await readSidecarJson(metaPath);
+  const merged: SidecarPayload = { ...existing, ...patch };
+
+  if (options.skipWrite) {
+    return { written: false, sidecarPath: metaPath };
+  }
+
+  try {
+    await ensureMetaDir(metaPath);
+    await fs.promises.writeFile(
+      metaPath,
+      JSON.stringify(merged, null, 2),
+      'utf-8',
+    );
+    return { written: true, sidecarPath: metaPath };
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'EROFS' || code === 'EACCES' || code === 'EPERM') {
+      return { written: false, sidecarPath: metaPath };
+    }
+    throw e;
+  }
+}
+
 /** Returns just the `modelMeta` block of the sidecar, if present. */
 export async function loadModelMeta(
   filePath: string,

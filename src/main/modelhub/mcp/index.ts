@@ -13,6 +13,10 @@
 
 // Side-effect imports — each module self-registers its tools.
 import './tools/models';
+import './tools/tags';
+import './tools/description';
+import './tools/hf';
+import './tools/hardware';
 
 export { start, stop, isRunning, getStatus } from './server';
 export {
