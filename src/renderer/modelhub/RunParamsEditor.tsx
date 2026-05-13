@@ -30,6 +30,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { FitProbeResult, RunParams } from './types';
@@ -150,6 +151,28 @@ function formatVal(v: unknown): string {
   if (typeof v === 'boolean') return v ? 'on' : 'off';
   return String(v);
 }
+
+/**
+ * Fields that `llama-fit-params --fit on` can suggest values for.
+ * When Auto-fit is off, these three rows are pulled into a dedicated
+ * sub-box so the user sees at a glance which fields the "Recompute
+ * optimal parameters" button touches.
+ */
+const PROBE_KEYS = new Set<keyof RunParams>(['ngl', 'ctx', 'batchSize']);
+
+/**
+ * Common grid template for the params table — reused for the outer
+ * table and the nested probe sub-box so column widths line up visually.
+ */
+const PARAM_GRID_SX = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(120px,1.4fr) minmax(80px,1fr) minmax(120px,1.4fr) auto',
+  columnGap: 1,
+  rowGap: 0.5,
+  alignItems: 'center',
+  fontSize: '0.85em',
+} as const;
 
 export default function RunParamsEditor({
   filePath,
@@ -568,62 +591,19 @@ export default function RunParamsEditor({
         </Typography>
       ) : (
         <>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns:
-                'minmax(120px,1.4fr) minmax(80px,1fr) minmax(120px,1.4fr) auto',
-              columnGap: 1,
-              rowGap: 0.5,
-              alignItems: 'center',
-              fontSize: '0.85em',
-            }}
-          >
-            {/* Header row */}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontWeight: 600 }}
-            >
-              {t('core:mhColParameter')}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontWeight: 600 }}
-            >
-              {t('core:mhColEstimated')}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontWeight: 600 }}
-            >
-              {t('core:mhColUsed')}
-            </Typography>
-            <Box />
-
-            {FIELDS.map((f) => {
+          {(() => {
+            const renderRow = (f: FieldDef) => {
               const est = estimatedForUI?.[f.key];
               const userVal = user[f.key];
               const eff = effective[f.key];
               const isOverridden = userVal !== undefined;
-              // `fit` on → llama-server picks ngl/ctx/batchSize itself.
-              // Disable those rows so the user can't tune values that
-              // the runner will ignore anyway.
               const disabled = !!f.managedByFit && effective.fit === true;
-              // When the probe is running and this is one of the fields
-              // it'll fill (ngl/ctx/batchSize), the est cell shows a
-              // spinner instead of the stale heuristic — keeps the user
-              // from acting on a number that's about to be replaced.
               const estProbing =
-                probing &&
-                probeApplies &&
-                (f.key === 'ngl' || f.key === 'ctx' || f.key === 'batchSize');
+                probing && probeApplies && PROBE_KEYS.has(f.key);
               const estFromProbe =
                 probeApplies &&
                 !!fitProbe?.resolved &&
-                (f.key === 'ngl' || f.key === 'ctx' || f.key === 'batchSize') &&
+                PROBE_KEYS.has(f.key) &&
                 fitProbe.resolved[f.key as 'ngl' | 'ctx' | 'batchSize'] !==
                   undefined;
               return (
@@ -640,23 +620,159 @@ export default function RunParamsEditor({
                   onReset={() => resetField(f.key)}
                 />
               );
-            })}
-          </Box>
+            };
 
-          {probeApplies && (
-            <FitProbeSummary
-              probe={fitProbe}
-              probing={probing}
-              error={probeError}
-              fresh={probeIsFresh}
-              runnerLabel={probeRunner?.label}
-              onRefresh={() => {
-                if (probeDebounceRef.current)
-                  clearTimeout(probeDebounceRef.current);
-                runProbe();
-              }}
-            />
-          )}
+            const fitField = FIELDS.find((f) => f.key === 'fit');
+            const probeFields = FIELDS.filter((f) => PROBE_KEYS.has(f.key));
+            const otherFields = FIELDS.filter(
+              (f) => f.key !== 'fit' && !PROBE_KEYS.has(f.key),
+            );
+
+            return (
+              <>
+                <Box sx={PARAM_GRID_SX}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {t('core:mhColParameter')}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {t('core:mhColEstimated')}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {t('core:mhColUsed')}
+                  </Typography>
+                  <Box />
+                  {fitField && renderRow(fitField)}
+                  {/*
+                   * Auto-fit on → those three rows are managed by llama-server
+                   * at boot. We render them inline (greyed via `disabled`) so
+                   * the user still sees what the runtime would pick. The
+                   * "Recalculer" sub-box only makes sense when fit is off.
+                   */}
+                  {effective.fit === true && probeFields.map(renderRow)}
+                </Box>
+
+                {effective.fit === false && (
+                  <Box
+                    sx={{
+                      mt: 1,
+                      p: 1.25,
+                      border: (theme) =>
+                        `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
+                      borderLeft: (theme) =>
+                        `3px solid ${theme.palette.primary.main}`,
+                      borderRadius: 1,
+                      bgcolor: (theme) =>
+                        alpha(
+                          theme.palette.primary.main,
+                          theme.palette.mode === 'dark' ? 0.1 : 0.05,
+                        ),
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      justifyContent="space-between"
+                      sx={{ mb: 0.75 }}
+                      flexWrap="wrap"
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={0.5}
+                        alignItems="baseline"
+                        sx={{ minWidth: 0, flexShrink: 1 }}
+                      >
+                        <Typography
+                          variant="caption"
+                          color="primary.main"
+                          sx={{ fontWeight: 700 }}
+                        >
+                          {t('core:mhProbeBoxTitle')}
+                        </Typography>
+                        {probeRunner?.label && (
+                          <Tooltip title={probeRunner.label} placement="top">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: 160,
+                                cursor: 'help',
+                              }}
+                            >
+                              · {probeRunner.label}
+                            </Typography>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                      <Tooltip
+                        title={
+                          probeIsFresh
+                            ? t('core:mhFitProbeFresh')
+                            : t('core:mhProbeRecomputeTooltip')
+                        }
+                      >
+                        <span>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={probing || !probeRunner}
+                            onClick={() => {
+                              if (probeDebounceRef.current)
+                                clearTimeout(probeDebounceRef.current);
+                              runProbe();
+                            }}
+                            startIcon={
+                              probing ? (
+                                <CircularProgress size={12} />
+                              ) : (
+                                <RefreshIcon sx={{ fontSize: 14 }} />
+                              )
+                            }
+                            sx={{
+                              minWidth: 0,
+                              px: 1,
+                              py: 0,
+                              fontSize: '0.7em',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {t('core:mhProbeRecompute')}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    </Stack>
+                    <Box sx={PARAM_GRID_SX}>{probeFields.map(renderRow)}</Box>
+                    <Box sx={{ mt: 0.5 }}>
+                      <FitProbeMemoryLine
+                        probe={fitProbe}
+                        probing={probing}
+                        error={probeError}
+                      />
+                    </Box>
+                  </Box>
+                )}
+
+                <Box sx={{ ...PARAM_GRID_SX, mt: 0.5 }}>
+                  {otherFields.map(renderRow)}
+                </Box>
+              </>
+            );
+          })()}
 
           <RationaleTooltip
             rationale={estimated?.rationale}
@@ -793,14 +909,10 @@ function ParamRow({
   );
 }
 
-interface FitProbeSummaryProps {
+interface FitProbeMemoryLineProps {
   probe?: FitProbeResult;
   probing: boolean;
   error?: string;
-  /** True when the cached probe matches the current runner — refresh is a no-op then. */
-  fresh: boolean;
-  runnerLabel?: string;
-  onRefresh: () => void;
 }
 
 function formatMiB(mib: number): string {
@@ -809,20 +921,16 @@ function formatMiB(mib: number): string {
 }
 
 /**
- * Single-line memory summary below the params grid:
- *  "Memory: 13.2 GiB GPU / 0.2 GiB RAM (llama-fit-params, llama.cpp) [↻]"
- * Hover surfaces the device-by-device breakdown. Replaces the bloated
- * panel that confused the user — the breakdown matters for diagnostics
- * but doesn't deserve a whole encart in the main editor flow.
+ * Memory footer line rendered inside the nested probe sub-box:
+ *  "Memory: 13.2 GiB GPU / 0.2 GiB RAM" + hover for per-device detail.
+ * The "Recompute" button and runner label live in the sub-box header,
+ * so this component is just the static cost readout — no controls.
  */
-function FitProbeSummary({
+function FitProbeMemoryLine({
   probe,
   probing,
   error,
-  fresh,
-  runnerLabel,
-  onRefresh,
-}: FitProbeSummaryProps): JSX.Element {
+}: FitProbeMemoryLineProps): JSX.Element {
   const { t } = useTranslation();
   const summary = probe
     ? `${formatMiB(probe.totalVramMiB ?? 0)} ${t('core:mhFitProbeGpu')} / ${formatMiB(probe.hostMiB ?? 0)} ${t('core:mhFitProbeRam')}`
@@ -851,17 +959,21 @@ function FitProbeSummary({
   return (
     <Stack
       direction="row"
-      spacing={0.5}
+      spacing={0.75}
       alignItems="center"
-      sx={{ mt: 0.75, fontSize: '0.8em' }}
+      sx={{ fontSize: '0.85em' }}
     >
-      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+      <Typography
+        variant="caption"
+        color="text.primary"
+        sx={{ fontWeight: 600, fontSize: '0.85em' }}
+      >
         {t('core:mhFitProbeSummaryLabel')}
       </Typography>
       {probing && (
         <>
-          <CircularProgress size={10} />
-          <Typography variant="caption" color="text.secondary">
+          <CircularProgress size={12} />
+          <Typography variant="caption" color="text.primary">
             {t('core:mhFitProbing')}
           </Typography>
         </>
@@ -870,8 +982,8 @@ function FitProbeSummary({
         <Tooltip title={error} placement="top">
           <Typography
             variant="caption"
-            color="error"
-            sx={{ cursor: 'help', textDecoration: 'underline dotted' }}
+            color="error.main"
+            sx={{ cursor: 'help', fontWeight: 500, fontSize: '0.85em' }}
           >
             {t('core:mhFitProbeFailed')}
           </Typography>
@@ -881,10 +993,12 @@ function FitProbeSummary({
         <Tooltip title={detailTooltip ?? ''} placement="top">
           <Typography
             variant="caption"
+            color="primary.main"
             sx={{
               fontFamily: 'monospace',
               cursor: 'help',
-              textDecoration: 'underline dotted',
+              fontWeight: 600,
+              fontSize: '0.85em',
             }}
           >
             {summary}
@@ -892,30 +1006,14 @@ function FitProbeSummary({
         </Tooltip>
       )}
       {!probing && !error && !probe && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          color="text.primary"
+          sx={{ fontStyle: 'italic', opacity: 0.75, fontSize: '0.85em' }}
+        >
           {t('core:mhFitProbeWaiting')}
         </Typography>
       )}
-      {runnerLabel && (
-        <Typography variant="caption" color="text.secondary">
-          · {runnerLabel}
-        </Typography>
-      )}
-      <Box sx={{ flex: 1 }} />
-      <Tooltip
-        title={fresh ? t('core:mhFitProbeFresh') : t('core:mhFitProbeRefresh')}
-      >
-        <span>
-          <IconButton
-            size="small"
-            onClick={onRefresh}
-            disabled={probing}
-            sx={{ p: 0.25 }}
-          >
-            <RefreshIcon sx={{ fontSize: 14 }} />
-          </IconButton>
-        </span>
-      </Tooltip>
     </Stack>
   );
 }

@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -57,6 +58,7 @@ const initial: BulkUiState = {
 };
 
 export default function ModelhubGlobalStatus(): JSX.Element | null {
+  const { t } = useTranslation();
   const { currentLocation } = useCurrentLocationContext();
   const { createLocationIndex } = useLocationIndexContext();
   const { tagGroups, setTagGroups, reflectTagLibraryChanged } =
@@ -101,7 +103,7 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
         // Accumulate every auto-tag we see (from ok AND skipped — skipped
         // files surface their cached autoTags too in enrichFolder).
         if (e.lastAutoTags) {
-          for (const t of e.lastAutoTags) collectedTagsRef.current.add(t);
+          for (const tag of e.lastAutoTags) collectedTagsRef.current.add(tag);
         }
         setBulk((prev) =>
           prev.runId === e.runId
@@ -130,7 +132,11 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
         if (e.summary) {
           const s = e.summary;
           setInfo(
-            `Done — ${s.ok} enriched, ${s.skipped} skipped, ${s.errors} errors`,
+            t('core:mhBulkDone', {
+              ok: s.ok,
+              skipped: s.skipped,
+              errors: s.errors,
+            }),
           );
           // Force clear the renderer-side metadata cache so that opening a
           // file panel after a bulk run actually reads the new sidecar from disk.
@@ -157,20 +163,31 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
               .then(() => {
                 setReindexing(false);
                 setInfo(
-                  `Done — ${s.ok} enriched, ${s.skipped} skipped, ${s.errors} errors • search index refreshed`,
+                  t('core:mhBulkDoneWithReindex', {
+                    ok: s.ok,
+                    skipped: s.skipped,
+                    errors: s.errors,
+                  }),
                 );
               })
               .catch((e) => {
                 setReindexing(false);
-                setError(`Reindex failed: ${(e as Error).message}`);
+                setError(
+                  t('core:mhBulkReindexFailed', { err: (e as Error).message }),
+                );
               });
           }
         } else if (e.error) {
-          setError(`Bulk failed: ${e.error}`);
+          setError(t('core:mhBulkFailed', { err: e.error }));
         }
       },
     );
     return unsubscribe;
+    // `t` is i18next's stable function — same identity across renders, so
+    // we intentionally keep the dep list empty to avoid resubscribing
+    // every render. The eslint hooks rule won't catch this because t IS
+    // referenced inside; we suppress with the disable comment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onStart = useCallback(
@@ -315,33 +332,33 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <AutoAwesomeIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
           <Typography variant="caption" sx={{ fontWeight: 500 }}>
-            Models Hub
+            {t('core:mhBulkBarTitle')}
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.5}>
           {!bulk.active && (
             <>
-              <Tooltip title="Parse all model headers in this location (offline)">
+              <Tooltip title={t('core:mhBulkParseAllTooltip')}>
                 <Button
                   size="small"
                   variant="outlined"
                   sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.7em' }}
                   onClick={() => onStart('local')}
                 >
-                  Parse all
+                  {t('core:mhBulkParseAll')}
                 </Button>
               </Tooltip>
-              <Tooltip title="Enrich all models with Hugging Face data (network)">
+              <Tooltip title={t('core:mhBulkHfTooltip')}>
                 <Button
                   size="small"
                   variant="text"
                   sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.7em' }}
                   onClick={() => onStart('hf')}
                 >
-                  HF
+                  {t('core:mhBulkHf')}
                 </Button>
               </Tooltip>
-              <Tooltip title="Vider la description + les tags système pour tous les modèles (préserve les tags manuels)">
+              <Tooltip title={t('core:mhBulkClearTooltip')}>
                 <Button
                   size="small"
                   variant="text"
@@ -349,7 +366,7 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
                   sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.7em' }}
                   onClick={onClearAll}
                 >
-                  Clear
+                  {t('core:mhBulkClear')}
                 </Button>
               </Tooltip>
             </>
@@ -362,7 +379,7 @@ export default function ModelhubGlobalStatus(): JSX.Element | null {
               sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.7em' }}
               onClick={onCancel}
             >
-              Cancel
+              {t('core:mhBulkCancel')}
             </Button>
           )}
         </Stack>

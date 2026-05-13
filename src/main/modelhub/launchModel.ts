@@ -98,6 +98,7 @@ export async function launchModelByPath(
     url: built.url,
     runnerLabel: runner.label,
     modelName: fileBasename,
+    filePath: canonical,
     launchedBy: options.launchedBy,
   });
 

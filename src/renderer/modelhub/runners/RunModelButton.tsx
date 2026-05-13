@@ -1,21 +1,23 @@
 /**
  * Action button placed inside the per-file ModelHubPanel.
  *
- * Single entry point: **Run** launches the auto-picked runner with
- * auto-tuned params, then opens the runner's native web UI in the
- * user's default browser. No in-app chat surface — TagSpaces is a
- * model orchestrator: it spawns `llama-server`, hands back the URL,
- * and the browser conducts the conversation.
+ * "Run" always means "launch a new instance" — multiple instances of the
+ * same model can run side-by-side on auto-picked ports. A small `Badge`
+ * on the button shows how many instances of THIS file are currently
+ * alive; per-instance actions (Open in browser, Stop, view logs) live in
+ * the always-mounted `RunningModelsPanel` (Launch logs) below the
+ * sidebar — that's where multi-instance state is managed.
  *
- * External agents (deer-flow, aider, Claude Desktop, Cursor…) drive
- * the library via the MCP server (Phase 4.1) — they're not configured
- * or launched from inside TagSpaces.
+ * The split-button dropdown also exposes "Stop all running instances"
+ * as a one-shot convenience when the user just wants to clear out this
+ * model from the runtime.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
+  Badge,
   Button,
   ButtonGroup,
   CircularProgress,
@@ -29,17 +31,17 @@ import {
   Typography,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import OpenInBrowserIcon from '@mui/icons-material/OpenInBrowser';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StopIcon from '@mui/icons-material/Stop';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { RunParams } from '../types';
 import {
+  RunningEntry,
   autotuneFor,
   buildCommand,
   launchRunner,
-  openChatForPid,
+  listRunningModels,
   pickRunnerFor,
   stopRunner,
   useRunners,
@@ -56,13 +58,19 @@ interface Props {
   preferredRunnerId?: string;
 }
 
-interface Active {
-  pid: number;
-  url?: string;
-  runnerLabel: string;
-}
-
 type SnackSeverity = 'success' | 'error' | 'info' | 'warning';
+
+/** Poll cadence for the per-file running-instance badge. Mirrors the
+ * Launch logs panel cadence so both stay roughly in sync. */
+const RUNNING_POLL_MS = 3000;
+
+/** Match an entry to the editor's filePath. Tolerates differing
+ * path separators (Windows ↔ POSIX) by normalizing both sides. */
+function sameFile(a: string | undefined, b: string): boolean {
+  if (!a) return false;
+  const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+  return norm(a) === norm(b);
+}
 
 export default function RunModelButton({
   filePath,
@@ -73,15 +81,46 @@ export default function RunModelButton({
   const [setupOpen, setSetupOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [active, setActive] = useState<Active | undefined>();
+  const [running, setRunning] = useState<RunningEntry[]>([]);
   const [snack, setSnack] = useState<
     { msg: string; severity: SnackSeverity } | undefined
   >();
+  const aliveRef = useRef(true);
 
-  // Reset per-file state when navigating to another file.
+  // Poll running list so the badge tracks instances launched by THIS
+  // editor view, by other editor instances opened on the same file,
+  // or by an MCP client. listRunningModels is cheap (it just maps an
+  // in-memory map in the main process).
   useEffect(() => {
-    setActive(undefined);
-  }, [filePath]);
+    aliveRef.current = true;
+    const refresh = () => {
+      listRunningModels()
+        .then((r) => {
+          if (aliveRef.current) setRunning(r);
+        })
+        .catch(() => {
+          /* poll loop swallows errors */
+        });
+    };
+    refresh();
+    const id = setInterval(refresh, RUNNING_POLL_MS);
+    return () => {
+      aliveRef.current = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  /**
+   * Live instances of this exact file. `filePath` on RunningEntry is
+   * the canonical absolute path set by the main process at launch
+   * time, so a non-canonical shard opened in the editor matches
+   * launches that targeted the canonical sibling.
+   */
+  const liveForThisFile = useMemo(
+    () => running.filter((e) => !e.exited && sameFile(e.filePath, filePath)),
+    [running, filePath],
+  );
+  const runningCount = liveForThisFile.length;
 
   const runner = useMemo(
     () => pickRunnerFor(runners, filePath, { preferredRunnerId }),
@@ -93,11 +132,14 @@ export default function RunModelButton({
   > => {
     const r = await autotuneFor(filePath);
     if (!r.ok || !r.params) {
-      setSnack({ msg: r.error ?? 'autotune failed', severity: 'error' });
+      setSnack({
+        msg: r.error ?? t('core:mhAutotuneFailed'),
+        severity: 'error',
+      });
       return undefined;
     }
     return r.params;
-  }, [filePath]);
+  }, [filePath, t]);
 
   const onLaunchModel = useCallback(async () => {
     setMenuAnchor(null);
@@ -111,39 +153,25 @@ export default function RunModelButton({
       if (!params) return;
       const result = await launchRunner(runner, filePath, params);
       if (result.ok && result.pid) {
-        setActive({
-          pid: result.pid,
-          url: result.url,
-          runnerLabel: runner.label,
-        });
         setSnack({
-          msg: `Launched ${runner.label}${result.url ? ` on ${result.url}` : ` (pid ${result.pid})`}. Open in browser via 🌐.`,
+          msg: t('core:mhRunSnackLaunched', {
+            label: runner.label,
+            target: result.url
+              ? result.url
+              : t('core:mhRunSnackPid', { pid: result.pid }),
+          }),
           severity: 'success',
         });
       } else {
-        setSnack({ msg: result.error ?? 'launch failed', severity: 'error' });
+        setSnack({
+          msg: result.error ?? t('core:mhRunSnackFailed'),
+          severity: 'error',
+        });
       }
     } finally {
       setBusy(false);
     }
-  }, [runner, filePath, computeParams]);
-
-  const openModelInBrowser = useCallback(async (pid: number) => {
-    const r = await openChatForPid(pid);
-    if (!r.ok) {
-      setSnack({ msg: r.error ?? 'open failed', severity: 'error' });
-      return;
-    }
-    setSnack({ msg: 'Opened in your browser', severity: 'success' });
-  }, []);
-
-  const onPrimaryClick = useCallback(() => {
-    if (active) {
-      openModelInBrowser(active.pid);
-      return;
-    }
-    onLaunchModel();
-  }, [active, openModelInBrowser, onLaunchModel]);
+  }, [runner, filePath, computeParams, t]);
 
   const onCopy = useCallback(async () => {
     setMenuAnchor(null);
@@ -156,62 +184,91 @@ export default function RunModelButton({
     const built = await buildCommand(runner, filePath, params);
     if (!built.ok || !built.shell) {
       setSnack({
-        msg: built.error ?? 'failed to build command',
+        msg: built.error ?? t('core:mhRunSnackBuildFailed'),
         severity: 'error',
       });
       return;
     }
     try {
       await navigator.clipboard.writeText(built.shell);
-      setSnack({ msg: 'Command copied to clipboard', severity: 'success' });
+      setSnack({ msg: t('core:mhRunSnackCopied'), severity: 'success' });
     } catch (e) {
       setSnack({
-        msg: `Clipboard failed: ${(e as Error).message}`,
+        msg: t('core:mhRunSnackClipboardFailed', {
+          err: (e as Error).message,
+        }),
         severity: 'error',
       });
     }
-  }, [runner, filePath, computeParams]);
+  }, [runner, filePath, computeParams, t]);
 
-  const onStopModel = useCallback(async () => {
+  const onStopAll = useCallback(async () => {
     setMenuAnchor(null);
-    if (!active) return;
-    await stopRunner(active.pid);
-    setActive(undefined);
-    setSnack({ msg: 'Stopped model', severity: 'info' });
-  }, [active]);
-
-  // Visual: primary button label/icon depends on running state.
-  const primary = useMemo(() => {
-    if (active) {
-      return {
-        label: t('core:mhOpenInBrowser'),
-        icon: <OpenInBrowserIcon />,
-        tooltip: active.url
-          ? t('core:mhReopenTooltip', { url: active.url })
-          : t('core:mhRunningTooltip', { pid: active.pid }),
-      };
+    if (runningCount === 0) return;
+    setBusy(true);
+    try {
+      // Iterate over a copy — stopRunner mutates the underlying map.
+      for (const e of [...liveForThisFile]) {
+        try {
+          await stopRunner(e.pid);
+        } catch {
+          /* keep going — best-effort batch stop */
+        }
+      }
+      setSnack({
+        msg: t('core:mhRunSnackStoppedAll', { count: runningCount }),
+        severity: 'info',
+      });
+    } finally {
+      setBusy(false);
     }
+  }, [liveForThisFile, runningCount, t]);
+
+  const primary = useMemo(() => {
     if (!runner) {
       return {
         label: t('core:mhConfigureRunner'),
-        icon: busy ? <CircularProgress size={14} /> : <PlayArrowIcon />,
         tooltip: t('core:mhNoRunnerTooltip'),
       };
     }
     return {
       label: t('core:mhRun'),
-      icon: busy ? <CircularProgress size={14} /> : <PlayArrowIcon />,
-      tooltip: t('core:mhRunTooltip', { label: runner.label }),
+      tooltip:
+        runningCount > 0
+          ? t('core:mhRunTooltipMulti', {
+              count: runningCount,
+              label: runner.label,
+            })
+          : t('core:mhRunTooltip', { label: runner.label }),
     };
-  }, [active, runner, busy, t]);
+  }, [runner, runningCount, t]);
 
   return (
     <>
       <ButtonGroup size="small" variant="contained" disabled={busy}>
         <Tooltip title={primary.tooltip}>
-          <Button onClick={onPrimaryClick} startIcon={primary.icon}>
-            {primary.label}
-          </Button>
+          {/*
+           * Badge wraps the Run button only; the dropdown caret stays
+           * unbadged. `overlap="rectangular"` keeps the count nub in the
+           * top-right corner of the button. `invisible` short-circuits
+           * the dot when nothing's running so the button looks normal.
+           */}
+          <Badge
+            badgeContent={runningCount}
+            color="success"
+            invisible={runningCount === 0}
+            overlap="rectangular"
+            sx={{ '& .MuiBadge-badge': { right: 6, top: 6 } }}
+          >
+            <Button
+              onClick={onLaunchModel}
+              startIcon={
+                busy ? <CircularProgress size={14} /> : <PlayArrowIcon />
+              }
+            >
+              {primary.label}
+            </Button>
+          </Badge>
         </Tooltip>
         <Button onClick={(e) => setMenuAnchor(e.currentTarget)}>
           <ArrowDropDownIcon />
@@ -229,9 +286,13 @@ export default function RunModelButton({
         <MenuItem onClick={onLaunchModel}>
           <PlayArrowIcon fontSize="small" sx={{ mr: 1 }} />
           <Stack>
-            <Typography variant="body2">{t('core:mhRun')}</Typography>
+            <Typography variant="body2">
+              {runningCount > 0 ? t('core:mhRunAnother') : t('core:mhRun')}
+            </Typography>
             <Typography variant="caption" color="text.secondary">
-              {t('core:mhRunDescription')}
+              {runningCount > 0
+                ? t('core:mhRunAnotherDescription', { count: runningCount })
+                : t('core:mhRunDescription')}
             </Typography>
           </Stack>
         </MenuItem>
@@ -243,10 +304,10 @@ export default function RunModelButton({
           {t('core:mhCopyCommand')}
         </MenuItem>
 
-        {active && (
-          <MenuItem onClick={onStopModel}>
+        {runningCount > 0 && (
+          <MenuItem onClick={onStopAll}>
             <StopIcon fontSize="small" sx={{ mr: 1 }} />
-            {t('core:mhStopModel', { pid: active.pid })}
+            {t('core:mhStopAll', { count: runningCount })}
           </MenuItem>
         )}
 

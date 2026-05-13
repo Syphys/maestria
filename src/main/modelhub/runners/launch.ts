@@ -30,6 +30,13 @@ export interface ActiveEntry {
   /** Basename of the model file we launched. */
   modelName?: string;
   /**
+   * Canonical absolute path of the model file we launched. Surfaced to
+   * the renderer so the editor can count its own running instances by
+   * exact path match, and so the Launch logs panel can navigate back
+   * to the file's properties tab on click.
+   */
+  filePath?: string;
+  /**
    * Origin tag — undefined when the user clicked Run in the app,
    * "via MCP — deer-flow" / "via MCP — session …" when an MCP client
    * invoked `models.run`. Drives the provenance grouping in
@@ -64,6 +71,8 @@ export interface LaunchOptions {
   url?: string;
   runnerLabel?: string;
   modelName?: string;
+  /** Canonical absolute path of the launched model. See ActiveEntry.filePath. */
+  filePath?: string;
   /** See `ActiveEntry.launchedBy`. */
   launchedBy?: string;
 }
@@ -88,6 +97,7 @@ function recordSpawnFailure(
     url: options.url,
     runnerLabel: options.runnerLabel,
     modelName: options.modelName,
+    filePath: options.filePath,
     launchedBy: options.launchedBy,
     startedAt: new Date().toISOString(),
     log: [`[spawn failed] ${reason}`],
@@ -131,6 +141,7 @@ export function launchProcess(
       url: options.url,
       runnerLabel: options.runnerLabel,
       modelName: options.modelName,
+      filePath: options.filePath,
       launchedBy: options.launchedBy,
       startedAt: new Date().toISOString(),
       log: [],
@@ -254,6 +265,8 @@ export interface RunningSummary {
   url?: string;
   runnerLabel?: string;
   modelName?: string;
+  /** Canonical absolute model path — surfaces to the renderer. */
+  filePath?: string;
   launchedBy?: string;
   startedAt: string;
   /** Set when the process has terminated; absent while running. */
@@ -268,6 +281,7 @@ export function listRunning(): RunningSummary[] {
     url: p.url,
     runnerLabel: p.runnerLabel,
     modelName: p.modelName,
+    filePath: p.filePath,
     launchedBy: p.launchedBy,
     startedAt: p.startedAt,
     exited: p.exited,

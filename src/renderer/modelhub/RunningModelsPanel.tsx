@@ -15,18 +15,15 @@
  * expansion state is persisted to `localStorage` so the user's
  * preference survives across sessions.
  *
- * Polls `runnersRunning` every 3s; refreshes immediately after Stop /
- * Dismiss actions. Each row exposes:
- *   - the model name + status sub-label
- *   - a "view captured stdout/stderr" icon → opens a Dialog with the
- *     full ring buffer + the spawned command
- *   - per-row actions (Open in browser / Stop while alive, Dismiss
- *     when exited)
- *
- * Lives in `ModelhubGlobalStatus` (sidebar footer).
+ * Per-row UX:
+ *   - model name → clickable, navigates to the file's properties tab
+ *   - URL → clickable, opens the runner's web UI in the default browser
+ *     (replaces the earlier dedicated "Open in browser" icon button)
+ *   - icons: copy URL, view captured stdout/stderr, Stop / Dismiss
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -37,18 +34,19 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Link,
   Snackbar,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import StopIcon from '@mui/icons-material/Stop';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import {
   RunningEntry,
   dismissRunner,
@@ -74,16 +72,12 @@ interface LogDialogState {
 }
 
 export default function RunningModelsPanel(): JSX.Element {
+  const { t } = useTranslation();
+  const { openEntry } = useOpenedEntryContext();
   const [running, setRunning] = useState<RunningEntry[]>([]);
   const [snack, setSnack] = useState<SnackState | undefined>();
   const [busyPid, setBusyPid] = useState<number | undefined>();
   const [logDialog, setLogDialog] = useState<LogDialogState | undefined>();
-  /**
-   * Expanded by default = false. Restored from localStorage so the
-   * user's preference survives across sessions. We don't return null
-   * any more — the panel is always mounted so it's discoverable even
-   * before any launch.
-   */
   const [expanded, setExpanded] = useState<boolean>(() => {
     try {
       return localStorage.getItem(EXPANDED_STORAGE_KEY) === 'true';
@@ -129,36 +123,69 @@ export default function RunningModelsPanel(): JSX.Element {
       setBusyPid(entry.pid);
       try {
         await stopRunner(entry.pid);
+        const runner = entry.runnerLabel ?? 'llama-server';
         setSnack({
-          msg: `Stopped ${entry.runnerLabel ?? 'runner'}${entry.modelName ? ` — ${entry.modelName}` : ''}`,
+          msg: entry.modelName
+            ? t('core:mhRunLogStoppedWithModel', {
+                runner,
+                model: entry.modelName,
+              })
+            : t('core:mhRunLogStopped', { runner }),
           severity: 'info',
         });
         await refresh();
       } catch (e) {
         setSnack({
-          msg: `Stop failed: ${(e as Error).message}`,
+          msg: t('core:mhRunLogStopFailed', { err: (e as Error).message }),
           severity: 'error',
         });
       } finally {
         setBusyPid(undefined);
       }
     },
-    [refresh],
+    [refresh, t],
   );
 
-  const onOpenInBrowser = useCallback(async (entry: RunningEntry) => {
-    setBusyPid(entry.pid);
-    try {
-      const r = await openChatForPid(entry.pid);
-      if (!r.ok) {
-        setSnack({ msg: r.error ?? 'open failed', severity: 'error' });
-        return;
+  const onOpenUrl = useCallback(
+    async (entry: RunningEntry) => {
+      if (!entry.url) return;
+      setBusyPid(entry.pid);
+      try {
+        const r = await openChatForPid(entry.pid);
+        if (!r.ok) {
+          setSnack({
+            msg: r.error ?? t('core:mhRunLogOpenFailed'),
+            severity: 'error',
+          });
+          return;
+        }
+        setSnack({
+          msg: t('core:mhRunLogOpenedInBrowser'),
+          severity: 'success',
+        });
+      } finally {
+        setBusyPid(undefined);
       }
-      setSnack({ msg: 'Opened in your browser', severity: 'success' });
-    } finally {
-      setBusyPid(undefined);
-    }
-  }, []);
+    },
+    [t],
+  );
+
+  const onNavigateToFile = useCallback(
+    async (entry: RunningEntry) => {
+      if (!entry.filePath) return;
+      try {
+        await openEntry(entry.filePath);
+      } catch (e) {
+        setSnack({
+          msg: t('core:mhRunLogNavigateFailed', {
+            err: (e as Error).message,
+          }),
+          severity: 'error',
+        });
+      }
+    },
+    [openEntry, t],
+  );
 
   const onOpenLog = useCallback(async (entry: RunningEntry) => {
     setLogDialog({ entry, log: [], loading: true });
@@ -183,45 +210,55 @@ export default function RunningModelsPanel(): JSX.Element {
         await refresh();
       } catch (e) {
         setSnack({
-          msg: `Dismiss failed: ${(e as Error).message}`,
+          msg: t('core:mhRunLogDismissFailed', {
+            err: (e as Error).message,
+          }),
           severity: 'error',
         });
       } finally {
         setBusyPid(undefined);
       }
     },
-    [refresh],
+    [refresh, t],
   );
 
-  const onCopyText = useCallback(async (text: string, label: string) => {
-    if (!text) {
-      setSnack({ msg: `${label} is empty`, severity: 'info' });
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setSnack({ msg: `${label} copied`, severity: 'success' });
-    } catch (e) {
-      setSnack({
-        msg: `Clipboard failed: ${(e as Error).message}`,
-        severity: 'error',
-      });
-    }
-  }, []);
+  const onCopyText = useCallback(
+    async (text: string, label: string) => {
+      if (!text) {
+        setSnack({
+          msg: t('core:mhRunLogCopyEmpty', { label }),
+          severity: 'info',
+        });
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        setSnack({
+          msg: t('core:mhRunLogCopied', { label }),
+          severity: 'success',
+        });
+      } catch (e) {
+        setSnack({
+          msg: t('core:mhRunLogCopyFailed', { err: (e as Error).message }),
+          severity: 'error',
+        });
+      }
+    },
+    [t],
+  );
 
   const onCopyUrl = useCallback(
-    (entry: RunningEntry) => onCopyText(entry.url ?? '', 'URL'),
-    [onCopyText],
+    (entry: RunningEntry) => onCopyText(entry.url ?? '', t('core:mhRunLogUrl')),
+    [onCopyText, t],
   );
 
-  // Group by provenance: "Direct" bucket (user-initiated from the app)
-  // sorted first, then one bucket per unique `launchedBy` label
-  // (alphabetical for stability). Lets the user see at a glance which
-  // models a connected MCP client like deer-flow has booted.
   const groups: { label: string; entries: RunningEntry[] }[] = [];
   const directEntries = running.filter((e) => !e.launchedBy);
   if (directEntries.length > 0) {
-    groups.push({ label: 'Direct', entries: directEntries });
+    groups.push({
+      label: t('core:mhRunLogGroupDirect'),
+      entries: directEntries,
+    });
   }
   const remoteLabels = Array.from(
     new Set(running.map((e) => e.launchedBy).filter((x): x is string => !!x)),
@@ -238,8 +275,6 @@ export default function RunningModelsPanel(): JSX.Element {
 
   return (
     <Box sx={{ mt: 1 }}>
-      {/* Header is always visible and clickable so the panel is
-          discoverable even when no launches have happened yet. */}
       <Stack
         direction="row"
         alignItems="center"
@@ -259,7 +294,7 @@ export default function RunningModelsPanel(): JSX.Element {
           <ChevronRightIcon sx={{ fontSize: 16 }} />
         )}
         <Typography variant="caption" sx={{ fontWeight: 500 }}>
-          Launch logs ({running.length})
+          {t('core:mhRunLogTitle', { count: running.length })}
         </Typography>
         {liveCount > 0 && (
           <Typography
@@ -267,7 +302,7 @@ export default function RunningModelsPanel(): JSX.Element {
             color="success.main"
             sx={{ fontSize: '0.7em' }}
           >
-            · {liveCount} running
+            · {t('core:mhRunLogRunning', { count: liveCount })}
           </Typography>
         )}
         {exitedCount > 0 && (
@@ -276,7 +311,7 @@ export default function RunningModelsPanel(): JSX.Element {
             color="error.main"
             sx={{ fontSize: '0.7em' }}
           >
-            · {exitedCount} exited
+            · {t('core:mhRunLogExited', { count: exitedCount })}
           </Typography>
         )}
       </Stack>
@@ -287,13 +322,10 @@ export default function RunningModelsPanel(): JSX.Element {
           color="text.secondary"
           sx={{ display: 'block', pl: 2.25, mt: 0.25, fontStyle: 'italic' }}
         >
-          No launches yet. Click Run on a model file to spawn a llama-server.
+          {t('core:mhRunLogEmpty')}
         </Typography>
       )}
 
-      {/* Cap the list height so a user running many models doesn't push
-          the bottom toolbar off-screen — the list scrolls internally
-          beyond ~3 entries. */}
       <Stack
         spacing={0.75}
         sx={{
@@ -306,10 +338,8 @@ export default function RunningModelsPanel(): JSX.Element {
       >
         {groups.map((group) => (
           <Box key={group.label}>
-            {/* Hide the section header when there's only one group AND
-                it's the implicit Direct bucket — keeps the compact look
-                for the common case (no MCP clients connected). */}
-            {(groups.length > 1 || group.label !== 'Direct') && (
+            {(groups.length > 1 ||
+              group.label !== t('core:mhRunLogGroupDirect')) && (
               <Typography
                 variant="caption"
                 color="text.secondary"
@@ -334,10 +364,12 @@ export default function RunningModelsPanel(): JSX.Element {
                 let subLabel = entry.runnerLabel ?? 'llama-server';
                 if (isDead) {
                   const ex = entry.exited!;
-                  subLabel = `exited${
-                    ex.code !== null ? ` (code ${ex.code})` : ''
-                  }${ex.signal ? ` [${ex.signal}]` : ''}`;
+                  subLabel = t('core:mhRunLogRowExited');
+                  if (ex.code !== null)
+                    subLabel += ` (${t('core:mhRunLogCode', { code: ex.code })})`;
+                  if (ex.signal) subLabel += ` [${ex.signal}]`;
                 }
+                const canNavigate = !!entry.filePath;
                 return (
                   <Box
                     key={entry.pid}
@@ -352,39 +384,113 @@ export default function RunningModelsPanel(): JSX.Element {
                   >
                     <Stack direction="row" alignItems="center" spacing={0.5}>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontWeight: 500,
-                            display: 'block',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            fontSize: '0.78em',
-                            color: isDead ? 'error.contrastText' : undefined,
-                          }}
+                        {canNavigate ? (
+                          <Tooltip
+                            title={t('core:mhRunLogNavigateTooltip', {
+                              path: entry.filePath,
+                            })}
+                            placement="top"
+                          >
+                            <Link
+                              component="button"
+                              type="button"
+                              underline="hover"
+                              onClick={() => onNavigateToFile(entry)}
+                              sx={{
+                                display: 'block',
+                                width: '100%',
+                                textAlign: 'left',
+                                fontSize: '0.78em',
+                                fontWeight: 500,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                color: isDead
+                                  ? 'error.contrastText'
+                                  : 'primary.main',
+                              }}
+                            >
+                              {titleLabel}
+                            </Link>
+                          </Tooltip>
+                        ) : (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 500,
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontSize: '0.78em',
+                              color: isDead ? 'error.contrastText' : undefined,
+                            }}
+                          >
+                            {titleLabel}
+                          </Typography>
+                        )}
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          alignItems="center"
+                          sx={{ minWidth: 0 }}
                         >
-                          {titleLabel}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color={
-                            isDead ? 'error.contrastText' : 'text.secondary'
-                          }
-                          sx={{
-                            display: 'block',
-                            fontSize: '0.7em',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {subLabel}
-                          {!isDead && entry.url ? ` · ${entry.url}` : ''}
-                        </Typography>
+                          <Typography
+                            variant="caption"
+                            color={
+                              isDead ? 'error.contrastText' : 'text.secondary'
+                            }
+                            sx={{
+                              fontSize: '0.7em',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 1,
+                            }}
+                          >
+                            {subLabel}
+                          </Typography>
+                          {!isDead && entry.url && (
+                            <>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ fontSize: '0.7em' }}
+                              >
+                                ·
+                              </Typography>
+                              <Tooltip
+                                title={t('core:mhRunLogOpenUrlTooltip', {
+                                  url: entry.url,
+                                })}
+                                placement="top"
+                              >
+                                <Link
+                                  component="button"
+                                  type="button"
+                                  underline="hover"
+                                  onClick={() => onOpenUrl(entry)}
+                                  disabled={busy}
+                                  sx={{
+                                    fontSize: '0.7em',
+                                    fontFamily: 'monospace',
+                                    color: 'primary.main',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    p: 0,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  {entry.url}
+                                </Link>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Stack>
                       </Box>
                       {!isDead && entry.url && (
-                        <Tooltip title="Copy URL">
+                        <Tooltip title={t('core:mhRunLogCopyUrl')}>
                           <IconButton
                             size="small"
                             onClick={() => onCopyUrl(entry)}
@@ -394,7 +500,7 @@ export default function RunningModelsPanel(): JSX.Element {
                           </IconButton>
                         </Tooltip>
                       )}
-                      <Tooltip title="View captured stdout/stderr">
+                      <Tooltip title={t('core:mhRunLogViewLog')}>
                         <IconButton
                           size="small"
                           onClick={() => onOpenLog(entry)}
@@ -404,24 +510,7 @@ export default function RunningModelsPanel(): JSX.Element {
                         </IconButton>
                       </Tooltip>
                       {!isDead && (
-                        <Tooltip title="Open in browser">
-                          <IconButton
-                            size="small"
-                            onClick={() => onOpenInBrowser(entry)}
-                            disabled={busy || !entry.url}
-                            color="primary"
-                            sx={{ p: 0.25 }}
-                          >
-                            {busy ? (
-                              <CircularProgress size={12} />
-                            ) : (
-                              <OpenInNewIcon sx={{ fontSize: 14 }} />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {!isDead && (
-                        <Tooltip title="Stop this runner">
+                        <Tooltip title={t('core:mhRunLogStop')}>
                           <IconButton
                             size="small"
                             onClick={() => onStop(entry)}
@@ -429,12 +518,16 @@ export default function RunningModelsPanel(): JSX.Element {
                             color="warning"
                             sx={{ p: 0.25 }}
                           >
-                            <StopIcon sx={{ fontSize: 16 }} />
+                            {busy ? (
+                              <CircularProgress size={12} />
+                            ) : (
+                              <StopIcon sx={{ fontSize: 16 }} />
+                            )}
                           </IconButton>
                         </Tooltip>
                       )}
                       {isDead && (
-                        <Tooltip title="Dismiss (remove from the list)">
+                        <Tooltip title={t('core:mhRunLogDismiss')}>
                           <IconButton
                             size="small"
                             onClick={() => onDismiss(entry)}
@@ -464,7 +557,7 @@ export default function RunningModelsPanel(): JSX.Element {
           {logDialog?.entry.modelName ??
             logDialog?.entry.command[0] ??
             `pid ${logDialog?.entry.pid}`}{' '}
-          — output
+          — {t('core:mhRunLogDialogTitleSuffix')}
         </DialogTitle>
         <DialogContent dividers>
           {logDialog?.entry.exited && (
@@ -473,12 +566,14 @@ export default function RunningModelsPanel(): JSX.Element {
               color="error.main"
               sx={{ display: 'block', mb: 1 }}
             >
-              Exited {logDialog.entry.exited.exitedAt}
+              {t('core:mhRunLogDialogExited', {
+                when: logDialog.entry.exited.exitedAt,
+              })}
               {logDialog.entry.exited.code !== null
-                ? ` · code ${logDialog.entry.exited.code}`
+                ? ` · ${t('core:mhRunLogCode', { code: logDialog.entry.exited.code })}`
                 : ''}
               {logDialog.entry.exited.signal
-                ? ` · signal ${logDialog.entry.exited.signal}`
+                ? ` · ${t('core:mhRunLogSignal', { signal: logDialog.entry.exited.signal })}`
                 : ''}
             </Typography>
           )}
@@ -490,7 +585,7 @@ export default function RunningModelsPanel(): JSX.Element {
           )}
           {!logDialog?.loading && !logDialog?.error && (
             <Box sx={{ position: 'relative' }}>
-              <Tooltip title="Copy output">
+              <Tooltip title={t('core:mhRunLogCopyOutput')}>
                 <IconButton
                   size="small"
                   onClick={() =>
@@ -498,7 +593,7 @@ export default function RunningModelsPanel(): JSX.Element {
                       logDialog && logDialog.log.length > 0
                         ? logDialog.log.join('\n')
                         : '',
-                      'Output',
+                      t('core:mhRunLogOutputLabel'),
                     )
                   }
                   sx={{
@@ -525,18 +620,17 @@ export default function RunningModelsPanel(): JSX.Element {
                   overflowY: 'auto',
                   backgroundColor: 'background.default',
                   p: 1,
-                  pr: 5, // leave room for the floating Copy button
+                  pr: 5,
                   borderRadius: 0.5,
                   userSelect: 'text',
                 }}
               >
                 {logDialog && logDialog.log.length > 0
                   ? logDialog.log.join('\n')
-                  : '(no output captured)'}
+                  : t('core:mhRunLogNoOutput')}
               </Box>
             </Box>
           )}
-          {/* Full command — useful when reporting bugs. */}
           {logDialog?.entry.command && (
             <Box sx={{ mt: 1, position: 'relative' }}>
               <Typography
@@ -544,15 +638,15 @@ export default function RunningModelsPanel(): JSX.Element {
                 color="text.secondary"
                 sx={{ display: 'block', mb: 0.25 }}
               >
-                Spawn command
+                {t('core:mhRunLogSpawnCommand')}
               </Typography>
-              <Tooltip title="Copy spawn command">
+              <Tooltip title={t('core:mhRunLogCopySpawnCommand')}>
                 <IconButton
                   size="small"
                   onClick={() =>
                     onCopyText(
                       logDialog.entry.command.join(' '),
-                      'Spawn command',
+                      t('core:mhRunLogSpawnCommand'),
                     )
                   }
                   sx={{
@@ -576,7 +670,7 @@ export default function RunningModelsPanel(): JSX.Element {
                   wordBreak: 'break-all',
                   m: 0,
                   p: 0.75,
-                  pr: 5, // room for the floating Copy button
+                  pr: 5,
                   backgroundColor: 'background.default',
                   borderRadius: 0.5,
                   opacity: 0.85,
@@ -596,11 +690,11 @@ export default function RunningModelsPanel(): JSX.Element {
               }}
               size="small"
             >
-              Refresh
+              {t('core:mhRunLogDialogRefresh')}
             </Button>
           )}
           <Button onClick={() => setLogDialog(undefined)} size="small">
-            Close
+            {t('core:closeButton')}
           </Button>
         </DialogActions>
       </Dialog>

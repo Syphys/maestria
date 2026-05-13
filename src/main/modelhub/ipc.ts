@@ -378,6 +378,7 @@ export default function registerModelhubEvents(): void {
           url: built.url,
           runnerLabel: runner.label,
           modelName: fileBasename,
+          filePath: canonical,
         });
         return { ...result, warnings: built.warnings };
       } catch (e) {

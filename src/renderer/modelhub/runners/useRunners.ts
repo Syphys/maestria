@@ -170,6 +170,13 @@ export interface RunningEntry {
   runnerLabel?: string;
   modelName?: string;
   /**
+   * Canonical absolute path of the launched model — feeds the
+   * `RunModelButton` badge (counts instances per file) and the
+   * "click model name to navigate" link in `RunningModelsPanel`.
+   * Absent for legacy entries that pre-date this field.
+   */
+  filePath?: string;
+  /**
    * Provenance label — undefined when the user clicked Run in the app
    * ("Direct" bucket in the panel), a short string like
    * "via MCP — deer-flow" when an MCP client called `models.run`.
