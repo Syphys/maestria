@@ -41,6 +41,16 @@ export interface LaunchModelOptions {
   launchedBy?: string;
   /** Optional ceiling for the bound HTTP port. */
   port?: number;
+  /**
+   * Caller-supplied launch param overrides (any subset). Merged on top
+   * of autotune + sidecar's `userRunParams`, so the precedence is:
+   * autotune → sidecar override → caller override. The port is still
+   * re-pinned to a collision-free value regardless of what the caller
+   * passed (so two concurrent MCP launches never silently fail to bind).
+   * Used by the MCP `models.run` tool to let clients pass arbitrary
+   * advanced flags (incl. disabling `--fit`, custom `customArgs`, etc.).
+   */
+  paramsOverride?: Partial<RunParams>;
 }
 
 export interface LaunchModelResult extends LaunchResult {
@@ -71,16 +81,23 @@ export async function launchModelByPath(
   // Resolve a free port BEFORE autotune so the rationale string mentions
   // the port we'll actually bind. Without this two concurrent launches
   // both autotuned to 8080 and the second one bounced on EADDRINUSE.
-  const requestedPort = meta?.userRunParams?.port ?? options.port ?? 8080;
+  const requestedPort =
+    options.paramsOverride?.port ??
+    meta?.userRunParams?.port ??
+    options.port ??
+    8080;
   const port = pickFreePort(requestedPort);
   const estimated = autotune({ header, hardware, port });
   const userOverride = meta?.userRunParams;
-  // Merge order matters: user override wins for everything EXCEPT port,
-  // which we re-pin to the collision-free value. A user that pinned port
-  // 9000 on two models would otherwise still collide.
-  const params: RunParams = userOverride
-    ? { ...estimated, ...userOverride, port }
-    : estimated;
+  // Merge order: autotune → sidecar override → caller override → re-pin
+  // port. Port is always re-written to the collision-free value so two
+  // concurrent launches that both pinned 9000 don't bounce on EADDRINUSE.
+  const params: RunParams = {
+    ...estimated,
+    ...(userOverride ?? {}),
+    ...(options.paramsOverride ?? {}),
+    port,
+  };
 
   const runners = await listRunners();
   const runner = pickRunnerFor(runners, canonical, meta);
@@ -100,6 +117,7 @@ export async function launchModelByPath(
     modelName: fileBasename,
     filePath: canonical,
     launchedBy: options.launchedBy,
+    params,
   });
 
   return {

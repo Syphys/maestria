@@ -11,7 +11,7 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
-import { LaunchResult } from '../../../renderer/modelhub/types';
+import { LaunchResult, RunParams } from '../../../renderer/modelhub/types';
 
 const RING_LIMIT = 200;
 
@@ -43,6 +43,14 @@ export interface ActiveEntry {
    * `RunningModelsPanel`.
    */
   launchedBy?: string;
+  /**
+   * Effective launch params (autotune + sidecar override + caller
+   * override, after port collision-resolution). Stored so MCP callers
+   * can introspect *with what* each running server was spawned via
+   * `models.list_running`. Undefined only for synthetic spawn-failure
+   * entries where we never reached the autotune step.
+   */
+  params?: RunParams;
   startedAt: string;
   log: string[];
   /**
@@ -75,6 +83,8 @@ export interface LaunchOptions {
   filePath?: string;
   /** See `ActiveEntry.launchedBy`. */
   launchedBy?: string;
+  /** Effective launch params — stored on the entry for introspection. */
+  params?: RunParams;
 }
 
 /**
@@ -99,6 +109,7 @@ function recordSpawnFailure(
     modelName: options.modelName,
     filePath: options.filePath,
     launchedBy: options.launchedBy,
+    params: options.params,
     startedAt: new Date().toISOString(),
     log: [`[spawn failed] ${reason}`],
     exited: {
@@ -143,6 +154,7 @@ export function launchProcess(
       modelName: options.modelName,
       filePath: options.filePath,
       launchedBy: options.launchedBy,
+      params: options.params,
       startedAt: new Date().toISOString(),
       log: [],
       child,
@@ -268,6 +280,8 @@ export interface RunningSummary {
   /** Canonical absolute model path — surfaces to the renderer. */
   filePath?: string;
   launchedBy?: string;
+  /** Effective launch params for this server, when known. */
+  params?: RunParams;
   startedAt: string;
   /** Set when the process has terminated; absent while running. */
   exited?: ExitInfo;
@@ -283,6 +297,7 @@ export function listRunning(): RunningSummary[] {
     modelName: p.modelName,
     filePath: p.filePath,
     launchedBy: p.launchedBy,
+    params: p.params,
     startedAt: p.startedAt,
     exited: p.exited,
     recentLog: p.log.slice(-20),
