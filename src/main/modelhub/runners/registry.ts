@@ -49,6 +49,25 @@ async function writeFile(data: RegistryFile): Promise<void> {
 }
 
 /**
+ * Backfill UUIDs for entries persisted with an empty `id` (legacy fallout
+ * from an older `saveRunner` that used `??` and let the empty-string id
+ * posted by the manual-add form survive). Without this migration the
+ * renderer can't edit such rows: clicking Edit sets `editingId = ''`
+ * which is falsy, so `editingRunner` resolves to undefined and the form
+ * never opens. Returns true when at least one entry was rewritten.
+ */
+function backfillIds(file: RegistryFile): boolean {
+  let touched = false;
+  for (const r of file.runners) {
+    if (!r.id) {
+      r.id = randomUUID();
+      touched = true;
+    }
+  }
+  return touched;
+}
+
+/**
  * Load runners. On first call (no file yet), auto-detection populates the
  * list so subsequent calls are instant. Subsequent calls do NOT re-detect
  * — that's what `detectAndMerge` is for. Without this split, a user who
@@ -56,7 +75,10 @@ async function writeFile(data: RegistryFile): Promise<void> {
  */
 export async function listRunners(): Promise<RunnerConfig[]> {
   const file = await readFile();
-  if (file) return file.runners;
+  if (file) {
+    if (backfillIds(file)) await writeFile(file);
+    return file.runners;
+  }
 
   const detected = await detectRunners();
   await writeFile({
@@ -72,7 +94,10 @@ export async function saveRunner(runner: RunnerConfig): Promise<RunnerConfig> {
     version: 1 as const,
     runners: [],
   };
-  const id = runner.id ?? randomUUID();
+  // Use `||` rather than `??` so the empty-string id the manual-add
+  // form posts ("id: ''") triggers a fresh UUID — otherwise every
+  // hand-added runner would have id "" and overwrite the previous one.
+  const id = runner.id || randomUUID();
   const next: RunnerConfig = { ...runner, id };
   const idx = file.runners.findIndex((r) => r.id === id);
   if (idx >= 0) file.runners[idx] = next;
@@ -97,13 +122,15 @@ export async function detectAndMerge(): Promise<RunnerConfig[]> {
     version: 1 as const,
     runners: [],
   };
+  let dirty = backfillIds(file);
   const detected = await detectRunners();
   const known = new Set(file.runners.map((r) => r.path.toLowerCase()));
   const additions = detected.filter((d) => !known.has(d.path.toLowerCase()));
   if (additions.length > 0) {
     file.runners = [...file.runners, ...additions];
     file.autoMergedAt = new Date().toISOString();
-    await writeFile(file);
+    dirty = true;
   }
+  if (dirty) await writeFile(file);
   return file.runners;
 }

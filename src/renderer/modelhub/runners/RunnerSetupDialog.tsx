@@ -274,12 +274,20 @@ export default function RunnerSetupDialog({
 
           {editingRunner ? (
             <RunnerForm
+              // key forces a fresh mount when the user switches from
+              // editing runner A to editing runner B — without it the
+              // local useState in RunnerForm keeps A's values.
+              key={`edit-${editingRunner.id}`}
               initial={editingRunner}
               onSubmit={onSubmit}
               onCancel={() => setEditingId(undefined)}
             />
           ) : adding ? (
-            <RunnerForm onSubmit={onSubmit} onCancel={() => setAdding(false)} />
+            <RunnerForm
+              key="add"
+              onSubmit={onSubmit}
+              onCancel={() => setAdding(false)}
+            />
           ) : (
             <Stack direction="row" spacing={1}>
               <Button
