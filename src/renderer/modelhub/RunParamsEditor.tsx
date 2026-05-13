@@ -364,6 +364,30 @@ export default function RunParamsEditor({
           <Select
             size="small"
             value={preferredRunner ?? ''}
+            displayEmpty
+            // Custom renderValue so the empty-string sentinel actually
+            // shows the "Auto" label in the closed field. MUI's default
+            // renders nothing for value="" — looked like an invisible
+            // selection (black-on-black in dark mode).
+            renderValue={(v) => {
+              if (!v) {
+                return (
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    sx={{
+                      fontStyle: 'italic',
+                      color: 'text.secondary',
+                      fontSize: '0.85em',
+                    }}
+                  >
+                    Auto (priority order)
+                  </Typography>
+                );
+              }
+              const r = runners.find((x) => x.id === v);
+              return r?.label ?? String(v);
+            }}
             onChange={(e) => {
               const v = e.target.value as string;
               onRunnerChange(v === '' ? undefined : v);
