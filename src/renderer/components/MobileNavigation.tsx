@@ -598,7 +598,6 @@ function MobileNavigation(props: Props) {
           backgroundColor: theme.palette.background.default,
         }}
       >
-        <ModelhubGlobalStatus />
         <Box
           sx={{
             display: 'flex',
@@ -679,6 +678,7 @@ function MobileNavigation(props: Props) {
             <SettingsIcon />
           </TsToolbarButton>
         </Box>
+        <ModelhubGlobalStatus />
       </Box>
     </Box>
   );
