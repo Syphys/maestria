@@ -703,6 +703,14 @@ function EntryContainer() {
             backgroundColor: theme.palette.background.default,
             overflow: 'hidden',
             marginBottom: '1px',
+            // Model files don't render a FileView below this panel, so
+            // the tab content would otherwise touch the bottom edge of
+            // the window. A small bottom padding replaces what the
+            // (now-hidden) row-resize separator used to give us.
+            ...(openedEntry.isFile &&
+              isSupportedModelFile(openedEntry.path) && {
+                paddingBottom: '8px',
+              }),
           }}
         >
           <Box
@@ -731,37 +739,44 @@ function EntryContainer() {
             />
           </Box>
           {tabsElement}
-          {openedEntry.isFile && isPanelOpened && (
-            <Tooltip title={desktopMode ? '' : t('core:togglePreviewSize')}>
-              <Box
-                sx={{
-                  textAlign: 'center',
-                  minHeight: '8px',
-                  paddingTop: '2px',
-                  backgroundColor: 'background.default',
-                  borderBottom: '1px solid ' + theme.palette.divider,
-                  cursor: 'row-resize',
-                  userSelect: 'none',
-                  '&:hover': {
-                    backgroundColor: theme.palette.action.hover,
-                  },
-                }}
-                onClick={toggleEntryPropertiesHeight}
-                onPointerDown={handleSeparatorMouseDown}
-                onPointerUp={handleSeparatorMouseUp}
-                onPointerCancel={handleSeparatorMouseUp}
-              >
+          {/* Row-resize separator between the properties panel and the
+           * FileView below. Hidden for model files (.gguf, .safetensors,
+           * …) because we don't render a FileView for those (binary
+           * weights are not previewable), so the splitter would
+           * separate the properties panel from empty space. */}
+          {openedEntry.isFile &&
+            isPanelOpened &&
+            !isSupportedModelFile(openedEntry.path) && (
+              <Tooltip title={desktopMode ? '' : t('core:togglePreviewSize')}>
                 <Box
                   sx={{
-                    width: '10%',
-                    border: '1px dashed ' + theme.palette.text.secondary,
-                    margin: '2px auto',
-                    pointerEvents: 'none',
+                    textAlign: 'center',
+                    minHeight: '8px',
+                    paddingTop: '2px',
+                    backgroundColor: 'background.default',
+                    borderBottom: '1px solid ' + theme.palette.divider,
+                    cursor: 'row-resize',
+                    userSelect: 'none',
+                    '&:hover': {
+                      backgroundColor: theme.palette.action.hover,
+                    },
                   }}
-                ></Box>
-              </Box>
-            </Tooltip>
-          )}
+                  onClick={toggleEntryPropertiesHeight}
+                  onPointerDown={handleSeparatorMouseDown}
+                  onPointerUp={handleSeparatorMouseUp}
+                  onPointerCancel={handleSeparatorMouseUp}
+                >
+                  <Box
+                    sx={{
+                      width: '10%',
+                      border: '1px dashed ' + theme.palette.text.secondary,
+                      margin: '2px auto',
+                      pointerEvents: 'none',
+                    }}
+                  ></Box>
+                </Box>
+              </Tooltip>
+            )}
         </Box>
         {openedEntry.isFile && !isSupportedModelFile(openedEntry.path) && (
           // Model files (.gguf, .safetensors, …) intentionally render no
