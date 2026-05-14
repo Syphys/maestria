@@ -330,22 +330,26 @@ function MainPage() {
                 } !important;
               }
 
-              .react-split .split-container.vertical .splitter {
+              main .react-split .split-container.vertical .splitter {
                 background-color: ${theme.palette.background.default};
               }
 
-              .react-split .split-container {
+              /* Scoped to <main> so the sidebar Split (rendered inside
+               * the left Drawer) keeps its own splitter width — without
+               * this scope the rule hid the sidebar splitter whenever
+               * no entry was opened. */
+              main .react-split .split-container {
                 --react-split-splitter: ${
                   !openedEntry || isEntryInFullWidth ? '0' : '3px'
                 } !important;
               }
-              .react-split .secondary .full-content {
+              main .react-split .secondary .full-content {
                 display: flex;
                 flex-direction: column;
                 overflow: clip;
               }
 
-              .react-split > .split-container.vertical > .splitter {
+              main .react-split > .split-container.vertical > .splitter {
                z-index: 1;
               }
           `}

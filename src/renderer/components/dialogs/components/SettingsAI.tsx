@@ -24,6 +24,7 @@ import {
 } from '-/components/CommonIcons';
 import TsButton from '-/components/TsButton';
 import TsTextField from '-/components/TsTextField';
+import ModelhubBulkAccordion from '-/modelhub/ModelhubBulkAccordion';
 import { Pro } from '-/pro';
 import { formatBytes, useHardware } from '-/modelhub/hardware';
 import { buildClaudeDesktopConfig, useMcp } from '-/modelhub/mcp/useMcp';
@@ -170,6 +171,7 @@ function SettingsAI(_props: Props) {
         padding: '10px',
       }}
     >
+      <ModelhubBulkAccordion />
       <Accordion defaultExpanded>
         <AccordionSummary
           expandIcon={<ExpandIcon />}

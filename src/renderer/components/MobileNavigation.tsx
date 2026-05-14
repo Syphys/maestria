@@ -44,7 +44,8 @@ import CustomLogo from '-/components/CustomLogo';
 import HelpFeedbackPanel from '-/components/HelpFeedbackPanel';
 import InfoIcon from '-/components/InfoIcon';
 import LocationManager from '-/components/LocationManager';
-import { ModelhubGlobalStatus } from '-/modelhub';
+import RunningModelsPanel from '-/modelhub/RunningModelsPanel';
+import { Split } from 'ts-react-splitter';
 import StoredSearches from '-/components/StoredSearches';
 import TagLibrary from '-/components/TagLibrary';
 import TsButton from '-/components/TsButton';
@@ -125,6 +126,32 @@ function MobileNavigation(props: Props) {
   );
   const [openedCreateMenu, setOpenCreateMenu] = useState(false);
   const [openedWorkSpaceMenu, setOpenWorkSpaceMenu] = useState(false);
+  /**
+   * Vertical split between the main panel area (top) and the Console
+   * (bottom of sidebar). Persisted in localStorage so the user's choice
+   * survives reloads. Default 70/30 — the Console is informational, so
+   * the main panel deserves more room out of the box.
+   */
+  const SIDEBAR_SPLIT_KEY = 'modelhub.sidebarSplit';
+  const [splitPercent, setSplitPercent] = useState<number | undefined>(() => {
+    try {
+      const raw = window.localStorage.getItem(SIDEBAR_SPLIT_KEY);
+      if (!raw) return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 20 && n <= 90 ? n : undefined;
+    } catch {
+      return undefined;
+    }
+  });
+  const onSplitChanged = useCallback((p: number | undefined) => {
+    setSplitPercent(p);
+    if (p === undefined) return;
+    try {
+      window.localStorage.setItem(SIDEBAR_SPLIT_KEY, String(p));
+    } catch {
+      /* private mode / disabled storage — ignore */
+    }
+  }, []);
   const anchorWSpaceRef = useRef<HTMLButtonElement>(null);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
@@ -215,386 +242,460 @@ function MobileNavigation(props: Props) {
     >
       <Box
         sx={{
-          overflow: 'hidden',
           // Take the remaining vertical space; minHeight: 0 is the
           // standard flex idiom that lets a flex child shrink below
-          // its content size so its own overflow can scroll.
+          // its content size so its own overflow can scroll. The
+          // <Split> below splits this area between the main panel
+          // scroller (top) and the Console (bottom of sidebar).
           flex: 1,
           minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Box>
-          <CustomLogo />
-          <Box
-            sx={{
-              width: '100%',
-              justifyContent: 'center',
-              paddingLeft: '10px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <ButtonGroup
-              aria-label="split button"
+        <Split
+          horizontal
+          initialPrimarySize="70%"
+          minPrimarySize="200px"
+          minSecondarySize="120px"
+          splitterSize="8px"
+          resetOnDoubleClick
+          percent={splitPercent}
+          setPercent={onSplitChanged}
+          renderSplitter={({ dragging }) => (
+            // Mirrors the row-resize separator in EntryContainer.tsx
+            // (above the description tab) — TagSpaces-native look:
+            // 8 px track, subtle background, hover affordance, and
+            // a small dashed segment centred to make the "grab here"
+            // intent explicit.
+            <Box
               sx={{
-                textAlign: 'center',
-                marginLeft: '5px',
-                marginRight: '5px',
+                width: '100%',
+                height: '100%',
+                cursor: 'row-resize',
+                backgroundColor: dragging
+                  ? theme.palette.action.selected
+                  : 'background.default',
+                borderBottom: '1px solid ' + theme.palette.divider,
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                '&:hover': {
+                  backgroundColor: theme.palette.action.hover,
+                },
               }}
             >
-              <TsButton
-                ref={anchorRef}
-                aria-controls={
-                  openedCreateMenu ? 'split-button-menu' : undefined
-                }
-                aria-expanded={openedCreateMenu ? 'true' : undefined}
-                aria-haspopup="menu"
-                data-tid="createNewDropdownButtonTID"
-                onClick={handleToggle}
-                startIcon={<CreateFileIcon />}
-                endIcon={<ArrowDropDownIcon />}
+              <Box
                 sx={{
-                  borderRadius: 'unset',
-                  borderTopLeftRadius: AppConfig.defaultCSSRadius,
-                  borderBottomLeftRadius: AppConfig.defaultCSSRadius,
+                  width: '10%',
+                  border: '1px dashed ' + theme.palette.text.secondary,
+                  pointerEvents: 'none',
+                }}
+              />
+            </Box>
+          )}
+        >
+          <Box
+            sx={{
+              overflow: 'hidden',
+              height: '100%',
+            }}
+          >
+            <Box>
+              <CustomLogo />
+              <Box
+                sx={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  paddingLeft: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
               >
-                <Box
+                <ButtonGroup
+                  aria-label="split button"
                   sx={{
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    maxWidth: 100,
+                    textAlign: 'center',
+                    marginLeft: '5px',
+                    marginRight: '5px',
                   }}
                 >
-                  {t('core:new')}
-                </Box>
-              </TsButton>
-              {workSpaces && workSpaces.length > 0 && (
-                <TsButton
-                  ref={anchorWSpaceRef}
-                  tooltip={t('currentWorkspace')}
-                  aria-controls={
-                    openedWorkSpaceMenu ? 'create-wspace-menu' : undefined
-                  }
-                  aria-expanded={openedWorkSpaceMenu ? 'true' : undefined}
-                  aria-haspopup="menu"
-                  data-tid="openedWorkSpaceMenuButtonTID"
-                  onClick={handleToggleWorkSpaces}
-                  endIcon={<ArrowDropDownIcon />}
-                  sx={{ borderRadius: 'unset' }}
-                >
-                  <Box
+                  <TsButton
+                    ref={anchorRef}
+                    aria-controls={
+                      openedCreateMenu ? 'split-button-menu' : undefined
+                    }
+                    aria-expanded={openedCreateMenu ? 'true' : undefined}
+                    aria-haspopup="menu"
+                    data-tid="createNewDropdownButtonTID"
+                    onClick={handleToggle}
+                    startIcon={<CreateFileIcon />}
+                    endIcon={<ArrowDropDownIcon />}
                     sx={{
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      maxWidth: 100,
+                      borderRadius: 'unset',
+                      borderTopLeftRadius: AppConfig.defaultCSSRadius,
+                      borderBottomLeftRadius: AppConfig.defaultCSSRadius,
                     }}
                   >
-                    {workSpacesContext?.getCurrentWorkSpace()?.shortName ||
-                      t('core:all')}
-                  </Box>
-                </TsButton>
-              )}
-              <TsButton
-                tooltip={t('core:openSharingLink')}
-                data-tid="openLinkNavigationTID"
-                onClick={openLinkDialog}
-                sx={{
-                  borderRadius: 'unset',
-                  borderTopRightRadius: AppConfig.defaultCSSRadius,
-                  borderBottomRightRadius: AppConfig.defaultCSSRadius,
-                }}
-              >
-                <OpenLinkIcon />
-              </TsButton>
-            </ButtonGroup>
-            {currentUser ? (
-              <>
-                <TsIconButton
-                  tooltip={t('core:userAccount')}
-                  data-tid="accountCircleIconTID"
-                  onClick={(event: React.MouseEvent<HTMLButtonElement>) =>
-                    setAnchorUser(event.currentTarget)
-                  }
-                  title={t('core:userAccount')}
+                    <Box
+                      sx={{
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        maxWidth: 100,
+                      }}
+                    >
+                      {t('core:new')}
+                    </Box>
+                  </TsButton>
+                  {workSpaces && workSpaces.length > 0 && (
+                    <TsButton
+                      ref={anchorWSpaceRef}
+                      tooltip={t('currentWorkspace')}
+                      aria-controls={
+                        openedWorkSpaceMenu ? 'create-wspace-menu' : undefined
+                      }
+                      aria-expanded={openedWorkSpaceMenu ? 'true' : undefined}
+                      aria-haspopup="menu"
+                      data-tid="openedWorkSpaceMenuButtonTID"
+                      onClick={handleToggleWorkSpaces}
+                      endIcon={<ArrowDropDownIcon />}
+                      sx={{ borderRadius: 'unset' }}
+                    >
+                      <Box
+                        sx={{
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          maxWidth: 100,
+                        }}
+                      >
+                        {workSpacesContext?.getCurrentWorkSpace()?.shortName ||
+                          t('core:all')}
+                      </Box>
+                    </TsButton>
+                  )}
+                  <TsButton
+                    tooltip={t('core:openSharingLink')}
+                    data-tid="openLinkNavigationTID"
+                    onClick={openLinkDialog}
+                    sx={{
+                      borderRadius: 'unset',
+                      borderTopRightRadius: AppConfig.defaultCSSRadius,
+                      borderBottomRightRadius: AppConfig.defaultCSSRadius,
+                    }}
+                  >
+                    <OpenLinkIcon />
+                  </TsButton>
+                </ButtonGroup>
+                {currentUser ? (
+                  <>
+                    <TsIconButton
+                      tooltip={t('core:userAccount')}
+                      data-tid="accountCircleIconTID"
+                      onClick={(event: React.MouseEvent<HTMLButtonElement>) =>
+                        setAnchorUser(event.currentTarget)
+                      }
+                      title={t('core:userAccount')}
+                    >
+                      <AccountIcon />
+                    </TsIconButton>
+                    <Popover
+                      open={Boolean(anchorUser)}
+                      anchorEl={anchorUser}
+                      onClose={() => setAnchorUser(null)}
+                      anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'center',
+                      }}
+                      transformOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'center',
+                      }}
+                    >
+                      <UserDetailsPopover onClose={() => setAnchorUser(null)} />
+                    </Popover>
+                  </>
+                ) : (
+                  <TsIconButton
+                    tooltip={t('core:switchTheme')}
+                    data-tid="switchTheme"
+                    onClick={switchTheme}
+                  >
+                    <ThemingIcon />
+                  </TsIconButton>
+                )}
+              </Box>
+            </Box>
+            {workSpaces && workSpaces.length > 0 && (
+              <ClickAwayListener onClickAway={handleCloseWSpace}>
+                <Popper
+                  anchorEl={anchorWSpaceRef.current}
+                  sx={{ zIndex: 1 }}
+                  open={openedWorkSpaceMenu}
+                  role={undefined}
+                  transition
+                  disablePortal
                 >
-                  <AccountIcon />
-                </TsIconButton>
-                <Popover
-                  open={Boolean(anchorUser)}
-                  anchorEl={anchorUser}
-                  onClose={() => setAnchorUser(null)}
-                  anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'center',
-                  }}
-                  transformOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'center',
-                  }}
-                >
-                  <UserDetailsPopover onClose={() => setAnchorUser(null)} />
-                </Popover>
-              </>
-            ) : (
-              <TsIconButton
-                tooltip={t('core:switchTheme')}
-                data-tid="switchTheme"
-                onClick={switchTheme}
-              >
-                <ThemingIcon />
-              </TsIconButton>
+                  {({ TransitionProps, placement }) => (
+                    <Grow
+                      {...TransitionProps}
+                      style={{
+                        transformOrigin:
+                          placement === 'bottom'
+                            ? 'center top'
+                            : 'center bottom',
+                      }}
+                    >
+                      <Paper>
+                        <TsMenuList id="create-file-menu" autoFocusItem>
+                          {workspaceMenuItems}
+                        </TsMenuList>
+                      </Paper>
+                    </Grow>
+                  )}
+                </Popper>
+              </ClickAwayListener>
             )}
-          </Box>
-        </Box>
-        {workSpaces && workSpaces.length > 0 && (
-          <ClickAwayListener onClickAway={handleCloseWSpace}>
-            <Popper
-              anchorEl={anchorWSpaceRef.current}
-              sx={{ zIndex: 1 }}
-              open={openedWorkSpaceMenu}
-              role={undefined}
-              transition
-              disablePortal
-            >
-              {({ TransitionProps, placement }) => (
-                <Grow
-                  {...TransitionProps}
-                  style={{
-                    transformOrigin:
-                      placement === 'bottom' ? 'center top' : 'center bottom',
-                  }}
-                >
-                  <Paper>
-                    <TsMenuList id="create-file-menu" autoFocusItem>
-                      {workspaceMenuItems}
-                    </TsMenuList>
-                  </Paper>
-                </Grow>
-              )}
-            </Popper>
-          </ClickAwayListener>
-        )}
-        <ClickAwayListener onClickAway={handleClose}>
-          <Popper
-            sx={{ zIndex: 1 }}
-            open={openedCreateMenu}
-            anchorEl={anchorRef.current}
-            role={undefined}
-            transition
-            disablePortal
-          >
-            {({ TransitionProps, placement }) => (
-              <Grow
-                {...TransitionProps}
-                style={{
-                  transformOrigin:
-                    placement === 'bottom' ? 'center top' : 'center bottom',
-                }}
+            <ClickAwayListener onClickAway={handleClose}>
+              <Popper
+                sx={{ zIndex: 1 }}
+                open={openedCreateMenu}
+                anchorEl={anchorRef.current}
+                role={undefined}
+                transition
+                disablePortal
               >
-                <Paper>
-                  <TsMenuList id="nav-create-menu" autoFocusItem>
-                    <MenuItem
-                      key="navCreateNewTextFile"
-                      data-tid="navCreateNewTextFileTID"
-                      onClick={() => {
-                        openNewFileDialog('txt');
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <NewFileIcon />
-                      </ListItemIcon>
-                      <ListItemText primary={t('core:createTextFile')} />
-                    </MenuItem>
-                    <MenuItem
-                      key="navCreateNewMarkdownFile"
-                      data-tid="navCreateNewMarkdownFileTID"
-                      onClick={() => {
-                        openNewFileDialog('md');
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <MarkdownFileIcon />
-                      </ListItemIcon>
-                      <ListItemText primary={t('core:createMarkdown')} />
-                      <InfoIcon tooltip={t('core:createMarkdownTitle')} />
-                    </MenuItem>
-                    <MenuItem
-                      key="navCreateHTMLTextFile"
-                      data-tid="navCreateHTMLTextFileTID"
-                      onClick={() => {
-                        openNewFileDialog('html');
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <HTMLFileIcon />
-                      </ListItemIcon>
-                      <ListItemText primary={t('core:createRichTextFile')} />
-                      <InfoIcon tooltip={t('core:createNoteTitle')} />
-                    </MenuItem>
-                    <MenuItem
-                      key="navCreateNewLinkFile"
-                      data-tid="navCreateNewLinkFileTID"
-                      onClick={() => {
-                        openNewFileDialog('url');
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <LinkFileIcon />
-                      </ListItemIcon>
-                      <ListItemText primary={t('core:createLinkFile')} />
-                    </MenuItem>
-                    <MenuItem
-                      key="navCreateNewAudio"
-                      data-tid="navCreateNewAudioTID"
-                      disabled={!Pro}
-                      onClick={() => {
-                        openNewAudioDialog();
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <AudioFileIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={<>{t('core:newAudioRecording')}</>}
-                      />
-                    </MenuItem>
-                    <MenuItem
-                      key="navCreateFileFromTemplate"
-                      data-tid="navCreateFileFromTemplateTID"
-                      disabled={!Pro}
-                      onClick={() => {
-                        openNewFileDialog();
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <TemplateFileIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={<>{t('core:createNewFromTemplate')}</>}
-                      />
-                    </MenuItem>
-                    <Divider />
-                    <MenuItem
-                      key="addUploadFiles"
-                      data-tid="addUploadFilesTID"
-                      onClick={() => {
-                        openFileUpload(currentDirectoryPath);
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <AddExistingFileIcon />
-                      </ListItemIcon>
-                      <ListItemText primary={t('core:addFiles')} />
-                    </MenuItem>
-                    {AppConfig.isElectron &&
-                      !currentLocation?.haveObjectStoreSupport() && (
+                {({ TransitionProps, placement }) => (
+                  <Grow
+                    {...TransitionProps}
+                    style={{
+                      transformOrigin:
+                        placement === 'bottom' ? 'center top' : 'center bottom',
+                    }}
+                  >
+                    <Paper>
+                      <TsMenuList id="nav-create-menu" autoFocusItem>
                         <MenuItem
-                          key="newFromDownloadURL"
-                          data-tid="newFromDownloadURLTID"
+                          key="navCreateNewTextFile"
+                          data-tid="navCreateNewTextFileTID"
                           onClick={() => {
-                            openDownloadUrl();
+                            openNewFileDialog('txt');
                             setOpenCreateMenu(false);
                             hideDrawer?.();
                           }}
                         >
                           <ListItemIcon>
-                            <DownloadIcon />
+                            <NewFileIcon />
+                          </ListItemIcon>
+                          <ListItemText primary={t('core:createTextFile')} />
+                        </MenuItem>
+                        <MenuItem
+                          key="navCreateNewMarkdownFile"
+                          data-tid="navCreateNewMarkdownFileTID"
+                          onClick={() => {
+                            openNewFileDialog('md');
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <MarkdownFileIcon />
+                          </ListItemIcon>
+                          <ListItemText primary={t('core:createMarkdown')} />
+                          <InfoIcon tooltip={t('core:createMarkdownTitle')} />
+                        </MenuItem>
+                        <MenuItem
+                          key="navCreateHTMLTextFile"
+                          data-tid="navCreateHTMLTextFileTID"
+                          onClick={() => {
+                            openNewFileDialog('html');
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <HTMLFileIcon />
                           </ListItemIcon>
                           <ListItemText
-                            primary={t('core:newFromDownloadURL')}
+                            primary={t('core:createRichTextFile')}
+                          />
+                          <InfoIcon tooltip={t('core:createNoteTitle')} />
+                        </MenuItem>
+                        <MenuItem
+                          key="navCreateNewLinkFile"
+                          data-tid="navCreateNewLinkFileTID"
+                          onClick={() => {
+                            openNewFileDialog('url');
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <LinkFileIcon />
+                          </ListItemIcon>
+                          <ListItemText primary={t('core:createLinkFile')} />
+                        </MenuItem>
+                        <MenuItem
+                          key="navCreateNewAudio"
+                          data-tid="navCreateNewAudioTID"
+                          disabled={!Pro}
+                          onClick={() => {
+                            openNewAudioDialog();
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <AudioFileIcon />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={<>{t('core:newAudioRecording')}</>}
                           />
                         </MenuItem>
-                      )}
-                    <Divider />
-                    <MenuItem
-                      key="createNewFolder"
-                      data-tid="createNewFolderTID"
-                      onClick={() => {
-                        openCreateDirectoryDialog();
-                        setOpenCreateMenu(false);
-                        hideDrawer?.();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <NewFolderIcon />
-                      </ListItemIcon>
-                      <ListItemText primary={t('core:createDirectory')} />
-                    </MenuItem>
-                    <Divider />
-                    {!AppConfig.ExtLocationsReadOnly && (
-                      <MenuItem
-                        key="createNewLocation"
-                        data-tid="createNewLocationTID"
-                        onClick={() => {
-                          setSelectedLocation(undefined);
-                          openCreateEditLocationDialog();
-                          setOpenCreateMenu(false);
-                          hideDrawer?.();
-                        }}
-                      >
-                        <ListItemIcon>
-                          <LocalLocationIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={t('core:createLocation')} />
-                      </MenuItem>
-                    )}
-                    {!AppConfig.isNativeMobile && (
-                      <MenuItem
-                        key="createWindow"
-                        data-tid="createWindowTID"
-                        onClick={() => {
-                          createNewInstance();
-                          setOpenCreateMenu(false);
-                        }}
-                      >
-                        <ListItemIcon>
-                          <OpenNewWindowIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={t('core:newWindow')} />
-                      </MenuItem>
-                    )}
-                  </TsMenuList>
-                </Paper>
-              </Grow>
+                        <MenuItem
+                          key="navCreateFileFromTemplate"
+                          data-tid="navCreateFileFromTemplateTID"
+                          disabled={!Pro}
+                          onClick={() => {
+                            openNewFileDialog();
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <TemplateFileIcon />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={<>{t('core:createNewFromTemplate')}</>}
+                          />
+                        </MenuItem>
+                        <Divider />
+                        <MenuItem
+                          key="addUploadFiles"
+                          data-tid="addUploadFilesTID"
+                          onClick={() => {
+                            openFileUpload(currentDirectoryPath);
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <AddExistingFileIcon />
+                          </ListItemIcon>
+                          <ListItemText primary={t('core:addFiles')} />
+                        </MenuItem>
+                        {AppConfig.isElectron &&
+                          !currentLocation?.haveObjectStoreSupport() && (
+                            <MenuItem
+                              key="newFromDownloadURL"
+                              data-tid="newFromDownloadURLTID"
+                              onClick={() => {
+                                openDownloadUrl();
+                                setOpenCreateMenu(false);
+                                hideDrawer?.();
+                              }}
+                            >
+                              <ListItemIcon>
+                                <DownloadIcon />
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={t('core:newFromDownloadURL')}
+                              />
+                            </MenuItem>
+                          )}
+                        <Divider />
+                        <MenuItem
+                          key="createNewFolder"
+                          data-tid="createNewFolderTID"
+                          onClick={() => {
+                            openCreateDirectoryDialog();
+                            setOpenCreateMenu(false);
+                            hideDrawer?.();
+                          }}
+                        >
+                          <ListItemIcon>
+                            <NewFolderIcon />
+                          </ListItemIcon>
+                          <ListItemText primary={t('core:createDirectory')} />
+                        </MenuItem>
+                        <Divider />
+                        {!AppConfig.ExtLocationsReadOnly && (
+                          <MenuItem
+                            key="createNewLocation"
+                            data-tid="createNewLocationTID"
+                            onClick={() => {
+                              setSelectedLocation(undefined);
+                              openCreateEditLocationDialog();
+                              setOpenCreateMenu(false);
+                              hideDrawer?.();
+                            }}
+                          >
+                            <ListItemIcon>
+                              <LocalLocationIcon />
+                            </ListItemIcon>
+                            <ListItemText primary={t('core:createLocation')} />
+                          </MenuItem>
+                        )}
+                        {!AppConfig.isNativeMobile && (
+                          <MenuItem
+                            key="createWindow"
+                            data-tid="createWindowTID"
+                            onClick={() => {
+                              createNewInstance();
+                              setOpenCreateMenu(false);
+                            }}
+                          >
+                            <ListItemIcon>
+                              <OpenNewWindowIcon />
+                            </ListItemIcon>
+                            <ListItemText primary={t('core:newWindow')} />
+                          </MenuItem>
+                        )}
+                      </TsMenuList>
+                    </Paper>
+                  </Grow>
+                )}
+              </Popper>
+            </ClickAwayListener>
+            <LocationManager
+              reduceHeightBy={desktopMode ? 150 : 180}
+              show={currentOpenedPanel === 'locationManagerPanel'}
+            />
+            {currentOpenedPanel === 'tagLibraryPanel' && (
+              <TagLibrary reduceHeightBy={desktopMode ? 140 : 170} />
             )}
-          </Popper>
-        </ClickAwayListener>
-        <LocationManager
-          reduceHeightBy={desktopMode ? 150 : 180}
-          show={currentOpenedPanel === 'locationManagerPanel'}
-        />
-        {currentOpenedPanel === 'tagLibraryPanel' && (
-          <TagLibrary reduceHeightBy={desktopMode ? 140 : 170} />
-        )}
-        {currentOpenedPanel === 'searchPanel' && (
-          <StoredSearches reduceHeightBy={desktopMode ? 140 : 165} />
-        )}
-        {currentOpenedPanel === 'helpFeedbackPanel' && (
-          <HelpFeedbackPanel reduceHeightBy={desktopMode ? 150 : 175} />
-        )}
+            {currentOpenedPanel === 'searchPanel' && (
+              <StoredSearches reduceHeightBy={desktopMode ? 140 : 165} />
+            )}
+            {currentOpenedPanel === 'helpFeedbackPanel' && (
+              <HelpFeedbackPanel reduceHeightBy={desktopMode ? 150 : 175} />
+            )}
+          </Box>
+          <Box
+            sx={{
+              // Console pane — distinct visual zone: small inner padding,
+              // top border so the splitter has a visible "lip" to grab,
+              // its own scroll so the list never pushes the splitter
+              // off-screen when many models are launched.
+              height: '100%',
+              overflowY: 'auto',
+              borderTop: 1,
+              borderColor: 'divider',
+              pt: 1,
+              px: 1,
+              backgroundColor: theme.palette.background.default,
+            }}
+          >
+            <RunningModelsPanel />
+          </Box>
+        </Split>
       </Box>
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          marginTop: desktopMode ? '-10px' : '-25px',
           backgroundColor: theme.palette.background.default,
         }}
       >
@@ -678,7 +779,6 @@ function MobileNavigation(props: Props) {
             <SettingsIcon />
           </TsToolbarButton>
         </Box>
-        <ModelhubGlobalStatus />
       </Box>
     </Box>
   );

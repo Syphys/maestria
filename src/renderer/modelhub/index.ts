@@ -28,7 +28,10 @@ export type {
   BulkOptions,
   BulkRun,
 } from './useModelMeta';
-export { default as ModelhubGlobalStatus } from './ModelhubGlobalStatus';
+export {
+  BulkEnrichmentContextProvider,
+  useBulkEnrichment,
+} from './BulkEnrichmentContext';
 export { default as ModelhubSizeFilter } from './ModelhubSizeFilter';
 export {
   buildModelhubTagGroup,

@@ -23,6 +23,7 @@ import MainPage from '-/containers/MainPage';
 import TsAuth from '-/containers/TsAuth';
 import { BookmarksContextProvider } from '-/hooks/BookmarksContextProvider';
 import { BrowserHistoryContextProvider } from '-/hooks/BrowserHistoryContextProvider';
+import { BulkEnrichmentContextProvider } from '-/modelhub';
 import { ChatContextProvider } from '-/hooks/ChatProvider';
 import { CurrentLocationContextProvider } from '-/hooks/CurrentLocationContextProvider';
 import { DirectoryContentContextProvider } from '-/hooks/DirectoryContentContextProvider';
@@ -140,6 +141,7 @@ const SHARED_PROVIDERS = [
   FileUploadDialogContextProvider,
   HistoryContextProvider,
   BookmarksContextProvider,
+  BulkEnrichmentContextProvider,
 ] as React.ComponentType<any>[];
 
 export default function Root({ store, persistor }: RootType) {
