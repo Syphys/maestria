@@ -69,37 +69,37 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
     <Box
       data-tid="modelhubPanel"
       sx={{
-        mt: 2,
-        p: 1.5,
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: 1,
+        // Hosted inside the dedicated Inférence tab — the tab content
+        // already has its own outer chrome, so a second border + radius
+        // here would draw a redundant frame inside a frame. The
+        // "Models Hub" title that used to sit here is dropped for the
+        // same reason: the tab label already says "Inférence", a second
+        // heading inside its body is noise.
+        mt: 1,
       }}
     >
       <Stack
         direction="row"
         alignItems="center"
-        justifyContent="space-between"
         sx={{ mb: 1 }}
         flexWrap="wrap"
         gap={1}
       >
-        <Typography variant="subtitle1">Models Hub</Typography>
-        {nonCanonical && (
-          <Typography
-            variant="caption"
-            color="warning.main"
-            sx={{ width: '100%', display: 'block', mt: -0.5 }}
-          >
-            This is a non-canonical shard. Run applies to the canonical sibling:{' '}
-            <code>{canonicalSibling}</code>.
-          </Typography>
-        )}
         {filePath && (
           <RunModelButton
             filePath={filePath}
             preferredRunnerId={meta?.preferredRunnerId}
           />
+        )}
+        {nonCanonical && (
+          <Typography
+            variant="caption"
+            color="warning.main"
+            sx={{ width: '100%', display: 'block', mt: 0.5 }}
+          >
+            This is a non-canonical shard. Run applies to the canonical sibling:{' '}
+            <code>{canonicalSibling}</code>.
+          </Typography>
         )}
       </Stack>
 

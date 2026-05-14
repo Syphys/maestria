@@ -22,13 +22,10 @@ import {
   ButtonGroup,
   CircularProgress,
   Divider,
-  ListSubheader,
   Menu,
   MenuItem,
   Snackbar,
-  Stack,
   Tooltip,
-  Typography,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -280,35 +277,19 @@ export default function RunModelButton({
         open={!!menuAnchor}
         onClose={() => setMenuAnchor(null)}
       >
-        <ListSubheader sx={{ lineHeight: '32px' }}>
-          {t('core:mhMenuLaunch')}
-        </ListSubheader>
-        <MenuItem onClick={onLaunchModel}>
-          <PlayArrowIcon fontSize="small" sx={{ mr: 1 }} />
-          <Stack>
-            <Typography variant="body2">
-              {runningCount > 0 ? t('core:mhRunAnother') : t('core:mhRun')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {runningCount > 0
-                ? t('core:mhRunAnotherDescription', { count: runningCount })
-                : t('core:mhRunDescription')}
-            </Typography>
-          </Stack>
-        </MenuItem>
-
-        <Divider />
-
         <MenuItem onClick={onCopy}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
           {t('core:mhCopyCommand')}
         </MenuItem>
 
         {runningCount > 0 && (
-          <MenuItem onClick={onStopAll}>
-            <StopIcon fontSize="small" sx={{ mr: 1 }} />
-            {t('core:mhStopAll', { count: runningCount })}
-          </MenuItem>
+          <>
+            <Divider />
+            <MenuItem onClick={onStopAll}>
+              <StopIcon fontSize="small" sx={{ mr: 1 }} />
+              {t('core:mhStopAll', { count: runningCount })}
+            </MenuItem>
+          </>
         )}
 
         <Divider />
