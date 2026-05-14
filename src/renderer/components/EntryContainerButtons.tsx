@@ -19,14 +19,10 @@
 import AppConfig from '-/AppConfig';
 import { CloseEditIcon, SaveIcon, UndoIcon } from '-/components/CommonIcons';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
-import { useEntryPropsTabsContext } from '-/hooks/useEntryPropsTabsContext';
 import { useFilePropertiesContext } from '-/hooks/useFilePropertiesContext';
-import { useIOActionsContext } from '-/hooks/useIOActionsContext';
-import { useNotificationContext } from '-/hooks/useNotificationContext';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
-import { Pro } from '-/pro';
-import { isDesktopMode, isRevisionsEnabled } from '-/reducers/settings';
-import { Box, ButtonGroup, Switch, Tooltip } from '@mui/material';
+import { isDesktopMode } from '-/reducers/settings';
+import { Box, ButtonGroup, Tooltip } from '@mui/material';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -41,14 +37,10 @@ interface EntryContainerButtonsProps {
 function EntryContainerButtons(props: EntryContainerButtonsProps) {
   const { isSavingInProgress, savingFile } = props;
   const { t } = useTranslation();
-  const { setAutoSave } = useIOActionsContext();
-  const { isEditable } = useEntryPropsTabsContext();
   const { findLocation } = useCurrentLocationContext();
   const { saveDescription, isEditMode, setEditMode } =
     useFilePropertiesContext();
   const { openedEntry, fileChanged, setFileChanged } = useOpenedEntryContext();
-  const { showNotification } = useNotificationContext();
-  const revisionsEnabled = useSelector(isRevisionsEnabled);
   const desktopMode = useSelector(isDesktopMode);
 
   const cLocation = findLocation(openedEntry.locationID);
@@ -59,35 +51,6 @@ function EntryContainerButtons(props: EntryContainerButtonsProps) {
     openedEntry &&
     openedEntry.editingExtensionId !== undefined &&
     openedEntry.editingExtensionId.length > 3;
-
-  const toggleAutoSave = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const autoSave = event.target.checked;
-    if (Pro) {
-      setAutoSave(openedEntry, autoSave, openedEntry.locationID);
-    } else {
-      showNotification(t('core:thisFunctionalityIsAvailableInPro'));
-    }
-  };
-
-  const autoSave = isEditable(openedEntry) && revisionsEnabled && (
-    <Tooltip
-      title={
-        t('core:autosave') +
-        (!Pro ? ' - ' + t('core:thisFunctionalityIsAvailableInPro') : '')
-      }
-    >
-      <span>
-        <Switch
-          data-tid="autoSaveTID"
-          checked={openedEntry.meta && openedEntry.meta.autoSave}
-          onChange={toggleAutoSave}
-          size="small"
-          name="autoSave"
-          disabled={!Pro}
-        />
-      </span>
-    </Tooltip>
-  );
 
   const startSavingFile = () => {
     if (isEditMode) {
@@ -184,7 +147,6 @@ function EntryContainerButtons(props: EntryContainerButtonsProps) {
       }}
     >
       {editFile}
-      {autoSave}
     </Box>
   );
 }
