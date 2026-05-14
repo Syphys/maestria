@@ -77,6 +77,7 @@ import {
   inputBaseClasses,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import DataObjectIcon from '@mui/icons-material/DataObject';
 import FormHelperText from '@mui/material/FormHelperText';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -978,23 +979,35 @@ function EntryProperties({ tileServer }: Props) {
                 sx={{
                   background: 'transparent',
                   boxShadow: 'none',
+                  border: `1px solid ${theme.palette.divider}`,
+                  borderRadius: 1,
                   '&:before': { display: 'none' },
                 }}
               >
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
                   sx={{
-                    px: 1,
-                    minHeight: 36,
-                    '& .MuiAccordionSummary-content': { my: 0.5 },
+                    px: 1.5,
+                    minHeight: 40,
+                    '& .MuiAccordionSummary-content': {
+                      my: 0.5,
+                      alignItems: 'center',
+                      gap: 1,
+                    },
                   }}
                 >
-                  <Typography variant="body2" color="text.secondary">
-                    {t('core:rawGgufMetadata')} (
-                    {Object.keys(modelHeaderForPanel.rawMetadata).length})
+                  <DataObjectIcon
+                    fontSize="small"
+                    sx={{ color: 'text.secondary' }}
+                  />
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {t('core:rawGgufMetadata')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ({Object.keys(modelHeaderForPanel.rawMetadata).length})
                   </Typography>
                 </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, px: 1 }}>
+                <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5 }}>
                   <Box
                     component="pre"
                     sx={{
