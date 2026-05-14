@@ -875,33 +875,24 @@ function CreateEditLocationDialog(props: Props) {
                   </>
                 }
               />
-              {devMode && (
-                <FormControlLabel
-                  disabled={
-                    !Pro ||
-                    type === locationType.TYPE_CLOUD ||
-                    AppConfig.isNativeMobile
-                  }
-                  labelPlacement="start"
-                  sx={{ justifyContent: 'space-between', marginLeft: 0 }}
-                  control={
-                    <Switch
-                      data-tid="changeWatchForChanges"
-                      name="watchForChanges"
-                      checked={watchForChanges}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                        setWatchForChanges(event.target.checked)
-                      }
-                    />
-                  }
-                  label={
-                    <>
-                      {t('core:watchForChangesInLocation')}
-                      {!Pro && <ProLabel />}
-                    </>
-                  }
-                />
-              )}
+              <FormControlLabel
+                disabled={
+                  type === locationType.TYPE_CLOUD || AppConfig.isNativeMobile
+                }
+                labelPlacement="start"
+                sx={{ justifyContent: 'space-between', marginLeft: 0 }}
+                control={
+                  <Switch
+                    data-tid="changeWatchForChanges"
+                    name="watchForChanges"
+                    checked={watchForChanges}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setWatchForChanges(event.target.checked)
+                    }
+                  />
+                }
+                label={t('core:watchForChangesInLocation')}
+              />
               <FormControlLabel
                 labelPlacement="start"
                 sx={{ justifyContent: 'space-between', marginLeft: 0 }}

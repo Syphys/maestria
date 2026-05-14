@@ -30,7 +30,6 @@ import { Changed } from '../../main/chokidarWatcher';
 import { useEditedEntryContext } from '-/hooks/useEditedEntryContext';
 import { TS } from '-/tagspaces.namespace';
 import { watchFolderMessage } from '-/services/utils-io';
-import { Pro } from '-/pro';
 
 type FSWatcherContextData = {
   ignored: string[];
@@ -91,8 +90,12 @@ export const FSWatcherContextProvider = ({
   }, [currentLocationId, currentDirectoryPath]);
 
   function watchFolder(locationPath, depth) {
+    // Pro gate dropped: the chokidar-backed watcher lives in
+    // `tagspaces-ws` (bundled in release/app/node_modules), the main
+    // process IPC handler at mainEvents.ts forwards events to the
+    // renderer regardless of license tier. Keep the object-store /
+    // WebDAV exclusion since those backends don't have local inotify.
     if (
-      Pro &&
       currentLocation &&
       !currentLocation.haveObjectStoreSupport() &&
       !currentLocation.haveWebDavSupport()
