@@ -19,7 +19,17 @@ export const AUTO_TAG_NAMESPACES = [
   'type',
   'dir',
   'meta', // Generic raw metadata (categorical / enum / string only)
+  'hf', // Mirrored Hugging Face `tags[]` array (cap 30 per file)
 ] as const;
+
+/**
+ * Cap how many HF tags we mirror per model. HF library tags can run
+ * into the dozens for popular checkpoints (e.g. fine-tunes with many
+ * dataset / region / deploy markers). 30 covers the useful signal
+ * (transformers, conversational, safetensors, eval-results, …) without
+ * spamming the tag library on heavily-marked repos.
+ */
+const HF_TAG_MAX = 30;
 
 /**
  * Generic folder names we don't want to clutter the tag list with: top-level
@@ -266,6 +276,26 @@ export function computeAutoTags(input: AutoTagInput): string[] {
     else if (pt.includes('audio') || pt.includes('speech'))
       tags.add('mod:audio');
     else if (pt.includes('video')) tags.add('mod:video');
+  }
+
+  // Mirror the entire HF `tags[]` array as `hf:<tag>` system tags. The
+  // values are free-form on Hugging Face (`transformers`, `conversational`,
+  // `safetensors`, `license:apache-2.0`, `region:us`, `deploy:azure`,
+  // `arxiv:1234.5678`, …) — we lowercase, trim, and prefix unconditionally
+  // so every imported tag lives in the dedicated `hf:` namespace. That
+  // keeps the "clear auto tags" bulk action simple (single namespace to
+  // sweep) and avoids namespace collisions with our normalized tags
+  // (`lic:apache-2` from HF.license stays distinct from `hf:license:apache-2.0`).
+  if (Array.isArray(hf?.tags) && hf.tags.length > 0) {
+    let added = 0;
+    for (const raw of hf.tags) {
+      if (typeof raw !== 'string') continue;
+      const clean = raw.toLowerCase().trim();
+      if (!clean) continue;
+      tags.add(`hf:${clean}`);
+      added++;
+      if (added >= HF_TAG_MAX) break;
+    }
   }
 
   // Folder hierarchy: each parent dir between the location root and the file

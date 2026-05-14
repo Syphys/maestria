@@ -29,6 +29,7 @@ const AUTO_TAG_NAMESPACES = new Set<string>([
   'type',
   'dir',
   'meta',
+  'hf',
 ]);
 
 function isAutoTagTitle(title: string): boolean {
