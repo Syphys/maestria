@@ -231,22 +231,12 @@ export function computeAutoTags(input: AutoTagInput): string[] {
     tags.add(`ctx:${label}`);
   }
 
-  // Exhaustive meta-tagging: convert EVERYTHING from rawMetadata into tags
-  if (h?.rawMetadata) {
-    for (const [key, val] of Object.entries(h.rawMetadata)) {
-      // Skip very large values (like tokenizer tokens/scores) which are arrays
-      if (Array.isArray(val)) continue;
-
-      let displayVal = String(val);
-      if (displayVal.length > 0 && displayVal.length < 50) {
-        // Clean key: strip 'general.' prefix and normalize separators
-        const cleanKey = key.replace(/^general\./, '').replace(/[\s.]+/g, '-');
-        // Clean value: normalize separators
-        const cleanVal = displayVal.replace(/[\s:]+/g, '-');
-        tags.add(`meta:${cleanKey}:${cleanVal}`);
-      }
-    }
-  }
+  // `meta:*` tags are intentionally NOT emitted. The raw GGUF KV dump is
+  // already exposed via `header.rawMetadata` (structured + typed JSON) and
+  // duplicating it as flat string tags bloated every sidecar `.json` and the
+  // tag index without adding searchable value (nobody filters by
+  // `rope.scaling.yarn_log_multiplier`). Useful summaries live as semantic
+  // tags above (arch, quant, size, ctx, mod, lic, fmt, tier, dir).
 
   if (h?.modality) {
     tags.add(`mod:${h.modality}`);

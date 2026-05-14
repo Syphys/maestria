@@ -323,6 +323,7 @@
   "modelEmbeddingDim": "Dimension embedding",
   "modelBlocks": "Couches",
   "modelAttnHeads": "Têtes d'attention",
+  "rawGgufMetadata": "Métadonnées GGUF brutes",
   "fileLDTM": "Date de modification",
   "creationDate": "Date de création",
   "random": "Aléatoire",

@@ -103,7 +103,19 @@ export async function loadModelMeta(
   filePath: string,
 ): Promise<ModelMeta | undefined> {
   const sidecar = await loadSidecar(filePath);
-  return sidecar.modelMeta;
+  const meta = sidecar.modelMeta;
+  if (!meta) return undefined;
+  // Legacy `meta:*` autoTags are no longer emitted (they duplicated
+  // `header.rawMetadata` in a worse format). Strip them at read time so
+  // pre-existing sidecars stop returning the noise via MCP. The data on
+  // disk heals on the next re-parse via mergeSystemTagsIntoExisting.
+  if (Array.isArray(meta.autoTags)) {
+    const filtered = meta.autoTags.filter((t) => !t.startsWith('meta:'));
+    if (filtered.length !== meta.autoTags.length) {
+      return { ...meta, autoTags: filtered };
+    }
+  }
+  return meta;
 }
 
 export interface WriteSidecarOptions {

@@ -324,6 +324,7 @@
   "modelEmbeddingDim": "Embedding dim",
   "modelBlocks": "Blocks",
   "modelAttnHeads": "Attention heads",
+  "rawGgufMetadata": "Raw GGUF metadata",
   "fileLDTM": "Date Modified",
   "creationDate": "Date Created",
   "random": "Random",

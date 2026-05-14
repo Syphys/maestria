@@ -193,11 +193,14 @@ register({
 register({
   name: 'models.get',
   description:
-    'Return the full sidecar metadata for a model file: parsed GGUF ' +
-    'header (architecture, quantization, layer count, context length, ' +
+    'Return the sidecar metadata for a model file: parsed GGUF header ' +
+    '(architecture, quantization, layer count, context length, ' +
     'embedding dim, etc.), Hugging Face card if cached, auto-derived ' +
-    'system tags (arch:llama, quant:q4_k_m, size:7-13B, …). Works on ' +
-    'any shard — resolves to the canonical shard (#1) internally.',
+    'system tags (arch:llama, quant:q4_k_m, size:7-13B, …). The raw ' +
+    'GGUF KV dump (`header.rawMetadata`, ~40 typed entries like ' +
+    '`rope.scaling.yarn_log_multiplier`) is hidden by default — pass ' +
+    '`withMetadata: true` for the full dump. Works on any shard — ' +
+    'resolves to the canonical shard (#1) internally.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -208,12 +211,22 @@ register({
           'a multi-file model is accepted; the response is the canonical ' +
           'shard metadata.',
       },
+      withMetadata: {
+        type: 'boolean',
+        description:
+          'Include the raw GGUF KV dump under `header.rawMetadata`. ' +
+          'Default false — the summary fields on `header` ' +
+          '(architecture, name, sizeLabel, contextMax, embeddingDim, ' +
+          'blockCount, headCount, quantization) are sufficient for most ' +
+          'callers. Set true when you need architecture-specific knobs ' +
+          'like `rope.scaling.*` or `attention.kv_lora_rank`.',
+      },
     },
     required: ['path'],
     additionalProperties: false,
   },
   handler: async (args: unknown) => {
-    const a = args as { path?: unknown };
+    const a = args as { path?: unknown; withMetadata?: unknown };
     if (typeof a.path !== 'string' || !a.path) {
       throw new Error('path is required and must be a string');
     }
@@ -222,9 +235,17 @@ register({
     if (!meta) {
       throw new Error(`no sidecar metadata for ${a.path}`);
     }
+    const withMetadata = a.withMetadata === true;
+    const header =
+      withMetadata || !meta.header
+        ? meta.header
+        : (() => {
+            const { rawMetadata: _drop, ...rest } = meta.header;
+            return rest;
+          })();
     return {
       path: canonical,
-      header: meta.header,
+      header,
       huggingface: meta.huggingface,
       autoTags: meta.autoTags,
       userNotes: meta.userNotes,

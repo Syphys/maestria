@@ -106,6 +106,16 @@ function enhanceEntryWithSystem(
     });
   }
 
+  // Legacy `meta:*` system tags (one chip per GGUF KV pair) are no longer
+  // emitted — they duplicated `header.rawMetadata` in a worse format. Filter
+  // pre-existing ones at read time so the UI is clean until the user
+  // re-parses each model.
+  if (Array.isArray(enhanced.tags) && enhanced.tags.length > 0) {
+    enhanced.tags = enhanced.tags.filter(
+      (t) => typeof t.title !== 'string' || !t.title.startsWith('meta:'),
+    );
+  }
+
   return enhanced;
 }
 

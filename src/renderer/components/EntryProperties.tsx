@@ -66,6 +66,9 @@ import { formatTimestampLocal } from '-/utils/formatLocalTime';
 import { parseGeoLocation } from '-/utils/geo';
 import useFirstRender from '-/utils/useFirstRender';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   FormControl,
   InputAdornment,
@@ -73,6 +76,7 @@ import {
   Typography,
   inputBaseClasses,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FormHelperText from '@mui/material/FormHelperText';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -965,6 +969,55 @@ function EntryProperties({ tileServer }: Props) {
             />
           </Grid>
         ))}
+
+        {modelHeaderForPanel?.rawMetadata &&
+          Object.keys(modelHeaderForPanel.rawMetadata).length > 0 && (
+            <Grid size={12}>
+              <Accordion
+                disableGutters
+                sx={{
+                  background: 'transparent',
+                  boxShadow: 'none',
+                  '&:before': { display: 'none' },
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    px: 1,
+                    minHeight: 36,
+                    '& .MuiAccordionSummary-content': { my: 0.5 },
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    {t('core:rawGgufMetadata')} (
+                    {Object.keys(modelHeaderForPanel.rawMetadata).length})
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0, px: 1 }}>
+                  <Box
+                    component="pre"
+                    sx={{
+                      m: 0,
+                      p: 1,
+                      maxHeight: 320,
+                      overflow: 'auto',
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {Object.entries(modelHeaderForPanel.rawMetadata)
+                      .map(([k, v]) => `${k} = ${JSON.stringify(v)}`)
+                      .join('\n')}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            </Grid>
+          )}
 
         <Grid size={12}>
           <FormControl fullWidth={true}>
