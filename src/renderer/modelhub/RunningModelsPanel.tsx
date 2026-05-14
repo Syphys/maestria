@@ -56,7 +56,24 @@ import {
   listRunningModels,
   openChatForPid,
   stopRunner,
+  subscribeExit,
+  subscribeLogChunks,
 } from './runners/useRunners';
+
+/**
+ * Lines matching this regex are surfaced in red/orange in the log
+ * dialog. Conservative on purpose — too many false positives would
+ * defeat the visual cue. Tuned against the real llama-server output:
+ *   - "error: …", "ERROR" — explicit failures
+ *   - "warning: …" — yellow band
+ *   - "out of memory" — VRAM/RAM OOM
+ *   - "unknown argument" — runner refused a flag
+ *   - "cuda" / "rocm" / "hip" / "vulkan" lines that also contain
+ *     "error" / "fail" — surface GPU-specific boot failures distinctly
+ */
+const ERROR_LINE_RE =
+  /\b(error|fail(ed)?|out of memory|unknown (argument|option))\b/i;
+const WARNING_LINE_RE = /\b(warning|warn|deprecated)\b/i;
 
 const POLL_INTERVAL_MS = 3000;
 const EXPANDED_STORAGE_KEY = 'modelhub.launchLogs.expanded';
@@ -122,6 +139,54 @@ export default function RunningModelsPanel(): JSX.Element {
       clearInterval(interval);
     };
   }, [refresh]);
+
+  /**
+   * Live-tail: when the dialog is open for pid X and main process pushes
+   * new lines for that same pid, append them in place. Other pids' lines
+   * are dropped (the panel poll picks them up via `recentLog` if needed).
+   * Subscription stays mounted for the panel's lifetime — the closure
+   * always sees the latest `logDialog` via `setLogDialog`'s functional
+   * form, so we don't need to re-subscribe on every dialog change.
+   */
+  useEffect(() => {
+    const off = subscribeLogChunks(({ pid, lines }) => {
+      setLogDialog((prev) => {
+        if (!prev || prev.entry.pid !== pid) return prev;
+        return { ...prev, log: [...prev.log, ...lines] };
+      });
+    });
+    return off;
+  }, []);
+
+  /**
+   * Auto-open the dialog when a process exits within the boot-crash
+   * window — the user is staring at the panel waiting for the launch
+   * to succeed; surfacing the diagnostic immediately saves a click.
+   * Also kick a refresh so the row flips to the exited (red) style
+   * without waiting for the next 3 s poll tick.
+   */
+  useEffect(() => {
+    const off = subscribeExit(({ pid, crashedEarly }) => {
+      refresh();
+      if (!crashedEarly) return;
+      // Snapshot the entry from the latest poll. If we don't have it
+      // yet (very fast crash, before our first refresh), best-effort
+      // re-fetch then open.
+      (async () => {
+        let entry = running.find((e) => e.pid === pid);
+        if (!entry) {
+          const fresh = await listRunningModels().catch(() => []);
+          entry = fresh.find((e) => e.pid === pid);
+        }
+        if (!entry) return;
+        await onOpenLog(entry);
+      })();
+    });
+    return off;
+    // running + onOpenLog are stable enough — re-subscribing on every
+    // poll tick (3 s) would create churn for no gain.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onStop = useCallback(
     async (entry: RunningEntry) => {
@@ -656,7 +721,29 @@ export default function RunningModelsPanel(): JSX.Element {
                 }}
               >
                 {logDialog && logDialog.log.length > 0
-                  ? logDialog.log.join('\n')
+                  ? logDialog.log.map((line, i) => {
+                      // Per-line render so error/warning lines get a
+                      // color cue without painting the whole pane.
+                      let color: string | undefined;
+                      if (ERROR_LINE_RE.test(line)) color = 'error.main';
+                      else if (WARNING_LINE_RE.test(line))
+                        color = 'warning.main';
+                      return (
+                        <Box
+                          component="span"
+                          key={i}
+                          sx={{
+                            display: 'block',
+                            color,
+                            // Bold the error lines so they stand out
+                            // even for users with reduced color sensitivity.
+                            fontWeight: color === 'error.main' ? 600 : 400,
+                          }}
+                        >
+                          {line}
+                        </Box>
+                      );
+                    })
                   : t('core:mhRunLogNoOutput')}
               </Box>
             </Box>

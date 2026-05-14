@@ -105,7 +105,9 @@ export type Channels =
   | 'modelhub:runnersStop'
   | 'modelhub:runnersRunning'
   | 'modelhub:runnersBuildCommand'
-  | 'modelhub:runnersOpenChat';
+  | 'modelhub:runnersOpenChat'
+  | 'modelhub:runnersLogChunk'
+  | 'modelhub:runnersExit';
 
 const electronHandler = {
   ipcRenderer: {

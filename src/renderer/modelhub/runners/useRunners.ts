@@ -217,6 +217,46 @@ export async function getRunnerLog(pid: number): Promise<string[]> {
   return r.log;
 }
 
+export interface LogChunkPayload {
+  pid: number;
+  /** Pre-split lines, never empty. */
+  lines: string[];
+}
+
+export interface ExitPayload {
+  pid: number;
+  exited: RunningEntryExitInfo;
+  /** True when the process exited within 5 s of spawn. */
+  crashedEarly: boolean;
+}
+
+/**
+ * Subscribe to live stdout/stderr lines pushed from the main process.
+ * Returns an unsubscribe function — caller MUST invoke it on unmount,
+ * otherwise the listener leaks across component remounts (and Node
+ * eventually warns about MaxListenersExceeded). The preload bridge
+ * exposes `ipcRenderer.on(channel, fn) => () => void`, so this helper
+ * is mostly a typed convenience wrapper.
+ */
+export function subscribeLogChunks(
+  cb: (payload: LogChunkPayload) => void,
+): () => void {
+  const r = window.electronIO?.ipcRenderer;
+  if (!r) return () => {};
+  return r.on(MODELHUB_IPC.runnersLogChunk, (...args: unknown[]) =>
+    cb(args[0] as LogChunkPayload),
+  );
+}
+
+/** Same shape as `subscribeLogChunks` for the exit channel. */
+export function subscribeExit(cb: (payload: ExitPayload) => void): () => void {
+  const r = window.electronIO?.ipcRenderer;
+  if (!r) return () => {};
+  return r.on(MODELHUB_IPC.runnersExit, (...args: unknown[]) =>
+    cb(args[0] as ExitPayload),
+  );
+}
+
 export async function dismissRunner(pid: number): Promise<void> {
   const r = await ipc<{ ok: boolean; error?: string }>(
     MODELHUB_IPC.runnersDismiss,

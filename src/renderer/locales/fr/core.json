@@ -1336,7 +1336,7 @@
   "mhRunLogRunning_other": "{{count}} en cours",
   "mhRunLogExited_one": "{{count}} terminé",
   "mhRunLogExited_other": "{{count}} terminés",
-  "mhRunLogEmpty": "Aucun lancement. Cliquez sur Lancer dans la fiche d'un modèle pour démarrer un llama-server.",
+  "mhRunLogEmpty": "Aucun modèle chargé.",
   "mhRunLogGroupDirect": "Direct",
   "mhRunLogRowExited": "terminé",
   "mhRunLogCode": "code {{code}}",

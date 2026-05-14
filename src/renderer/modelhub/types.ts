@@ -487,6 +487,21 @@ export const MODELHUB_IPC = {
   runnersRunning: 'modelhub:runnersRunning',
   /** Returns the captured stdout/stderr ring buffer of an entry. */
   runnersGetLog: 'modelhub:runnersGetLog',
+  /**
+   * Push event (main → renderer): a launched child produced new stdout/
+   * stderr lines. Payload: `{ pid: number, lines: string[] }`. Lines
+   * are pre-split (no trailing CR/LF) and never empty. Renderer uses
+   * this to live-tail the open log dialog without polling.
+   */
+  runnersLogChunk: 'modelhub:runnersLogChunk',
+  /**
+   * Push event (main → renderer): a launched child exited. Payload:
+   * `{ pid: number, exited: ExitInfo, crashedEarly: boolean }`.
+   * `crashedEarly` is true when the exit happened within the first
+   * 5 s of the process — the renderer auto-opens the log dialog so the
+   * user sees the diagnostic without having to click "view log".
+   */
+  runnersExit: 'modelhub:runnersExit',
   /** Removes a dead entry from the registry. No-op on live entries. */
   runnersDismiss: 'modelhub:runnersDismiss',
   /** Builds the shell command without launching (for the "copy" button). */

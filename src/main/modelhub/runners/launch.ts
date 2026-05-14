@@ -11,9 +11,48 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
+import { EventEmitter } from 'events';
 import { LaunchResult, RunParams } from '../../../renderer/modelhub/types';
 
 const RING_LIMIT = 200;
+
+/**
+ * Window during which an `exit` event counts as a "boot crash" (= the
+ * binary refused a flag, OOM at model load, missing CUDA lib, etc.).
+ * Below this threshold, the renderer auto-opens the log dialog so the
+ * user sees the diagnostic without having to click "view log" manually.
+ */
+const CRASH_AT_BOOT_WINDOW_MS = 5000;
+
+export interface LaunchEvent {
+  pid: number;
+}
+export interface LogChunkEvent extends LaunchEvent {
+  /** Pre-split lines (already stripped of CR/LF). May be empty. */
+  lines: string[];
+}
+export interface ExitEvent extends LaunchEvent {
+  exited: ExitInfo;
+  /** True when the process exited within CRASH_AT_BOOT_WINDOW_MS. */
+  crashedEarly: boolean;
+}
+
+/**
+ * Push channel used by the IPC layer to mirror per-process events to the
+ * renderer (no need to poll the log buffer). Two events:
+ *   - `'logChunk'` (LogChunkEvent) — fired whenever stdout/stderr produced
+ *     at least one non-empty line.
+ *   - `'exit'` (ExitEvent) — fired when the child exits, with a flag
+ *     indicating whether it died inside the boot-crash window.
+ *
+ * Subscribers MUST be attached at app init (before any launch happens),
+ * otherwise early events are lost — there is no replay buffer.
+ */
+export const launchEvents = new EventEmitter();
+// Heuristic safety: every renderer window adds 2 listeners (logChunk +
+// exit). Bumping the cap so dev with 4-5 windows doesn't trip Node's
+// MaxListenersExceededWarning.
+launchEvents.setMaxListeners(50);
 
 export interface ExitInfo {
   code: number | null;
@@ -68,11 +107,23 @@ const active = new Map<number, ActiveEntry>();
 
 function appendLog(p: ActiveEntry, chunk: Buffer | string): void {
   const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+  const lines: string[] = [];
   for (const line of text.split(/\r?\n/)) {
     if (!line) continue;
     p.log.push(line);
     if (p.log.length > RING_LIMIT) p.log.shift();
+    lines.push(line);
   }
+  if (lines.length > 0) {
+    launchEvents.emit('logChunk', { pid: p.pid, lines } as LogChunkEvent);
+  }
+}
+
+/** ms elapsed since `entry.startedAt`. Used by the exit handler to set
+ * the `crashedEarly` flag without re-parsing dates downstream. */
+function msSinceStart(entry: ActiveEntry): number {
+  const startedMs = Date.parse(entry.startedAt);
+  return Number.isFinite(startedMs) ? Date.now() - startedMs : Infinity;
 }
 
 export interface LaunchOptions {
@@ -167,21 +218,36 @@ export function launchProcess(
       // Don't drop the entry — keep it around so the user can read the
       // captured log + exit code. `stopProcess` / dismissProcess remove
       // it explicitly.
-      entry.exited = {
+      const exited: ExitInfo = {
         code: code ?? null,
         signal: signal ?? null,
         exitedAt: new Date().toISOString(),
       };
+      entry.exited = exited;
       entry.child = undefined;
+      const crashedEarly = msSinceStart(entry) < CRASH_AT_BOOT_WINDOW_MS;
+      launchEvents.emit('exit', {
+        pid: entry.pid,
+        exited,
+        crashedEarly,
+      } as ExitEvent);
     });
     child.on('error', (err) => {
       appendLog(entry, `[spawn error] ${err.message}`);
-      entry.exited = {
+      const exited: ExitInfo = {
         code: null,
         signal: null,
         exitedAt: new Date().toISOString(),
       };
+      entry.exited = exited;
       entry.child = undefined;
+      // Spawn errors always count as boot crashes — the binary never
+      // even started, so the user wants the dialog open immediately.
+      launchEvents.emit('exit', {
+        pid: entry.pid,
+        exited,
+        crashedEarly: true,
+      } as ExitEvent);
     });
 
     return { ok: true, pid: child.pid, url: options.url, command };

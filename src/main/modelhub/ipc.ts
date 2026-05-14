@@ -3,7 +3,7 @@
  * Called once from `mainEvents.ts` during `loadMainEvents()`.
  */
 
-import { app, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import {
   MODELHUB_IPC,
   ModelMeta,
@@ -41,10 +41,13 @@ import {
   getActiveEntry,
   getEntryLog,
   killAll,
+  launchEvents,
   launchProcess,
   listRunning,
   pickFreePort,
   stopProcess,
+  type ExitEvent,
+  type LogChunkEvent,
 } from './runners/launch';
 import { openChatFor } from './runners/openChat';
 import { resolveCanonicalShardPath, sumShardBytes } from './shardFs';
@@ -71,7 +74,36 @@ function newRunId(): string {
   return `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Fan-out a launch event to every renderer window. Skip windows that
+ * were already destroyed (happens during reload / quit) so a stale
+ * reference doesn't crash the broadcaster. Idempotent — safe to call
+ * for every event regardless of how many windows are open.
+ */
+function broadcastToAllWindows(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue;
+    try {
+      win.webContents.send(channel, payload);
+    } catch {
+      /* webContents may be detached mid-send — best-effort */
+    }
+  }
+}
+
 export default function registerModelhubEvents(): void {
+  // Mirror per-process events out to all renderer windows so the
+  // RunningModelsPanel can live-tail the open log dialog and auto-open
+  // the dialog on a boot crash. Subscribed once, lives for the app's
+  // lifetime — no teardown path because the IPC handlers below also
+  // never unregister.
+  launchEvents.on('logChunk', (e: LogChunkEvent) => {
+    broadcastToAllWindows(MODELHUB_IPC.runnersLogChunk, e);
+  });
+  launchEvents.on('exit', (e: ExitEvent) => {
+    broadcastToAllWindows(MODELHUB_IPC.runnersExit, e);
+  });
+
   ipcMain.handle(MODELHUB_IPC.parseHeader, async (_event, filePath: string) => {
     return readModelHeader(filePath);
   });

@@ -1342,7 +1342,7 @@
   "mhRunLogRunning_other": "{{count}} running",
   "mhRunLogExited_one": "{{count}} exited",
   "mhRunLogExited_other": "{{count}} exited",
-  "mhRunLogEmpty": "No launches yet. Click Run on a model file to spawn a llama-server.",
+  "mhRunLogEmpty": "No model loaded.",
   "mhRunLogGroupDirect": "Direct",
   "mhRunLogRowExited": "exited",
   "mhRunLogCode": "code {{code}}",
