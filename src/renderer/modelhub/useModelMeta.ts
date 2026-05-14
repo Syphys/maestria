@@ -295,8 +295,18 @@ export interface ClearFolderSummary {
  * description and every system / auto-namespaced tag. User-typed tags are
  * preserved. Synchronous over IPC — resolves with the summary when done.
  */
+export interface ClearFolderClientOptions {
+  /** Strip system tags from sidecar.tags[]. Default: true. */
+  tags?: boolean;
+  /** Empty the description field. Default: true. */
+  description?: boolean;
+  /** Drop the cached HF block from modelMeta. Default: false. */
+  huggingface?: boolean;
+}
+
 export async function clearFolderBulk(
   rootDir: string,
+  options?: ClearFolderClientOptions,
 ): Promise<ClearFolderSummary> {
   const ipc = getIpc();
   if (!ipc?.invoke) {
@@ -305,6 +315,7 @@ export async function clearFolderBulk(
   return (await ipc.invoke(
     MODELHUB_IPC.clearFolder,
     rootDir,
+    options,
   )) as ClearFolderSummary;
 }
 

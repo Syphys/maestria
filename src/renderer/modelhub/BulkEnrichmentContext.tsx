@@ -66,7 +66,12 @@ export interface BulkEnrichmentContextValue {
   noLocation: boolean;
   start: (mode: 'local' | 'hf') => Promise<void>;
   cancel: () => Promise<void>;
+  /** Wipe BOTH system tags + descriptions (legacy "VIDER" action). */
   clearAll: () => Promise<void>;
+  /** Wipe only the auto / system tags, keep descriptions intact. */
+  clearTags: () => Promise<void>;
+  /** Wipe only the description field, keep system tags intact. */
+  clearDescription: () => Promise<void>;
   dismissMessage: () => void;
 }
 
@@ -252,28 +257,54 @@ export const BulkEnrichmentContextProvider: React.FC<{
     }
   }, [bulk.cancelHandle]);
 
-  const clearAll = useCallback(async () => {
-    const path = currentLocation?.path;
-    if (!path || bulk.active || reindexing) return;
-    if (!window.confirm(t('core:mhBulkClearConfirm'))) {
-      return;
-    }
-    setError(undefined);
-    setInfo(undefined);
-    const result = await clearFolderBulk(path);
-    if (!result.ok) {
-      setError(result.error ?? 'clear failed');
-      return;
-    }
-    _clearModelMetaCache();
-    setInfo(
-      t('core:mhBulkClearDone', {
-        cleared: result.cleared ?? 0,
-        skipped: result.skipped ?? 0,
-        errors: result.errors ?? 0,
-      }),
-    );
-  }, [currentLocation, bulk.active, reindexing, t]);
+  // Generic clear with a granular options object — used by clearAll /
+  // clearTags / clearDescription. Keeps the confirm + cache invalidation
+  // + info-string flow in a single place. The confirm wording adapts to
+  // the kind of clear so the user knows exactly what's about to go.
+  const runClear = useCallback(
+    async (
+      opts: { tags?: boolean; description?: boolean; huggingface?: boolean },
+      confirmKey: string,
+    ) => {
+      const path = currentLocation?.path;
+      if (!path || bulk.active || reindexing) return;
+      if (!window.confirm(t(confirmKey))) {
+        return;
+      }
+      setError(undefined);
+      setInfo(undefined);
+      const result = await clearFolderBulk(path, opts);
+      if (!result.ok) {
+        setError(result.error ?? 'clear failed');
+        return;
+      }
+      _clearModelMetaCache();
+      setInfo(
+        t('core:mhBulkClearDone', {
+          cleared: result.cleared ?? 0,
+          skipped: result.skipped ?? 0,
+          errors: result.errors ?? 0,
+        }),
+      );
+    },
+    [currentLocation, bulk.active, reindexing, t],
+  );
+
+  const clearAll = useCallback(
+    () =>
+      runClear({ tags: true, description: true }, 'core:mhBulkClearConfirm'),
+    [runClear],
+  );
+
+  const clearTags = useCallback(
+    () => runClear({ tags: true }, 'core:mhBulkClearTagsConfirm'),
+    [runClear],
+  );
+
+  const clearDescription = useCallback(
+    () => runClear({ description: true }, 'core:mhBulkClearDescriptionConfirm'),
+    [runClear],
+  );
 
   const dismissMessage = useCallback(() => {
     setInfo(undefined);
@@ -290,6 +321,8 @@ export const BulkEnrichmentContextProvider: React.FC<{
       start,
       cancel,
       clearAll,
+      clearTags,
+      clearDescription,
       dismissMessage,
     }),
     [
@@ -301,6 +334,8 @@ export const BulkEnrichmentContextProvider: React.FC<{
       start,
       cancel,
       clearAll,
+      clearTags,
+      clearDescription,
       dismissMessage,
     ],
   );

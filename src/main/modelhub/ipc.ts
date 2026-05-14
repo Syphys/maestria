@@ -186,14 +186,28 @@ export default function registerModelhubEvents(): void {
     },
   );
 
-  ipcMain.handle(MODELHUB_IPC.clearFolder, async (_event, rootDir: string) => {
-    try {
-      const summary = await clearFolder(rootDir);
-      return { ok: true, ...summary };
-    } catch (e) {
-      return { ok: false, error: (e as Error).message };
-    }
-  });
+  ipcMain.handle(
+    MODELHUB_IPC.clearFolder,
+    async (
+      _event,
+      rootDir: string,
+      options?: {
+        tags?: boolean;
+        description?: boolean;
+        huggingface?: boolean;
+      },
+    ) => {
+      try {
+        // Backward-compat: when no options are passed, default to the
+        // legacy behaviour (clear both tags + description).
+        const opts = options ?? { tags: true, description: true };
+        const summary = await clearFolder(rootDir, opts);
+        return { ok: true, ...summary };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
 
   ipcMain.handle(
     MODELHUB_IPC.patchModelMeta,

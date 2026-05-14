@@ -53,9 +53,22 @@ export interface ClearFolderSummary {
   errorSamples: Array<{ filePath: string; error: string }>;
 }
 
+export interface ClearFolderOptions {
+  /** Strip system / auto-namespaced tags from `sidecar.tags[]`. */
+  tags?: boolean;
+  /** Empty the `sidecar.description` string. */
+  description?: boolean;
+  /** Drop the entire `modelMeta.huggingface` block too. */
+  huggingface?: boolean;
+}
+
 export async function clearFolder(
   rootDir: string,
+  options: ClearFolderOptions = { tags: true, description: true },
 ): Promise<ClearFolderSummary> {
+  const wantTags = options.tags === true;
+  const wantDesc = options.description === true;
+  const wantHf = options.huggingface === true;
   const files = await listModelFiles(rootDir);
   const summary: ClearFolderSummary = {
     total: files.length,
@@ -64,6 +77,13 @@ export async function clearFolder(
     errors: 0,
     errorSamples: [],
   };
+
+  // Caller passed `{}` — nothing to do, return early with everything skipped
+  // so the UI still gets a coherent summary instead of a silent no-op.
+  if (!wantTags && !wantDesc && !wantHf) {
+    summary.skipped = files.length;
+    return summary;
+  }
 
   for (const filePath of files) {
     try {
@@ -81,11 +101,15 @@ export async function clearFolder(
       }
       const sidecar = JSON.parse(raw);
       let changed = false;
-      if (typeof sidecar.description === 'string' && sidecar.description) {
+      if (
+        wantDesc &&
+        typeof sidecar.description === 'string' &&
+        sidecar.description
+      ) {
         sidecar.description = '';
         changed = true;
       }
-      if (Array.isArray(sidecar.tags)) {
+      if (wantTags && Array.isArray(sidecar.tags)) {
         const filtered = sidecar.tags.filter((t: SidecarTagLite) => {
           const title = typeof t.title === 'string' ? t.title : '';
           return !(
@@ -98,6 +122,16 @@ export async function clearFolder(
           sidecar.tags = filtered;
           changed = true;
         }
+      }
+      if (
+        wantHf &&
+        sidecar.modelMeta &&
+        typeof sidecar.modelMeta === 'object' &&
+        (sidecar.modelMeta as { huggingface?: unknown }).huggingface !==
+          undefined
+      ) {
+        delete (sidecar.modelMeta as { huggingface?: unknown }).huggingface;
+        changed = true;
       }
       if (changed) {
         // eslint-disable-next-line no-await-in-loop

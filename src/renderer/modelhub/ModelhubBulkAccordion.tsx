@@ -41,6 +41,8 @@ export default function ModelhubBulkAccordion() {
     start,
     cancel,
     clearAll,
+    clearTags,
+    clearDescription,
     dismissMessage,
   } = useBulkEnrichment();
 
@@ -87,6 +89,15 @@ export default function ModelhubBulkAccordion() {
                       {t('core:mhBulkParseAll')}
                     </Button>
                   </Tooltip>
+                  <Tooltip title={t('core:mhBulkTagAllTooltip')}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => start('local')}
+                    >
+                      {t('core:mhBulkTagAll')}
+                    </Button>
+                  </Tooltip>
                   <Tooltip title={t('core:mhBulkHfTooltip')}>
                     <Button
                       size="small"
@@ -94,6 +105,26 @@ export default function ModelhubBulkAccordion() {
                       onClick={() => start('hf')}
                     >
                       {t('core:mhBulkHf')}
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title={t('core:mhBulkClearTagsTooltip')}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      color="warning"
+                      onClick={clearTags}
+                    >
+                      {t('core:mhBulkClearTags')}
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title={t('core:mhBulkClearDescriptionTooltip')}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      color="warning"
+                      onClick={clearDescription}
+                    >
+                      {t('core:mhBulkClearDescription')}
                     </Button>
                   </Tooltip>
                   <Tooltip title={t('core:mhBulkClearTooltip')}>

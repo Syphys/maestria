@@ -6,7 +6,7 @@
 import { computeAutoTags } from '../../renderer/modelhub/autoTags';
 import { ModelMeta } from '../../renderer/modelhub/types';
 import { readModelHeader } from './parseHeader';
-import { patchModelMeta } from './sidecar';
+import { loadModelMeta, patchModelMeta } from './sidecar';
 import { computeFolderSegments } from './folderTags';
 import { resolveCanonicalShardPath } from './shardFs';
 
@@ -48,7 +48,18 @@ export async function enrichLocal(
   }
   const header = headerResult.meta;
   const folderSegments = computeFolderSegments(canonicalPath, options.rootDir);
-  const autoTags = computeAutoTags({ header, folderSegments });
+
+  // Carry over any cached HF block so the auto-tag derivation can mirror
+  // `hf.tags[]` into the `hf:*` namespace even on a local-only regenerate
+  // (4.0.20). Without this, "Regenerate tags" on a file that already had
+  // its model card fetched would lose every HF-derived auto-tag —
+  // including the legacy `lic:*` and `mod:*` backfills.
+  const existing = await loadModelMeta(canonicalPath).catch(() => undefined);
+  const autoTags = computeAutoTags({
+    header,
+    huggingface: existing?.huggingface,
+    folderSegments,
+  });
 
   const patch: Partial<ModelMeta> = {
     header,
