@@ -309,7 +309,7 @@
   "modelhubResetTags": "Reset system tags",
   "modelhubResetTagsTooltip": "Remove every system / auto-namespaced tag. Your manual tags are preserved.",
   "modelhubRegenerateTags": "Regenerate tags",
-  "modelhubRegenerateTagsTooltip": "Clear every system / auto-namespaced tag, then re-derive them from the file header (and HF cache when available). Your manual tags are preserved.",
+  "modelhubRegenerateTagsTooltip": "Re-read the file header from disk, fetch Hugging Face metadata, and rebuild the full system tag set (arch, quant, ctx, hf:*, lic:*, …). Your manual tags are preserved. Network required.",
   "modelhubListingModeModelsOnly": "Models only — click to add notes",
   "modelhubListingModeModelsAndNotes": "Models + notes — click to show all files",
   "modelhubListingModeAll": "All files — click to show models only",

@@ -202,8 +202,12 @@ export function useModelhubActions({
       if (sysTags.length > 0 && !readOnly) {
         await removeTagsFromEntry(openedEntry, sysTags);
       }
-      // Step 2: re-derive from header + HF cache + write back.
-      const result = await enrichModelMeta(filePath, {
+      // Step 2: full HF refresh — re-reads the header off disk, fetches
+      // Hugging Face metadata (network), and rebuilds the entire tag
+      // set via `computeAutoTags({ header, huggingface, folderSegments })`.
+      // Mirrors the bulk "Tout taguer" button's semantics so the per-file
+      // and per-folder actions stay in sync.
+      const result = await enrichModelMetaHf(filePath, {
         skipWrite: !!readOnly,
       });
       if (!result.ok) {

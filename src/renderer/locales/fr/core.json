@@ -309,6 +309,8 @@
   "modelhubGenerateTagsTooltip": "Analyse le header du fichier et émet les tags système (arch, quant, layers, …).",
   "modelhubResetTags": "Réinitialiser les tags système",
   "modelhubResetTagsTooltip": "Retire tous les tags système / auto. Vos tags manuels sont préservés.",
+  "modelhubRegenerateTags": "Régénérer les tags",
+  "modelhubRegenerateTagsTooltip": "Re-lire l'en-tête du fichier sur disque, récupérer les métadonnées Hugging Face, et reconstruire l'ensemble des tags système (arch, quant, ctx, hf:*, lic:*, …). Vos tags manuels sont préservés. Réseau requis.",
   "modelhubListingModeModelsOnly": "Modèles uniquement — cliquer pour ajouter les notes",
   "modelhubListingModeModelsAndNotes": "Modèles + notes — cliquer pour afficher tous les fichiers",
   "modelhubListingModeAll": "Tous les fichiers — cliquer pour n'afficher que les modèles",
