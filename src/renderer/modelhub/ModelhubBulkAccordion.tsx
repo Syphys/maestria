@@ -80,20 +80,11 @@ export default function ModelhubBulkAccordion() {
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               {!bulk.active && (
                 <>
-                  <Tooltip title={t('core:mhBulkParseAllTooltip')}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => start('local')}
-                    >
-                      {t('core:mhBulkParseAll')}
-                    </Button>
-                  </Tooltip>
                   <Tooltip title={t('core:mhBulkTagAllTooltip')}>
                     <Button
                       size="small"
-                      variant="text"
-                      onClick={() => start('local')}
+                      variant="outlined"
+                      onClick={() => start('hf')}
                     >
                       {t('core:mhBulkTagAll')}
                     </Button>

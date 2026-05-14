@@ -1386,7 +1386,7 @@
   "mhBulkParseAll": "Tout parser",
   "mhBulkParseAllTooltip": "Parser les en-têtes de tous les modèles de cet emplacement (hors-ligne)",
   "mhBulkTagAll": "Tout taguer",
-  "mhBulkTagAllTooltip": "Re-dériver les tags système pour tous les modèles en utilisant les en-têtes en cache + les métadonnées HF (rapide, pas de re-parsing).",
+  "mhBulkTagAllTooltip": "Re-lire l'en-tête de chaque modèle depuis le disque, récupérer les métadonnées Hugging Face, et reconstruire l'ensemble des tags système (arch, quant, ctx, hf:*, lic:*, …). Réseau requis.",
   "mhBulkHf": "Récupérer description HuggingFace",
   "mhBulkHfTooltip": "Faire correspondre chaque modèle avec Hugging Face et télécharger la model card + les tags (réseau).",
   "mhBulkClearTags": "Vider les tags",

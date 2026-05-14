@@ -1392,7 +1392,7 @@
   "mhBulkParseAll": "Parse all",
   "mhBulkParseAllTooltip": "Parse all model headers in this location (offline)",
   "mhBulkTagAll": "Tag all",
-  "mhBulkTagAllTooltip": "Re-derive system tags for every model using cached headers + HF metadata (fast, no header re-read).",
+  "mhBulkTagAllTooltip": "Re-read every model header from disk, fetch Hugging Face metadata, and rebuild the full system tag set (arch, quant, ctx, hf:*, lic:*, …). Network required.",
   "mhBulkHf": "Fetch HF descriptions",
   "mhBulkHfTooltip": "Match every model against Hugging Face and download the model card + tags (network).",
   "mhBulkClearTags": "Clear tags",
