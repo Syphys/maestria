@@ -46,6 +46,9 @@ import {
 } from '-/reducers/settings';
 import { CommonLocation } from '-/utils/CommonLocation';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { Fab, ListItemIcon, ListItemText, Menu, MenuItem } from '@mui/material';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -90,7 +93,31 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
     setManualDirectoryPerspective,
     enterSearchMode,
     isSearchMode,
+    listingMode,
+    setListingMode,
   } = useDirectoryContentContext();
+
+  // Listing mode cycle: modelsOnly → modelsAndNotes → all → modelsOnly.
+  // Keep the table here (rather than inline) so the icon + tooltip stay
+  // in sync if we ever add a fourth mode.
+  const LISTING_MODE_CYCLE = {
+    modelsOnly: {
+      next: 'modelsAndNotes' as const,
+      icon: <FilterAltIcon />,
+      tooltipKey: 'core:modelhubListingModeModelsOnly',
+    },
+    modelsAndNotes: {
+      next: 'all' as const,
+      icon: <FilterListIcon />,
+      tooltipKey: 'core:modelhubListingModeModelsAndNotes',
+    },
+    all: {
+      next: 'modelsOnly' as const,
+      icon: <FilterAltOffIcon />,
+      tooltipKey: 'core:modelhubListingModeAll',
+    },
+  } as const;
+  const currentMode = LISTING_MODE_CYCLE[listingMode];
 
   const isDesktopMode = useSelector(getDesktopMode);
   const hideProFeatures: boolean = useSelector(isHideProFeatures);
@@ -407,6 +434,15 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
                 <CircularProgressWithLabel value={getProgressValue()} />
               </TsIconButton>
             )}
+            <TsIconButton
+              id="modelhubListingModeButton"
+              data-tid="modelhubListingModeTID"
+              tooltip={t(currentMode.tooltipKey)}
+              onClick={() => setListingMode(currentMode.next)}
+              sx={{ WebkitAppRegion: 'no-drag' }}
+            >
+              {currentMode.icon}
+            </TsIconButton>
             <PathBreadcrumbs
               switchPerspective={switchPerspective}
               isDesktopMode={isDesktopMode}

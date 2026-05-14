@@ -51,7 +51,7 @@ import {
   useCancelablePerLocation,
 } from '-/utils/useCancelablePerLocation';
 import useFirstRender from '-/utils/useFirstRender';
-import { isSupportedModelFile } from '-/modelhub/parsers';
+import { isNoteFile, isSupportedModelFile } from '-/modelhub/parsers';
 import {
   detectShardInfo,
   isCanonicalShard,
@@ -126,6 +126,7 @@ import React, {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
@@ -214,7 +215,35 @@ type DirectoryContentContextData = {
   setThumbnail: (fsEntry: TS.FileSystemEntry) => Promise<TS.FileSystemEntry>;
   getMetaForEntry: (fsEntry: TS.FileSystemEntry) => Promise<TS.FileSystemEntry>;
   getEnhancedDir: (entry: TS.FileSystemEntry) => Promise<TS.FileSystemEntry>;
+  /**
+   * Models Hub listing filter mode — cycles in the FolderContainer header.
+   *  - `modelsOnly`: only model files (gguf, safetensors, …) + their
+   *    canonical shards + model-hosting folders.
+   *  - `modelsAndNotes` (default): models + recognized note files
+   *    (extensions defined by `noteExtensions`).
+   *  - `all`: bypass the filter entirely.
+   * Persisted in `localStorage.modelhub.listingMode`.
+   */
+  listingMode: ListingMode;
+  setListingMode: (value: ListingMode) => void;
+  /**
+   * Extension list (lowercase, without leading dot) that defines "note"
+   * files in the `modelsAndNotes` mode. User-editable in Settings ▸ AI.
+   * Persisted in `localStorage.modelhub.noteExtensions`.
+   */
+  noteExtensions: string[];
+  setNoteExtensions: (value: string[]) => void;
 };
+
+export type ListingMode = 'modelsOnly' | 'modelsAndNotes' | 'all';
+
+export const LISTING_MODES: ListingMode[] = [
+  'modelsOnly',
+  'modelsAndNotes',
+  'all',
+];
+
+export const DEFAULT_NOTE_EXTENSIONS = ['md', 'txt', 'json', 'yaml', 'yml'];
 
 export const DirectoryContentContext =
   createContext<DirectoryContentContextData>({
@@ -265,6 +294,10 @@ export const DirectoryContentContext =
     setThumbnail: undefined,
     getMetaForEntry: undefined,
     getEnhancedDir: undefined,
+    listingMode: 'modelsAndNotes',
+    setListingMode: () => {},
+    noteExtensions: DEFAULT_NOTE_EXTENSIONS,
+    setNoteExtensions: () => {},
   });
 
 export type DirectoryContentContextProviderProps = {
@@ -311,6 +344,72 @@ export const DirectoryContentContextProvider = ({
   // from the location.
   const lastUnfilteredEntries = useRef<TS.FileSystemEntry[]>([]);
 
+  // Models Hub: three-mode listing filter (modelsOnly / modelsAndNotes / all).
+  // The header toggle cycles through them. Note: a previous version of the
+  // filter used a boolean `showAllFiles` flag — that legacy key is migrated
+  // to the new mode on first load, then cleared.
+  const LISTING_MODE_KEY = 'modelhub.listingMode';
+  const LEGACY_SHOW_ALL_FILES_KEY = 'modelhub.showAllFiles';
+  const [listingMode, setListingModeState] = useState<ListingMode>(() => {
+    try {
+      const raw = localStorage.getItem(LISTING_MODE_KEY);
+      if (raw === 'modelsOnly' || raw === 'modelsAndNotes' || raw === 'all') {
+        return raw;
+      }
+      const legacy = localStorage.getItem(LEGACY_SHOW_ALL_FILES_KEY);
+      if (legacy !== null) {
+        const migrated: ListingMode =
+          legacy === 'true' ? 'all' : 'modelsAndNotes';
+        localStorage.setItem(LISTING_MODE_KEY, migrated);
+        localStorage.removeItem(LEGACY_SHOW_ALL_FILES_KEY);
+        return migrated;
+      }
+    } catch {
+      // ignore storage failures
+    }
+    return 'modelsAndNotes';
+  });
+  const setListingMode = useCallback((value: ListingMode) => {
+    try {
+      localStorage.setItem(LISTING_MODE_KEY, value);
+    } catch {
+      // ignore storage failures
+    }
+    setListingModeState(value);
+  }, []);
+
+  // User-configurable note extensions for the `modelsAndNotes` mode.
+  // Stored as a JSON-encoded array in localStorage.
+  const NOTE_EXTENSIONS_KEY = 'modelhub.noteExtensions';
+  const [noteExtensions, setNoteExtensionsState] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(NOTE_EXTENSIONS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          Array.isArray(parsed) &&
+          parsed.every((e) => typeof e === 'string')
+        ) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore parse failures
+    }
+    return DEFAULT_NOTE_EXTENSIONS;
+  });
+  const setNoteExtensions = useCallback((value: string[]) => {
+    const cleaned = value
+      .map((e) => e.toLowerCase().trim().replace(/^\./, ''))
+      .filter((e) => e.length > 0);
+    try {
+      localStorage.setItem(NOTE_EXTENSIONS_KEY, JSON.stringify(cleaned));
+    } catch {
+      // ignore storage failures
+    }
+    setNoteExtensionsState(cleaned);
+  }, []);
+
   // Prime the model-hosting-folders cache for this location, then trigger
   // a re-filter once the scan lands. Subscribing also covers the case
   // where the user opens a different file / triggers Parse-all and we
@@ -336,6 +435,19 @@ export const DirectoryContentContextProvider = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLocation?.path]);
+
+  // Re-apply the filter against the current unfiltered snapshot whenever
+  // the listing mode or the note-extensions list changes. Avoids a fresh
+  // fs walk and gives the listing an immediate visual response.
+  useEffect(() => {
+    if (lastUnfilteredEntries.current.length === 0) return;
+    const refiltered = applyModelhubListingFilterRef.current(
+      lastUnfilteredEntries.current,
+    );
+    currentDirectoryEntries.current = refiltered;
+    forceUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingMode, noteExtensions]);
 
   /**
    * `applyModelhubListingFilter` captures `currentLocation` by closure on
@@ -786,29 +898,32 @@ export const DirectoryContentContextProvider = ({
   }
 
   /**
-   * Models Hub: hide everything that isn't a model.
-   *  - Files: keep only model files (gguf, safetensors, …) AND only the
-   *    canonical shard of a sharded set. Without the canonical-shard
-   *    filter, an 8-shard model shows up as 8 cards in the listing —
-   *    confusing, redundant, and visually drowns single-file models.
-   *    See MODELS_HUB_SHARDS.md for the full rationale.
-   *  - Folders: keep only those known to host (recursively) at least one
-   *    model file. The membership comes from a per-location set primed
-   *    via the `modelhub:listModelHostingFolders` IPC. Until that set
-   *    finishes loading we keep folders visible — better a brief flash
-   *    of "too many" than a flash of "empty location".
+   * Models Hub: three-mode listing filter.
+   *  - `all`: bypass entirely.
+   *  - `modelsOnly`: only model files (gguf, safetensors, …) + canonical
+   *    shards + model-hosting folders.
+   *  - `modelsAndNotes` (default): the above plus any file whose
+   *    extension is in `noteExtensions` (user-editable).
+   * The canonical-shard rule still applies to model files in both
+   * filtered modes — see MODELS_HUB_SHARDS.md for the rationale. Folders
+   * are filtered to model-hosting only in both filtered modes; folder
+   * cache primes async, so until it's ready every folder passes through
+   * (better a brief flash of "too many" than of "empty location").
    */
   function applyModelhubListingFilter(
     entries: TS.FileSystemEntry[],
   ): TS.FileSystemEntry[] {
+    if (listingMode === 'all') return entries;
     const root = currentLocation?.path;
     const folderSetReady = !!root && isModelHostingFoldersReady(root);
+    const allowNotes = listingMode === 'modelsAndNotes';
     const out: TS.FileSystemEntry[] = [];
     for (const entry of entries) {
       if (entry.isFile) {
         const name = entry.name ?? entry.path ?? '';
-        if (!isSupportedModelFile(name)) continue;
-        if (!isCanonicalShard(name)) continue;
+        const isNote = allowNotes && isNoteFile(name, noteExtensions);
+        if (!isSupportedModelFile(name) && !isNote) continue;
+        if (!isNote && !isCanonicalShard(name)) continue;
         // Cosmetic rewrite: a sharded canonical entry stored on disk as
         // `foo-00001-of-00012.gguf` is shown as `foo.gguf` so the listing
         // matches the user's mental model ("one model per row"). We only
@@ -1840,6 +1955,10 @@ export const DirectoryContentContextProvider = ({
       setThumbnail,
       getMetaForEntry,
       getEnhancedDir,
+      listingMode,
+      setListingMode,
+      noteExtensions,
+      setNoteExtensions,
     };
   }, [
     currentLocation,
@@ -1851,6 +1970,10 @@ export const DirectoryContentContextProvider = ({
     currentDirectoryDirs.current,
     isSearchMode.current,
     searchQuery.current,
+    listingMode,
+    setListingMode,
+    noteExtensions,
+    setNoteExtensions,
   ]);
 
   return (

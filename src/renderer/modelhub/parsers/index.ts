@@ -23,6 +23,27 @@ export function isSupportedModelFile(fileName: string): boolean {
   return detectFormat(fileName) !== 'unknown';
 }
 
+// Default text/structured extensions commonly authored alongside models
+// (README-style notes, HF config dumps, training logs, prompt presets).
+// The renderer can override this set via the user-configurable
+// `noteExtensions` Settings field — fall through to this default when no
+// custom list is provided.
+export const DEFAULT_NOTE_EXTENSIONS = ['md', 'txt', 'json', 'yaml', 'yml'];
+
+const DEFAULT_NOTE_EXTENSIONS_SET = new Set(DEFAULT_NOTE_EXTENSIONS);
+
+export function isNoteFile(
+  fileName: string,
+  noteExtensions?: readonly string[],
+): boolean {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  if (!noteExtensions) return DEFAULT_NOTE_EXTENSIONS_SET.has(ext);
+  for (const e of noteExtensions) {
+    if (e.toLowerCase() === ext) return true;
+  }
+  return false;
+}
+
 /**
  * Parse a header buffer based on declared format.
  * Throws if the buffer doesn't match the declared format.

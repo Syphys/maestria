@@ -23,7 +23,7 @@ import {
   haveSearchFilters as _haveSearchFilters,
   defaultTitle as _defaultTitle,
 } from '@tagspaces/tagspaces-search';
-import { isSupportedModelFile } from '-/modelhub/parsers';
+import { isNoteFile, isSupportedModelFile } from '-/modelhub/parsers';
 import { detectShardInfo, isCanonicalShard } from '-/modelhub/shard';
 import {
   getCachedTotalBytes,
@@ -107,12 +107,39 @@ function applyModelhubFilters(
   const wantedSizeTags = new Set(buckets.map((b) => `tier:${b}`));
   const bucketsActive = wantedSizeTags.size > 0;
 
+  // Mirror the central listing filter: search results follow the same
+  // three-mode rule (modelsOnly / modelsAndNotes / all) set in the
+  // FolderContainer header. We read straight from localStorage because
+  // search.ts is a pure module (no React context). The note-extension
+  // whitelist is also user-editable in Settings ▸ AI and persisted there.
+  let listingMode: 'modelsOnly' | 'modelsAndNotes' | 'all' = 'modelsAndNotes';
+  let noteExtensions: string[] | undefined;
+  try {
+    const raw = localStorage.getItem('modelhub.listingMode');
+    if (raw === 'modelsOnly' || raw === 'modelsAndNotes' || raw === 'all') {
+      listingMode = raw;
+    }
+    const extRaw = localStorage.getItem('modelhub.noteExtensions');
+    if (extRaw) {
+      const parsed = JSON.parse(extRaw);
+      if (Array.isArray(parsed) && parsed.every((e) => typeof e === 'string')) {
+        noteExtensions = parsed;
+      }
+    }
+  } catch {
+    // ignore storage / parse failures
+  }
+  const allowNotes = listingMode === 'modelsAndNotes';
+
   return results.filter((entry) => {
     if (!entry.isFile) return false; // never show folders in search results
     // entry.path may be undefined for synthetic results; fall back to name.
     const nameForExt = entry.name ?? entry.path ?? '';
-    if (!isSupportedModelFile(nameForExt)) return false;
-    if (!isCanonicalShard(nameForExt)) return false;
+    if (listingMode !== 'all') {
+      const isNote = allowNotes && isNoteFile(nameForExt, noteExtensions);
+      if (!isSupportedModelFile(nameForExt) && !isNote) return false;
+      if (!isNote && !isCanonicalShard(nameForExt)) return false;
+    }
 
     // Parameter-count chips: keep entries that carry at least one of the
     // requested `size:<bucket>` system tags. The auto-tags get mirrored

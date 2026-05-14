@@ -21,9 +21,15 @@ import { ArrowDownIcon, ArrowUpIcon } from '-/components/CommonIcons';
 import DraggablePaper from '-/components/DraggablePaper';
 import TsButton from '-/components/TsButton';
 import TsSelect from '-/components/TsSelect';
+import TsTextField from '-/components/TsTextField';
 import ZoomComponent from '-/components/ZoomComponent';
 import TsDialogActions from '-/components/dialogs/components/TsDialogActions';
 import TsDialogTitle from '-/components/dialogs/components/TsDialogTitle';
+import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
+import {
+  DEFAULT_NOTE_EXTENSIONS,
+  ListingMode,
+} from '-/hooks/DirectoryContentContextProvider';
 import { usePerspectiveSettingsContext } from '-/hooks/usePerspectiveSettingsContext';
 import { useSortedDirContext } from '-/perspectives/grid/hooks/useSortedDirContext';
 import { Pro } from '-/pro';
@@ -77,8 +83,30 @@ function GridSettingsDialog(props: Props) {
     saveSettings,
   } = usePerspectiveSettingsContext();
   const { sortBy, orderBy } = useSortedDirContext();
+  const { listingMode, setListingMode, noteExtensions, setNoteExtensions } =
+    useDirectoryContentContext();
   const firstRender = useFirstRender();
   const [ignored, forceUpdate] = useReducer((x: number) => x + 1, 0, undefined);
+
+  // Local draft for the note-extensions field: commit to the persisted
+  // setting on blur or Enter so each keystroke doesn't re-trigger the
+  // directory listing re-filter.
+  const [noteExtDraft, setNoteExtDraft] = React.useState<string>(
+    noteExtensions.join(', '),
+  );
+  useEffect(() => {
+    setNoteExtDraft(noteExtensions.join(', '));
+  }, [noteExtensions]);
+  const commitNoteExtensions = () => {
+    const parts = noteExtDraft
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    setNoteExtensions(parts);
+  };
+  const resetNoteExtensions = () => {
+    setNoteExtensions(DEFAULT_NOTE_EXTENSIONS);
+  };
 
   const theme = useTheme();
   const smallScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -345,6 +373,69 @@ function GridSettingsDialog(props: Props) {
           <ListItemText primary={t('core:singleClickSelects')} />
         </MenuItem>
         <Divider />
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mt: 1, mb: 0.5 }}
+        >
+          {t('core:mhSettingsListingFilter')}
+        </Typography>
+        <FormControl fullWidth={true}>
+          <TsSelect
+            label={t('core:mhSettingsListingMode')}
+            name="listingMode"
+            value={listingMode}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+              setListingMode(event.target.value as ListingMode);
+            }}
+          >
+            <MenuItem value="modelsOnly">
+              {t('core:mhSettingsListingModeModelsOnly')}
+            </MenuItem>
+            <MenuItem value="modelsAndNotes">
+              {t('core:mhSettingsListingModeModelsAndNotes')}
+            </MenuItem>
+            <MenuItem value="all">
+              {t('core:mhSettingsListingModeAll')}
+            </MenuItem>
+          </TsSelect>
+        </FormControl>
+        <Box sx={{ mt: 1 }}>
+          <TsTextField
+            fullWidth
+            label={t('core:mhSettingsNoteExtensions')}
+            value={noteExtDraft}
+            onChange={(e) => setNoteExtDraft(e.target.value)}
+            onBlur={commitNoteExtensions}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitNoteExtensions();
+              }
+            }}
+            data-tid="noteExtensionsTID"
+            placeholder="md, txt, json, yaml, yml"
+            helperText={t('core:mhSettingsNoteExtensionsHelper')}
+            disabled={listingMode !== 'modelsAndNotes'}
+          />
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <TsButton
+              data-tid="noteExtensionsSaveTID"
+              onClick={commitNoteExtensions}
+              disabled={listingMode !== 'modelsAndNotes'}
+            >
+              {t('core:save')}
+            </TsButton>
+            <TsButton
+              data-tid="noteExtensionsResetTID"
+              onClick={resetNoteExtensions}
+              disabled={listingMode !== 'modelsAndNotes'}
+            >
+              {t('core:mhSettingsNoteExtensionsReset')}
+            </TsButton>
+          </Box>
+        </Box>
+        <Divider sx={{ mt: 1, mb: 1 }} />
         <FormControl fullWidth={true}>
           <TsSelect
             label={t('core:pageLimitHelp')}
