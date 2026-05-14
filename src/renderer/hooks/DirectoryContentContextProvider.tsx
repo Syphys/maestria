@@ -437,15 +437,15 @@ export const DirectoryContentContextProvider = ({
   }, [currentLocation?.path]);
 
   // Re-apply the filter against the current unfiltered snapshot whenever
-  // the listing mode or the note-extensions list changes. Avoids a fresh
-  // fs walk and gives the listing an immediate visual response.
+  // the listing mode or the note-extensions list changes. We go through
+  // `setCurrentDirectoryEntries` (same path a fresh fs read takes) and
+  // pass a *new* array reference so consumers' useMemo deps definitely
+  // pick up the change — mutating the ref + `forceUpdate` alone wasn't
+  // enough to propagate through the SortedDirContext → PaginationContext
+  // → perspective chain in every case.
   useEffect(() => {
     if (lastUnfilteredEntries.current.length === 0) return;
-    const refiltered = applyModelhubListingFilterRef.current(
-      lastUnfilteredEntries.current,
-    );
-    currentDirectoryEntries.current = refiltered;
-    forceUpdate();
+    setCurrentDirectoryEntries([...lastUnfilteredEntries.current]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingMode, noteExtensions]);
 
@@ -792,6 +792,35 @@ export const DirectoryContentContextProvider = ({
   }
 
   async function reflectAddAction(entry: TS.FileSystemEntry) {
+    // Keep the unfiltered snapshot in sync so the listing filter can
+    // toggle modes and still see entries added via fs watcher / upload /
+    // IO actions. Otherwise a newly-created file that's hidden by the
+    // current filter mode would never appear after switching to a wider
+    // mode — because the snapshot didn't know about it.
+    const existsInSnapshot = lastUnfilteredEntries.current.some(
+      (e) => e.path === entry.path,
+    );
+    if (existsInSnapshot) {
+      lastUnfilteredEntries.current = lastUnfilteredEntries.current.map((e) =>
+        e.path === entry.path ? entry : e,
+      );
+    } else {
+      const dirPath = extractContainingDirectoryPath(
+        entry.path,
+        currentLocation?.getDirSeparator(),
+      );
+      if (
+        cleanTrailingDirSeparator(
+          cleanFrontDirSeparator(currentDirectory.current?.path),
+        ) === cleanTrailingDirSeparator(cleanFrontDirSeparator(dirPath))
+      ) {
+        lastUnfilteredEntries.current = [
+          ...lastUnfilteredEntries.current,
+          entry,
+        ];
+      }
+    }
+
     const entryExist = currentDirectoryEntries.current.some(
       (e) => e.path === entry.path,
     );
@@ -809,7 +838,14 @@ export const DirectoryContentContextProvider = ({
           cleanFrontDirSeparator(currentDirectory.current?.path),
         ) === cleanTrailingDirSeparator(cleanFrontDirSeparator(dirPath))
       ) {
-        currentDirectoryEntries.current.push(entry);
+        // Only push into the filtered view if the entry passes the filter.
+        // Otherwise the visible listing would include a row that doesn't
+        // match the current mode (e.g. a .txt note in `modelsOnly`).
+        const passes =
+          applyModelhubListingFilterRef.current([entry]).length > 0;
+        if (passes) {
+          currentDirectoryEntries.current.push(entry);
+        }
       }
     }
   }
@@ -820,6 +856,16 @@ export const DirectoryContentContextProvider = ({
         loadParentDirectoryContent();
         return;
       }
+    }
+    const snapshotIndex = lastUnfilteredEntries.current.findIndex(
+      (e) =>
+        cleanTrailingDirSeparator(e.path) ===
+        cleanTrailingDirSeparator(entry.path),
+    );
+    if (snapshotIndex !== -1) {
+      lastUnfilteredEntries.current = lastUnfilteredEntries.current.filter(
+        (_, i) => i !== snapshotIndex,
+      );
     }
     let index = currentDirectoryEntries.current.findIndex(
       (e) =>
@@ -1102,24 +1148,18 @@ export const DirectoryContentContextProvider = ({
         dirEntries.length > 0 &&
         !isNotFromCurrentDir //entries[0].path.startsWith(currentDirectoryPath.current)
       ) {
-        if (
-          currentDirectoryEntries.current &&
-          currentDirectoryEntries.current.length > 0
-        ) {
-          setCurrentDirectoryEntries(
-            mergeByPath(dirEntries, currentDirectoryEntries.current),
-          );
-          /* currentDirectoryEntries.current.map((e) => {
-            const eUpdated = entries.filter((u) => u.path === e.path);
-            if (eUpdated.length > 0) {
-              const mergedMeta = eUpdated.reduce((merged, obj) => {
-                return { ...merged, ...obj.meta };
-              }, {});
-              return { ...e, meta: { ...e.meta, ...mergedMeta } };
-            }
-            return e;
-            })
-          ); */
+        // IMPORTANT: merge with the unfiltered snapshot, not the filtered
+        // `currentDirectoryEntries`. Otherwise meta updates triggered by
+        // background tasks (thumb generation, fs watcher batches, …)
+        // permanently drop the entries hidden by the Models Hub listing
+        // filter — toggling the filter back to a broader mode would no
+        // longer reveal those files because the snapshot is gone.
+        const base =
+          lastUnfilteredEntries.current.length > 0
+            ? lastUnfilteredEntries.current
+            : currentDirectoryEntries.current;
+        if (base && base.length > 0) {
+          setCurrentDirectoryEntries(mergeByPath(dirEntries, base));
         } else {
           setCurrentDirectoryEntries(dirEntries);
         }
@@ -1523,10 +1563,15 @@ export const DirectoryContentContextProvider = ({
   }
 
   function addDirectoryEntries(entries: TS.FileSystemEntry[]) {
-    setCurrentDirectoryEntries([
-      ...currentDirectoryEntries.current,
-      ...entries,
-    ]);
+    // Extend the unfiltered snapshot when available so the Models Hub
+    // listing filter can still toggle back to a wider mode and reveal
+    // entries that the current mode hides. Falls back to the filtered
+    // ref only when no snapshot exists yet (first-time population).
+    const base =
+      lastUnfilteredEntries.current.length > 0
+        ? lastUnfilteredEntries.current
+        : currentDirectoryEntries.current;
+    setCurrentDirectoryEntries([...base, ...entries]);
   }
 
   function setDirectoryMeta(meta: TS.FileSystemEntryMeta) {
