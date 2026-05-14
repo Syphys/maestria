@@ -453,45 +453,11 @@ function SettingsGeneral() {
             </ListItem>
           ),
         },
-        {
-          label: t('core:checkForNewVersionOnStartup'),
-          jsx: (
-            <ListItem>
-              <ListItemText primary={t('core:checkForNewVersionOnStartup')} />
-              <TooltipTS
-                title={
-                  AppConfig.ExtCheckForUpdatesOnStartup !== undefined
-                    ? t('core:settingExternallyConfigured')
-                    : ''
-                }
-              >
-                {/* span wrapper lets the Tooltip listen to events even
-                    when the Switch is disabled (disabled controls don't
-                    fire pointer events). */}
-                <span>
-                  <Switch
-                    disabled={
-                      AppConfig.ExtCheckForUpdatesOnStartup !== undefined
-                    }
-                    data-tid="settingsSetCheckForUpdates"
-                    onClick={() =>
-                      dispatch(
-                        SettingsActions.setCheckForUpdates(
-                          !settings.checkForUpdates,
-                        ),
-                      )
-                    }
-                    checked={
-                      AppConfig.ExtCheckForUpdatesOnStartup !== undefined
-                        ? AppConfig.ExtCheckForUpdatesOnStartup
-                        : settings.checkForUpdates
-                    }
-                  />
-                </span>
-              </TooltipTS>
-            </ListItem>
-          ),
-        },
+        // "Check for new version on startup" toggle removed (Maestria 6.12).
+        // The boot-time check would always advertise upstream TagSpaces
+        // releases that overwrite our local Pro-unlocks, so the option is
+        // no longer surfaced. Manual "Check for Updates" stays available
+        // from the About dialog for users who want to track upstream.
         {
           label: t('core:reorderTags'),
           jsx: (

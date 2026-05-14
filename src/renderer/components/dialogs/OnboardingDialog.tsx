@@ -22,7 +22,6 @@ import WizardFinished from '-/assets/images/computer-desk.svg';
 import NewLook from '-/assets/images/desktop.svg';
 import LocationConcept from '-/assets/images/organize.svg';
 import TagsDemoVideo from '-/assets/videos/tags-demo.mp4';
-import TooltipTS from '-/components/Tooltip';
 import TsButton from '-/components/TsButton';
 import TsSelect from '-/components/TsSelect';
 import TsDialogTitle from '-/components/dialogs/components/TsDialogTitle';
@@ -47,13 +46,11 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
-import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -184,14 +181,6 @@ function OnboardingDialog(props: Props) {
   const currentRegularTheme = useSelector(getDefaultRegularTheme);
   const currentDarkTheme = useSelector(getDefaultDarkTheme);
   const currentLanguage = useSelector(getCurrentLanguage);
-  const checkForUpdates = useSelector(
-    (state: any) => state.settings.checkForUpdates,
-  );
-  // When extconfig sets ExtCheckForUpdatesOnStartup, the toggle is
-  // disabled and reflects the externally-configured value, with a
-  // tooltip explaining why — same pattern as SettingsGeneral.
-  const checkForUpdatesExternallyConfigured =
-    AppConfig.ExtCheckForUpdatesOnStartup !== undefined;
   const supportedLanguages = useSelector(
     (state: any) => state.settings.supportedLanguages,
   ) as Array<{ iso: string; title: string }>;
@@ -685,51 +674,8 @@ function OnboardingDialog(props: Props) {
                     />
                   ))}
                 </Box>
-                <Box
-                  sx={{
-                    marginTop: '24px',
-                    paddingTop: '16px',
-                    borderTop: '1px solid',
-                    borderColor: 'divider',
-                    display: 'flex',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <TooltipTS
-                    title={
-                      checkForUpdatesExternallyConfigured
-                        ? t('core:settingExternallyConfigured')
-                        : ''
-                    }
-                  >
-                    {/* span lets the tooltip catch hover events even
-                        when the Switch is disabled (disabled controls
-                        don't fire pointer events). */}
-                    <span>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            data-tid="onboardingCheckForUpdatesTID"
-                            disabled={checkForUpdatesExternallyConfigured}
-                            checked={
-                              checkForUpdatesExternallyConfigured
-                                ? !!AppConfig.ExtCheckForUpdatesOnStartup
-                                : !!checkForUpdates
-                            }
-                            onChange={(e) =>
-                              dispatch(
-                                SettingsActions.setCheckForUpdates(
-                                  e.target.checked,
-                                ),
-                              )
-                            }
-                          />
-                        }
-                        label={t('core:checkForNewVersionOnStartup')}
-                      />
-                    </span>
-                  </TooltipTS>
-                </Box>
+                {/* "Check for updates on startup" Switch removed
+                    (Maestria 6.12). See app reducer initApp comment. */}
               </SwiperSlide>
 
               {/* Slide 5 — You're all set */}

@@ -180,9 +180,13 @@ export const actions = {
     dispatch(SettingsActions.setZoomRestoreApp());
     dispatch(SettingsActions.upgradeSettings()); // TODO call this only on app version update
     const state = getState();
-    if (getCheckForUpdateOnStartup(state)) {
-      dispatch(SettingsActions.checkForUpdate());
-    }
+    // Maestria fork: never auto-check for updates at boot. The upstream
+    // release feed (getLastVersionPromise) points at TagSpaces.org and
+    // would always advertise a "newer" version that doesn't include our
+    // local Pro-unlocks (filesystem watcher, bookmarks, listing filter…).
+    // Update checks are opt-in via the manual "Check for Updates" button
+    // in the About dialog. See MODELS_HUB_FEATURES.md 6.12.
+    void getCheckForUpdateOnStartup; // keep import alive for future use
     setTimeout(() => {
       setGlobalShortcuts(isGlobalKeyBindingEnabled(state));
       loadExtensions();

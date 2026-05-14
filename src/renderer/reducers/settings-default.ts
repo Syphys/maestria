@@ -27,7 +27,11 @@ if (AppConfig.ExtDisplayMode === 'mobile') {
 } else if (AppConfig.ExtDisplayMode === 'desktop') {
   desktopMode = true;
 }
-let checkForUpdates = true;
+// Maestria fork: default off. The upstream release feed (TagSpaces.org)
+// would advertise versions that overwrite our local Pro-unlocks on
+// install. The setting can still be enabled manually for users who
+// want to track upstream releases — but it's not the default.
+let checkForUpdates = false;
 if (AppConfig.ExtCheckForUpdatesOnStartup !== undefined) {
   checkForUpdates = AppConfig.ExtCheckForUpdatesOnStartup;
 }
