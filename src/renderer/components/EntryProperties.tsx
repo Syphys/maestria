@@ -78,6 +78,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DataObjectIcon from '@mui/icons-material/DataObject';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FormHelperText from '@mui/material/FormHelperText';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -1006,26 +1007,108 @@ function EntryProperties({ tileServer }: Props) {
                   <Typography variant="caption" color="text.secondary">
                     ({Object.keys(modelHeaderForPanel.rawMetadata).length})
                   </Typography>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Tooltip title={t('core:copyToClipboard')} arrow>
+                    <TsIconButton
+                      size="small"
+                      onClick={(e) => {
+                        // Don't toggle the accordion when the user clicks
+                        // the copy affordance in its header.
+                        e.stopPropagation();
+                        const text = Object.entries(
+                          modelHeaderForPanel.rawMetadata!,
+                        )
+                          .map(([k, v]) => `${k} = ${JSON.stringify(v)}`)
+                          .join('\n');
+                        navigator.clipboard
+                          .writeText(text)
+                          .then(() =>
+                            showNotification(t('core:mhAdvParamsHelpCopied')),
+                          )
+                          .catch(() => {
+                            /* clipboard denied — ignore */
+                          });
+                      }}
+                    >
+                      <ContentCopyIcon fontSize="small" />
+                    </TsIconButton>
+                  </Tooltip>
                 </AccordionSummary>
                 <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5 }}>
                   <Box
-                    component="pre"
                     sx={{
-                      m: 0,
-                      p: 1,
                       maxHeight: 320,
                       overflow: 'auto',
-                      fontSize: 11,
-                      fontFamily: 'monospace',
                       bgcolor: 'action.hover',
                       borderRadius: 1,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
+                      py: 0.5,
                     }}
                   >
-                    {Object.entries(modelHeaderForPanel.rawMetadata)
-                      .map(([k, v]) => `${k} = ${JSON.stringify(v)}`)
-                      .join('\n')}
+                    {Object.entries(modelHeaderForPanel.rawMetadata).map(
+                      ([k, v]) => {
+                        // One row per KV pair. Hovering reveals an explicit
+                        // copy icon at the end so the user can either select
+                        // a substring with the mouse OR click the icon for a
+                        // one-shot copy of the whole `key = value` line. The
+                        // row itself doesn't capture clicks — that would
+                        // fight against text selection on long lines.
+                        const line = `${k} = ${JSON.stringify(v)}`;
+                        return (
+                          <Box
+                            key={k}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 0.5,
+                              px: 1,
+                              py: 0.25,
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              '&:hover': { bgcolor: 'action.selected' },
+                              '&:hover .ggufmd-copy': { opacity: 1 },
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                flex: 1,
+                                minWidth: 0,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-all',
+                                userSelect: 'text',
+                              }}
+                            >
+                              {line}
+                            </Box>
+                            <Tooltip title={t('core:copyToClipboard')} arrow>
+                              <TsIconButton
+                                className="ggufmd-copy"
+                                size="small"
+                                sx={{
+                                  opacity: 0,
+                                  transition: 'opacity 0.15s',
+                                  p: 0.25,
+                                  flexShrink: 0,
+                                }}
+                                onClick={() => {
+                                  navigator.clipboard
+                                    .writeText(line)
+                                    .then(() =>
+                                      showNotification(
+                                        t('core:mhAdvParamsHelpCopied'),
+                                      ),
+                                    )
+                                    .catch(() => {
+                                      /* clipboard denied — ignore */
+                                    });
+                                }}
+                              >
+                                <ContentCopyIcon sx={{ fontSize: 12 }} />
+                              </TsIconButton>
+                            </Tooltip>
+                          </Box>
+                        );
+                      },
+                    )}
                   </Box>
                 </AccordionDetails>
               </Accordion>
