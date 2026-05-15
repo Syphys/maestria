@@ -22,8 +22,19 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { renderMarkdown } from './hfMarkdown';
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
 import { patchModelMeta } from './useModelMeta';
+
+/**
+ * Render user notes markdown to sanitized HTML. Same `marked` + `DOMPurify`
+ * pipeline as `convertMarkDownToHtml` in services/utils-io.ts, minus the
+ * full-document wrapper.
+ */
+function renderNotesMarkdown(md: string): string {
+  marked.setOptions({ pedantic: false, gfm: true, breaks: false });
+  return DOMPurify.sanitize(marked.parse(md ?? '') as string);
+}
 
 interface Props {
   filePath: string;
@@ -242,7 +253,7 @@ export default function ModelNotesEditor({
               color: 'text.secondary',
             },
           })}
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(text).html }}
+          dangerouslySetInnerHTML={{ __html: renderNotesMarkdown(text) }}
         />
       )}
     </Box>

@@ -1,6 +1,6 @@
 /**
- * Helper shared by `enrichLocal` and `enrichHf` to derive `dir:<segment>`
- * auto-tag inputs from a file path + (optional) location root.
+ * Helper used by `enrichLocal` to derive `dir:<segment>` auto-tag inputs
+ * from a file path + (optional) location root.
  *
  * Without a root, falls back to the immediate parent's basename — that's
  * still useful (e.g. "LLM" or "Audio" depending on where the user dropped

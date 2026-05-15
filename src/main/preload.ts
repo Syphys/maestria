@@ -86,7 +86,6 @@ export type Channels =
   | 'fetchTile'
   | 'modelhub:parseHeader'
   | 'modelhub:enrichLocal'
-  | 'modelhub:enrichHf'
   | 'modelhub:loadModelMeta'
   | 'modelhub:enrichFolderStart'
   | 'modelhub:enrichFolderCancel'

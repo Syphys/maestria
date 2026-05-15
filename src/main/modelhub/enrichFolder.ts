@@ -1,6 +1,6 @@
 /**
  * Bulk enrichment for a folder: walk the directory, parse + auto-tag every
- * model file, persist sidecars (with system tags). Optional HF enrichment too.
+ * model file, persist sidecars (with system tags).
  *
  * Concurrency: model header parsing is IO-bound (small read) and the enrichment
  * pipeline writes one sidecar per file. A pool of 4 workers gives a good
@@ -12,27 +12,20 @@
  */
 
 import { enrichLocal } from './enrichLocal';
-import { enrichHf, EnrichHfOptions } from './enrichHf';
 import { listModelFiles } from './listModelFiles';
 import { loadModelMeta, patchModelMeta } from './sidecar';
 import { computeAutoTags } from '../../renderer/modelhub/autoTags';
 import { computeFolderSegments } from './folderTags';
 
-export type EnrichFolderMode = 'local' | 'hf';
-
 export interface EnrichFolderOptions {
-  /** What to run per file. `local` is offline + fast. `hf` adds a network call. */
-  mode?: EnrichFolderMode;
   /** Skip writing sidecars (read-only locations). */
   skipWrite?: boolean;
   /** Number of files to process in parallel. Default 4. */
   concurrency?: number;
-  /** Skip files whose lastEnrichedAt is fresher than this many ms. Default 7d. */
+  /** Skip files whose lastEnrichedAt is fresher than this many ms. Default 1h. */
   freshnessMs?: number;
   /** Force re-enrichment even when fresh. */
   force?: boolean;
-  /** HF API token (mode='hf' only). */
-  apiToken?: string;
   /** Hard cap on files processed. */
   maxFiles?: number;
   /** Cancel signal — caller flips this to true to stop the queue. */
@@ -47,7 +40,6 @@ export interface EnrichFolderProgress {
   lastStatus?: 'ok' | 'skipped' | 'error';
   lastError?: string;
   lastAutoTags?: string[];
-  lastMatchedRepo?: string;
 }
 
 export interface EnrichFolderSummary {
@@ -76,7 +68,6 @@ export async function enrichFolder(
   options: EnrichFolderOptions = {},
   onProgress?: (p: EnrichFolderProgress) => void,
 ): Promise<EnrichFolderSummary> {
-  const mode: EnrichFolderMode = options.mode ?? 'local';
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 4, 16));
   const freshnessMs = options.freshnessMs ?? DEFAULT_FRESHNESS_MS;
   const cancel = options.cancelToken;
@@ -113,7 +104,6 @@ export async function enrichFolder(
       let status: EnrichFolderProgress['lastStatus'] = 'ok';
       let lastError: string | undefined;
       let lastAutoTags: string[] | undefined;
-      let lastMatchedRepo: string | undefined;
 
       try {
         if (!options.force) {
@@ -123,93 +113,59 @@ export async function enrichFolder(
             existing?.lastEnrichedAt &&
             isFreshEnough(existing.lastEnrichedAt, freshnessMs)
           ) {
-            // For HF mode, also require huggingface block to be present + fresh
-            if (
-              mode === 'local' ||
-              (existing.huggingface?.cachedAt &&
-                isFreshEnough(existing.huggingface.cachedAt, freshnessMs))
-            ) {
-              status = 'skipped';
-              summary.skipped += 1;
-              // Re-derive autoTags from the cached header / hf / folder
-              // segments rather than reusing `existing.autoTags`. The
-              // computeAutoTags function is the source of truth and may
-              // have evolved (new namespaces, renames, refined buckets)
-              // since the last parse. Re-running it with the same input
-              // is free (~µs) and lets a code change propagate on the
-              // next Parse-all without forcing a full header reparse.
-              const folderSegments = computeFolderSegments(filePath, rootDir);
-              const freshAutoTags = computeAutoTags({
-                header: existing.header,
-                huggingface: existing.huggingface,
-                folderSegments,
-              });
-              lastAutoTags = freshAutoTags;
-              lastMatchedRepo = existing.huggingface?.repo;
-              // Tag-normalization pass: even when we skip re-parsing the
-              // header, run patchModelMeta with `syncSystemTags` so the
-              // sidecar's `tags[]` is reconciled by
-              // `mergeSystemTagsIntoExisting` and `modelMeta.autoTags`
-              // is refreshed with the freshly-computed list. Without
-              // this, Parse-all is a no-op for already-enriched files
-              // and visible duplicates / stale namespaces persist.
-              if (!options.skipWrite && freshAutoTags.length > 0) {
-                try {
-                  await patchModelMeta(
-                    filePath,
-                    { autoTags: freshAutoTags },
-                    { syncSystemTags: freshAutoTags },
-                  );
-                } catch {
-                  /* normalization failure is non-fatal — continue the bulk */
-                }
+            status = 'skipped';
+            summary.skipped += 1;
+            // Re-derive autoTags from the cached header / folder
+            // segments rather than reusing `existing.autoTags`. The
+            // computeAutoTags function is the source of truth and may
+            // have evolved (new namespaces, renames, refined buckets)
+            // since the last parse. Re-running it with the same input
+            // is free (~µs) and lets a code change propagate on the
+            // next Parse-all without forcing a full header reparse.
+            const folderSegments = computeFolderSegments(filePath, rootDir);
+            const freshAutoTags = computeAutoTags({
+              header: existing.header,
+              folderSegments,
+            });
+            lastAutoTags = freshAutoTags;
+            // Tag-normalization pass: even when we skip re-parsing the
+            // header, run patchModelMeta with `syncSystemTags` so the
+            // sidecar's `tags[]` is reconciled by
+            // `mergeSystemTagsIntoExisting` and `modelMeta.autoTags`
+            // is refreshed with the freshly-computed list. Without
+            // this, Parse-all is a no-op for already-enriched files
+            // and visible duplicates / stale namespaces persist.
+            if (!options.skipWrite && freshAutoTags.length > 0) {
+              try {
+                await patchModelMeta(
+                  filePath,
+                  { autoTags: freshAutoTags },
+                  { syncSystemTags: freshAutoTags },
+                );
+              } catch {
+                /* normalization failure is non-fatal — continue the bulk */
               }
             }
           }
         }
 
         if (status !== 'skipped') {
-          if (mode === 'local') {
-            const res = await enrichLocal(filePath, {
-              skipWrite: options.skipWrite,
-              rootDir,
-            });
-            if (res.ok) {
-              summary.ok += 1;
-              lastAutoTags = res.autoTags;
-            } else {
-              status = 'error';
-              lastError = res.error;
-              summary.errors += 1;
-              if (summary.errorSamples.length < 8) {
-                summary.errorSamples.push({
-                  filePath,
-                  error: res.error ?? 'unknown',
-                });
-              }
-            }
+          const res = await enrichLocal(filePath, {
+            skipWrite: options.skipWrite,
+            rootDir,
+          });
+          if (res.ok) {
+            summary.ok += 1;
+            lastAutoTags = res.autoTags;
           } else {
-            const hfOpts: EnrichHfOptions = {
-              skipWrite: options.skipWrite,
-              apiToken: options.apiToken,
-              force: options.force,
-              rootDir,
-            };
-            const res = await enrichHf(filePath, hfOpts);
-            if (res.ok) {
-              summary.ok += 1;
-              lastAutoTags = res.autoTags;
-              lastMatchedRepo = res.matchedRepo;
-            } else {
-              status = 'error';
-              lastError = res.error;
-              summary.errors += 1;
-              if (summary.errorSamples.length < 8) {
-                summary.errorSamples.push({
-                  filePath,
-                  error: res.error ?? 'unknown',
-                });
-              }
+            status = 'error';
+            lastError = res.error;
+            summary.errors += 1;
+            if (summary.errorSamples.length < 8) {
+              summary.errorSamples.push({
+                filePath,
+                error: res.error ?? 'unknown',
+              });
             }
           }
         }
@@ -230,7 +186,6 @@ export async function enrichFolder(
         lastStatus: status,
         lastError,
         lastAutoTags,
-        lastMatchedRepo,
       });
     }
   }

@@ -26,7 +26,6 @@ import {
   RevisionIcon,
 } from '-/components/CommonIcons';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
-import { fetchModelMeta } from '-/modelhub/useModelMeta';
 import { isSupportedModelFile } from '-/modelhub/parsers';
 import { Pro } from '-/pro';
 import { isDevMode } from '-/reducers/settings';
@@ -100,20 +99,6 @@ export const EntryPropsTabsContextProvider = ({
     return location?.checkDirExist(aiChatPath);
   }
 
-  // Modelhub: when a model file's sidecar carries a HF block, light up the
-  // Description tab badge so the user knows there's HF content to read
-  // there even before clicking. Cheap — fetchModelMeta is cached per path.
-  async function haveHfData(openedEntry: TS.OpenedEntry): Promise<boolean> {
-    if (!openedEntry?.isFile || !openedEntry.path) return false;
-    if (!isSupportedModelFile(openedEntry.path)) return false;
-    try {
-      const meta = await fetchModelMeta(openedEntry.path);
-      return !!meta?.huggingface;
-    } catch {
-      return false;
-    }
-  }
-
   function isEditable(openedEntry: TS.OpenedEntry): boolean {
     if (openedEntry) {
       const location: CommonLocation = findLocation(openedEntry.locationID);
@@ -134,11 +119,9 @@ export const EntryPropsTabsContextProvider = ({
       title: t('core:details'),
       name: TabNames.propertiesTab,
     };
-    const hasHf = await haveHfData(oEntry);
     const tab2: TabItem = {
       icon: <DescriptionIcon />,
-      showBadge:
-        Boolean(oEntry && oEntry.meta && oEntry.meta.description) || hasHf,
+      showBadge: Boolean(oEntry && oEntry.meta && oEntry.meta.description),
       badgeTooltip: t('core:descriptionAvailable'),
       title: t('core:filePropertiesDescription'),
       name: TabNames.descriptionTab,

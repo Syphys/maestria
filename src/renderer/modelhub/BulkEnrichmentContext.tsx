@@ -47,7 +47,6 @@ import {
 export interface BulkUiState {
   active: boolean;
   runId?: string;
-  mode?: 'local' | 'hf';
   processed: number;
   total: number;
   currentFile?: string;
@@ -64,14 +63,10 @@ export interface BulkEnrichmentContextValue {
   error?: string;
   /** True when there's no usable currentLocation to act on. */
   noLocation: boolean;
-  start: (mode: 'local' | 'hf') => Promise<void>;
+  start: () => Promise<void>;
   cancel: () => Promise<void>;
-  /** Wipe BOTH system tags + descriptions (legacy "VIDER" action). */
-  clearAll: () => Promise<void>;
-  /** Wipe only the auto / system tags, keep descriptions intact. */
+  /** Wipe the auto / system tags, keep user-added tags intact. */
   clearTags: () => Promise<void>;
-  /** Wipe only the description field, keep system tags intact. */
-  clearDescription: () => Promise<void>;
   dismissMessage: () => void;
 }
 
@@ -206,34 +201,29 @@ export const BulkEnrichmentContextProvider: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const start = useCallback(
-    async (mode: 'local' | 'hf') => {
-      const path = currentLocation?.path;
-      if (!path || bulk.active) return;
-      setError(undefined);
-      setInfo(undefined);
-      collectedTagsRef.current = new Set();
-      const result = await startBulkEnrichment(path, {
-        mode,
-        skipWrite: !!currentLocation?.isReadOnly,
-      });
-      if ('error' in result) {
-        setError(result.error);
-        return;
-      }
-      setBulk({
-        active: true,
-        runId: result.runId,
-        mode,
-        processed: 0,
-        total: 0,
-        errors: 0,
-        cancelHandle: result,
-        rootDir: path,
-      });
-    },
-    [currentLocation, bulk.active],
-  );
+  const start = useCallback(async () => {
+    const path = currentLocation?.path;
+    if (!path || bulk.active) return;
+    setError(undefined);
+    setInfo(undefined);
+    collectedTagsRef.current = new Set();
+    const result = await startBulkEnrichment(path, {
+      skipWrite: !!currentLocation?.isReadOnly,
+    });
+    if ('error' in result) {
+      setError(result.error);
+      return;
+    }
+    setBulk({
+      active: true,
+      runId: result.runId,
+      processed: 0,
+      total: 0,
+      errors: 0,
+      cancelHandle: result,
+      rootDir: path,
+    });
+  }, [currentLocation, bulk.active]);
 
   // Auto-parse on location open (once per location per session).
   const autoRunLocationsRef = useRef<Set<string>>(new Set());
@@ -245,7 +235,7 @@ export const BulkEnrichmentContextProvider: React.FC<{
     const timer = setTimeout(() => {
       if (locationRef.current?.path !== path) return;
       if (bulkActiveRef.current) return;
-      start('local');
+      start();
     }, 600);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -257,54 +247,28 @@ export const BulkEnrichmentContextProvider: React.FC<{
     }
   }, [bulk.cancelHandle]);
 
-  // Generic clear with a granular options object — used by clearAll /
-  // clearTags / clearDescription. Keeps the confirm + cache invalidation
-  // + info-string flow in a single place. The confirm wording adapts to
-  // the kind of clear so the user knows exactly what's about to go.
-  const runClear = useCallback(
-    async (
-      opts: { tags?: boolean; description?: boolean; huggingface?: boolean },
-      confirmKey: string,
-    ) => {
-      const path = currentLocation?.path;
-      if (!path || bulk.active || reindexing) return;
-      if (!window.confirm(t(confirmKey))) {
-        return;
-      }
-      setError(undefined);
-      setInfo(undefined);
-      const result = await clearFolderBulk(path, opts);
-      if (!result.ok) {
-        setError(result.error ?? 'clear failed');
-        return;
-      }
-      _clearModelMetaCache();
-      setInfo(
-        t('core:mhBulkClearDone', {
-          cleared: result.cleared ?? 0,
-          skipped: result.skipped ?? 0,
-          errors: result.errors ?? 0,
-        }),
-      );
-    },
-    [currentLocation, bulk.active, reindexing, t],
-  );
-
-  const clearAll = useCallback(
-    () =>
-      runClear({ tags: true, description: true }, 'core:mhBulkClearConfirm'),
-    [runClear],
-  );
-
-  const clearTags = useCallback(
-    () => runClear({ tags: true }, 'core:mhBulkClearTagsConfirm'),
-    [runClear],
-  );
-
-  const clearDescription = useCallback(
-    () => runClear({ description: true }, 'core:mhBulkClearDescriptionConfirm'),
-    [runClear],
-  );
+  const clearTags = useCallback(async () => {
+    const path = currentLocation?.path;
+    if (!path || bulk.active || reindexing) return;
+    if (!window.confirm(t('core:mhBulkClearTagsConfirm'))) {
+      return;
+    }
+    setError(undefined);
+    setInfo(undefined);
+    const result = await clearFolderBulk(path, { tags: true });
+    if (!result.ok) {
+      setError(result.error ?? 'clear failed');
+      return;
+    }
+    _clearModelMetaCache();
+    setInfo(
+      t('core:mhBulkClearDone', {
+        cleared: result.cleared ?? 0,
+        skipped: result.skipped ?? 0,
+        errors: result.errors ?? 0,
+      }),
+    );
+  }, [currentLocation, bulk.active, reindexing, t]);
 
   const dismissMessage = useCallback(() => {
     setInfo(undefined);
@@ -320,9 +284,7 @@ export const BulkEnrichmentContextProvider: React.FC<{
       noLocation: !currentLocation,
       start,
       cancel,
-      clearAll,
       clearTags,
-      clearDescription,
       dismissMessage,
     }),
     [
@@ -333,9 +295,7 @@ export const BulkEnrichmentContextProvider: React.FC<{
       currentLocation,
       start,
       cancel,
-      clearAll,
       clearTags,
-      clearDescription,
       dismissMessage,
     ],
   );

@@ -246,7 +246,6 @@ register({
     return {
       path: canonical,
       header,
-      huggingface: meta.huggingface,
       autoTags: meta.autoTags,
       userNotes: meta.userNotes,
     };

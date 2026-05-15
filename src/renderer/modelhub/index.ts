@@ -15,7 +15,6 @@ export {
   useModelMeta,
   fetchModelMeta,
   enrichModelMeta,
-  enrichModelMetaHf,
   startBulkEnrichment,
   subscribeBulkEvents,
   _clearModelMetaCache,

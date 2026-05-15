@@ -214,7 +214,7 @@ export { default as ThemingIcon } from '@mui/icons-material/InvertColors';
 
 export { default as RecentThingsIcon } from '@mui/icons-material/BookmarksOutlined';
 
-export { default as AIIcon } from '@mui/icons-material/AutoFixHighOutlined'; // AutoAwesome AutoFixHigh
+export { default as AIIcon } from '@mui/icons-material/PsychologyOutlined'; // brain — AI features
 
 export { default as ExtensionIcon } from '@mui/icons-material/Extension';
 

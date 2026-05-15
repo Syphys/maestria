@@ -15,7 +15,6 @@
 import './tools/models';
 import './tools/tags';
 import './tools/description';
-import './tools/hf';
 import './tools/hardware';
 
 export { start, stop, isRunning, getStatus } from './server';

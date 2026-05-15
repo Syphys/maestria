@@ -17,7 +17,9 @@ import { sidecarPathFor } from './sidecar';
 
 // Auto-tag namespaces — kept in sync with renderer/modelhub/autoTags.ts.
 // Duplicated because the main process can't import renderer code; the list
-// is short and changes rarely.
+// is short and changes rarely. `hf` is kept here (even though it's no longer
+// emitted) so that legacy `hf:*` tags from older enrichments get swept
+// during a "Clear tags" run.
 const AUTO_TAG_NAMESPACES = new Set<string>([
   'arch',
   'quant',
@@ -58,8 +60,6 @@ export interface ClearFolderOptions {
   tags?: boolean;
   /** Empty the `sidecar.description` string. */
   description?: boolean;
-  /** Drop the entire `modelMeta.huggingface` block too. */
-  huggingface?: boolean;
 }
 
 export async function clearFolder(
@@ -68,7 +68,6 @@ export async function clearFolder(
 ): Promise<ClearFolderSummary> {
   const wantTags = options.tags === true;
   const wantDesc = options.description === true;
-  const wantHf = options.huggingface === true;
   const files = await listModelFiles(rootDir);
   const summary: ClearFolderSummary = {
     total: files.length,
@@ -80,7 +79,7 @@ export async function clearFolder(
 
   // Caller passed `{}` — nothing to do, return early with everything skipped
   // so the UI still gets a coherent summary instead of a silent no-op.
-  if (!wantTags && !wantDesc && !wantHf) {
+  if (!wantTags && !wantDesc) {
     summary.skipped = files.length;
     return summary;
   }
@@ -123,8 +122,11 @@ export async function clearFolder(
           changed = true;
         }
       }
+      // Legacy cleanup: drop any orphan `modelMeta.huggingface` block left
+      // over from older versions that fetched HF data. The field is no
+      // longer written by current code; sweeping it whenever we touch
+      // the sidecar lets users naturally migrate to clean files.
       if (
-        wantHf &&
         sidecar.modelMeta &&
         typeof sidecar.modelMeta === 'object' &&
         (sidecar.modelMeta as { huggingface?: unknown }).huggingface !==

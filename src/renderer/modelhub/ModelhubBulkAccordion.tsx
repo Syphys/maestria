@@ -12,9 +12,8 @@
  * hole.
  */
 
-import { ExpandIcon } from '-/components/CommonIcons';
+import { ExpandIcon, TagIcon } from '-/components/CommonIcons';
 import { useBulkEnrichment } from '-/modelhub';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CloseIcon from '@mui/icons-material/Close';
 import {
   Accordion,
@@ -40,9 +39,7 @@ export default function ModelhubBulkAccordion() {
     noLocation,
     start,
     cancel,
-    clearAll,
     clearTags,
-    clearDescription,
     dismissMessage,
   } = useBulkEnrichment();
 
@@ -60,7 +57,7 @@ export default function ModelhubBulkAccordion() {
       >
         <Box sx={{ display: 'block' }}>
           <Stack direction="row" alignItems="center" spacing={0.5}>
-            <AutoAwesomeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <TagIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
             <Typography>{t('core:mhBulkBarTitle')}</Typography>
           </Stack>
           <Typography variant="caption" color="text.secondary">
@@ -81,21 +78,8 @@ export default function ModelhubBulkAccordion() {
               {!bulk.active && (
                 <>
                   <Tooltip title={t('core:mhBulkTagAllTooltip')}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => start('hf')}
-                    >
+                    <Button size="small" variant="outlined" onClick={start}>
                       {t('core:mhBulkTagAll')}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title={t('core:mhBulkHfTooltip')}>
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => start('hf')}
-                    >
-                      {t('core:mhBulkHf')}
                     </Button>
                   </Tooltip>
                   <Tooltip title={t('core:mhBulkClearTagsTooltip')}>
@@ -106,26 +90,6 @@ export default function ModelhubBulkAccordion() {
                       onClick={clearTags}
                     >
                       {t('core:mhBulkClearTags')}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title={t('core:mhBulkClearDescriptionTooltip')}>
-                    <Button
-                      size="small"
-                      variant="text"
-                      color="warning"
-                      onClick={clearDescription}
-                    >
-                      {t('core:mhBulkClearDescription')}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title={t('core:mhBulkClearTooltip')}>
-                    <Button
-                      size="small"
-                      variant="text"
-                      color="warning"
-                      onClick={clearAll}
-                    >
-                      {t('core:mhBulkClear')}
                     </Button>
                   </Tooltip>
                 </>
@@ -154,8 +118,7 @@ export default function ModelhubBulkAccordion() {
                   color="text.secondary"
                   sx={{ display: 'block', lineHeight: 1.4 }}
                 >
-                  {bulk.processed}/{bulk.total} •{' '}
-                  {bulk.mode === 'hf' ? 'HF' : 'local'}
+                  {bulk.processed}/{bulk.total}
                   {bulk.errors > 0 && ` • ${bulk.errors} err`}
                   {fileName && (
                     <Box

@@ -1,12 +1,12 @@
 /**
- * Auto-tag derivation from HeaderMeta + optional HfMeta.
+ * Auto-tag derivation from HeaderMeta.
  *
  * Pure: takes parsed metadata, returns a list of namespaced string tags.
  * The "auto" namespace prefix (arch:, quant:, size:, mod:, fmt:, lic:, type:)
  * lets the UI distinguish derived tags from user-set tags.
  */
 
-import { HeaderMeta, HfMeta } from './types';
+import { HeaderMeta } from './types';
 
 export const AUTO_TAG_NAMESPACES = [
   'arch',
@@ -19,17 +19,7 @@ export const AUTO_TAG_NAMESPACES = [
   'type',
   'dir',
   'meta', // Generic raw metadata (categorical / enum / string only)
-  'hf', // Mirrored Hugging Face `tags[]` array (cap 30 per file)
 ] as const;
-
-/**
- * Cap how many HF tags we mirror per model. HF library tags can run
- * into the dozens for popular checkpoints (e.g. fine-tunes with many
- * dataset / region / deploy markers). 30 covers the useful signal
- * (transformers, conversational, safetensors, eval-results, …) without
- * spamming the tag library on heavily-marked repos.
- */
-const HF_TAG_MAX = 30;
 
 /**
  * Generic folder names we don't want to clutter the tag list with: top-level
@@ -41,8 +31,6 @@ const DIR_TAG_BLOCKLIST = new Set<string>([
   'model',
   'modeles',
   'modèles',
-  'huggingface',
-  'hf',
   'hub',
   'cache',
   '.cache',
@@ -178,7 +166,6 @@ function normalizeLicense(raw: string | undefined): string | undefined {
 
 export interface AutoTagInput {
   header?: HeaderMeta;
-  huggingface?: HfMeta;
   /**
    * Path segments between the location root and the file (excluding the
    * filename itself), in order from root → leaf. Each becomes a `dir:<seg>`
@@ -190,7 +177,6 @@ export interface AutoTagInput {
 export function computeAutoTags(input: AutoTagInput): string[] {
   const tags = new Set<string>();
   const h = input.header;
-  const hf = input.huggingface;
 
   if (h?.architecture && h.architecture !== 'unknown') {
     tags.add(`arch:${String(h.architecture).toLowerCase()}`);
@@ -264,39 +250,12 @@ export function computeAutoTags(input: AutoTagInput): string[] {
   // `entry.size` directly. Tags would force range queries to enumerate every
   // bucket value, which is silly when the data is already a number.
 
-  // License only comes from HF metadata for now
-  const lic = normalizeLicense(hf?.license);
+  // License from GGUF `general.license` (SPDX expression) when present in
+  // the raw header KV. Same SPDX normalization as before; no HF dependency.
+  const rawLicense = h?.rawMetadata?.['general.license'];
+  const lic =
+    typeof rawLicense === 'string' ? normalizeLicense(rawLicense) : undefined;
   if (lic) tags.add(`lic:${lic}`);
-
-  // HF pipeline tag is a strong modality signal — backfill if header didn't give it
-  if (!h?.modality && hf?.pipelineTag) {
-    const pt = hf.pipelineTag.toLowerCase();
-    if (pt.includes('text')) tags.add('mod:text');
-    else if (pt.includes('image')) tags.add('mod:image');
-    else if (pt.includes('audio') || pt.includes('speech'))
-      tags.add('mod:audio');
-    else if (pt.includes('video')) tags.add('mod:video');
-  }
-
-  // Mirror the entire HF `tags[]` array as `hf:<tag>` system tags. The
-  // values are free-form on Hugging Face (`transformers`, `conversational`,
-  // `safetensors`, `license:apache-2.0`, `region:us`, `deploy:azure`,
-  // `arxiv:1234.5678`, …) — we lowercase, trim, and prefix unconditionally
-  // so every imported tag lives in the dedicated `hf:` namespace. That
-  // keeps the "clear auto tags" bulk action simple (single namespace to
-  // sweep) and avoids namespace collisions with our normalized tags
-  // (`lic:apache-2` from HF.license stays distinct from `hf:license:apache-2.0`).
-  if (Array.isArray(hf?.tags) && hf.tags.length > 0) {
-    let added = 0;
-    for (const raw of hf.tags) {
-      if (typeof raw !== 'string') continue;
-      const clean = raw.toLowerCase().trim();
-      if (!clean) continue;
-      tags.add(`hf:${clean}`);
-      added++;
-      if (added >= HF_TAG_MAX) break;
-    }
-  }
 
   // Folder hierarchy: each parent dir between the location root and the file
   // becomes a `dir:<segment>` tag. Lets the user filter "all models in

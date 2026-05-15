@@ -35,19 +35,6 @@ interface EnrichResponse {
   error?: string;
 }
 
-interface EnrichHfResponse extends EnrichResponse {
-  matchedRepo?: string;
-  matchedFromCandidate?: { repo: string; source: string; confidence: string };
-  triedCandidates?: Array<{ repo: string; source: string; confidence: string }>;
-  fromCache?: boolean;
-}
-
-export interface EnrichHfClientOptions {
-  apiToken?: string;
-  skipWrite?: boolean;
-  force?: boolean;
-}
-
 const cache = new Map<string, ModelMeta | { _error: string }>();
 const inflight = new Map<string, Promise<LoadResponse>>();
 
@@ -97,27 +84,6 @@ export async function enrichModelMeta(
     filePath,
     options,
   )) as EnrichResponse;
-  if (result.ok && result.modelMeta) {
-    cache.set(filePath, result.modelMeta);
-  }
-  return result;
-}
-
-export async function enrichModelMetaHf(
-  filePath: string,
-  options: EnrichHfClientOptions = {},
-): Promise<EnrichHfResponse> {
-  if (!ipcAvailable()) {
-    return { ok: false, error: 'IPC not available (web build?)' };
-  }
-  if (!isSupportedModelFile(filePath)) {
-    return { ok: false, error: 'unsupported format' };
-  }
-  const result = (await window.electronIO!.ipcRenderer.invoke(
-    MODELHUB_IPC.enrichHf,
-    filePath,
-    options,
-  )) as EnrichHfResponse;
   if (result.ok && result.modelMeta) {
     cache.set(filePath, result.modelMeta);
   }
@@ -300,8 +266,6 @@ export interface ClearFolderClientOptions {
   tags?: boolean;
   /** Empty the description field. Default: true. */
   description?: boolean;
-  /** Drop the cached HF block from modelMeta. Default: false. */
-  huggingface?: boolean;
 }
 
 export async function clearFolderBulk(
@@ -329,7 +293,6 @@ export interface BulkProgressEvent {
   lastStatus?: 'ok' | 'skipped' | 'error';
   lastError?: string;
   lastAutoTags?: string[];
-  lastMatchedRepo?: string;
 }
 
 export interface BulkSummary {
@@ -349,12 +312,10 @@ export interface BulkDoneEvent {
 }
 
 export interface BulkOptions {
-  mode?: 'local' | 'hf';
   skipWrite?: boolean;
   concurrency?: number;
   freshnessMs?: number;
   force?: boolean;
-  apiToken?: string;
   maxFiles?: number;
 }
 

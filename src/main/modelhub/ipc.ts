@@ -12,7 +12,6 @@ import {
 } from '../../renderer/modelhub/types';
 import { readModelHeader } from './parseHeader';
 import { enrichLocal, EnrichLocalOptions } from './enrichLocal';
-import { enrichHf, EnrichHfOptions } from './enrichHf';
 import { loadModelMeta, patchModelMeta } from './sidecar';
 import {
   enrichFolder,
@@ -116,13 +115,6 @@ export default function registerModelhubEvents(): void {
   );
 
   ipcMain.handle(
-    MODELHUB_IPC.enrichHf,
-    async (_event, filePath: string, options?: EnrichHfOptions) => {
-      return enrichHf(filePath, options ?? {});
-    },
-  );
-
-  ipcMain.handle(
     MODELHUB_IPC.loadModelMeta,
     async (_event, filePath: string) => {
       try {
@@ -194,7 +186,6 @@ export default function registerModelhubEvents(): void {
       options?: {
         tags?: boolean;
         description?: boolean;
-        huggingface?: boolean;
       },
     ) => {
       try {

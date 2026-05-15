@@ -99,20 +99,6 @@ export interface HeaderMeta {
   warnings?: string[];
 }
 
-/** Hugging Face enrichment (Phase 1.3) */
-export interface HfMeta {
-  repo: string;
-  pipelineTag?: string;
-  license?: string;
-  tags?: string[];
-  downloads?: number;
-  likes?: number;
-  lastModified?: string;
-  descriptionEN?: string;
-  descriptionFR?: string;
-  cachedAt?: string;
-}
-
 /** Integrity verification result (Phase 1.5) */
 export interface IntegrityHashResult {
   status: 'match' | 'mismatch' | 'repo-not-found' | 'error';
@@ -302,13 +288,12 @@ export interface LaunchResult {
 /** Full sidecar payload under `.ts/{file}.json` → `modelMeta` key. */
 export interface ModelMeta {
   header?: HeaderMeta;
-  huggingface?: HfMeta;
   integrity?: IntegrityMeta;
   sha256?: string;
   runPresets?: RunPreset[];
   lastEnrichedAt?: string;
   /**
-   * Tags derived deterministically from header + huggingface metadata.
+   * Tags derived deterministically from the GGUF header metadata.
    * Distinct from TagSpaces' user-set sidecar `tags` array.
    * Format: namespace:value (e.g. "arch:llama", "quant:q4_k_m", "size:7-13B").
    */
@@ -398,7 +383,6 @@ export interface FitProbeResult {
 export const MODELHUB_IPC = {
   parseHeader: 'modelhub:parseHeader',
   enrichLocal: 'modelhub:enrichLocal',
-  enrichHf: 'modelhub:enrichHf',
   loadModelMeta: 'modelhub:loadModelMeta',
   /** Invoke channel to start a bulk job. Returns a run id immediately. */
   enrichFolderStart: 'modelhub:enrichFolderStart',
