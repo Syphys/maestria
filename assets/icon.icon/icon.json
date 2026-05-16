@@ -1,6 +1,6 @@
 {
   "fill": {
-    "solid": "srgb:0.97288,0.97288,0.97288,1.00000"
+    "solid": "srgb:0.10196,0.11373,0.14118,1.00000"
   },
   "groups": [
     {
@@ -10,8 +10,8 @@
           "image-name": "Image 2.png",
           "name": "Image 2",
           "position": {
-            "scale": 1.15,
-            "translation-in-points": [-57.20156250000002, 44.779687500000136]
+            "scale": 1.0,
+            "translation-in-points": [0, 0]
           }
         }
       ],

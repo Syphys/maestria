@@ -1,5 +1,5 @@
 {
-  "appId": "org.tagspaces.desktopapp",
+  "appId": "org.maestria.desktopapp",
   "electronFuses": {
     "runAsNode": false,
     "resetAdHocDarwinSignature": true
@@ -56,7 +56,7 @@
   "artifactName": "${name}-${os}-${arch}-${version}.${ext}",
   "win": {
     "target": ["nsis", "zip"],
-    "icon": "assets/icon.ico"
+    "icon": "assets/icon.png"
   },
   "nsis": {
     "oneClick": false,
@@ -84,7 +84,7 @@
       { "target": "appImage", "arch": ["x64"] }
     ],
     "category": "Office",
-    "icon": "assets/icon.icns"
+    "icon": "assets/icon.png"
   },
   "deb": {
     "depends": [

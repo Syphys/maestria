@@ -18,6 +18,7 @@
 
 import AppConfig from '-/AppConfig';
 import LogoIcon from '-/assets/icons/icon.png';
+import LogoIconDark from '-/assets/icons/icon-dark.svg';
 import TextLogoIcon from '-/assets/images/text-logo.svg';
 import DraggablePaper from '-/components/DraggablePaper';
 import TooltipTS from '-/components/Tooltip';
@@ -51,7 +52,7 @@ if (buildID && buildID.length >= 11) {
   buildID = buildID.slice(0, 11);
 }
 
-const productName = versionMeta.name + (Pro ? ' Pro' : '');
+const productName = versionMeta.name;
 document.title = productName + ' ' + versionMeta.version;
 
 function AboutDialog(props: Props) {
@@ -61,7 +62,6 @@ function AboutDialog(props: Props) {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [newVersion, setNewVersion] = useState('');
   const { open, onClose } = props;
-  const tsType = Pro ? 'PRO' : 'LITE';
 
   function checkForUpdates() {
     if (updateAvailable) {
@@ -146,8 +146,8 @@ function AboutDialog(props: Props) {
       />
       <DialogContent sx={{ overflowY: 'auto' }}>
         <img
-          alt="TagSpaces logo"
-          src={LogoIcon}
+          alt="Maestria logo"
+          src={theme.palette.mode === 'dark' ? LogoIconDark : LogoIcon}
           style={{ float: 'left', marginRight: 10, width: 120, height: 120 }}
         />
         <TooltipTS
@@ -161,7 +161,7 @@ function AboutDialog(props: Props) {
         >
           <Typography component="span" variant="subtitle1">
             Version:&nbsp;
-            {tsType}&nbsp;{versionMeta.version}
+            {'v' + versionMeta.version}
             &nbsp;Build ID:&nbsp;
             {buildID}
           </Typography>

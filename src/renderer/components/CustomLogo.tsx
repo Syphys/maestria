@@ -18,25 +18,25 @@
 
 import AppConfig from '-/AppConfig';
 import LogoIcon from '-/assets/icons/icon.png';
+import LogoIconDark from '-/assets/icons/icon-dark.svg';
 // import TextLogoIcon from '-/assets/images/text-logo.svg';
 import Tooltip from '-/components/Tooltip';
 import TsIconButton from '-/components/TsIconButton';
 import { useAboutDialogContext } from '-/components/dialogs/hooks/useAboutDialogContext';
 import { isUpdateAvailable } from '-/reducers/app';
-import { Badge, Box, Typography } from '@mui/material';
+import { Badge, Box, Typography, useTheme } from '@mui/material';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
-import { Pro } from '../pro';
 import versionMeta from '../version.json';
 
 function CustomLogo() {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const markSrc = theme.palette.mode === 'dark' ? LogoIconDark : LogoIcon;
   const { openAboutDialog } = useAboutDialogContext();
   const updateAvailable = useSelector(isUpdateAvailable);
-  const tsType = Pro ? 'PRO' : 'LITE';
-  const tsAboutTitle =
-    versionMeta.name + ' ' + tsType + ' ' + versionMeta.version;
+  const tsAboutTitle = versionMeta.name + ' ' + versionMeta.version;
 
   const logo = useMemo(() => {
     let customLogo =
@@ -88,8 +88,8 @@ function CustomLogo() {
                     WebkitAppRegion: 'no-drag',
                   } as React.CSSProperties & { WebkitAppRegion?: string }
                 }
-                src={LogoIcon}
-                alt="TagSpaces Logo"
+                src={markSrc}
+                alt="Maestria Logo"
               />
             </TsIconButton>
           )}
@@ -124,21 +124,6 @@ function CustomLogo() {
                   {'v' + versionMeta.version}
                 </Typography>
               </sup>
-              <sub>
-                <Typography
-                  sx={
-                    {
-                      display: 'inline',
-                      fontSize: '10px',
-                      marginLeft: '-25px',
-                      lineHeight: '40px',
-                      WebkitAppRegion: 'no-drag',
-                    } as React.CSSProperties & { WebkitAppRegion?: string }
-                  }
-                >
-                  {tsType}
-                </Typography>
-              </sub>
             </>
           )}
         </Badge>
