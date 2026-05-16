@@ -66,7 +66,7 @@ darkThemes['darklegacy'] = {
     dark: AppConfig.ExtDarkThemeMainColor,
   },
   secondary: { main: '#006541' },
-  background: { default: '#282A36' },
+  background: { default: '#000' },
   divider: '#555',
 };
 darkThemes['dracula'] = {
@@ -78,7 +78,7 @@ darkThemes['dracula'] = {
   },
   secondary: { main: '#426c06' },
   divider: '#555',
-  background: { default: '#282A36' },
+  background: { default: '#000' },
   text: { primary: '#f8f8f2' },
 };
 darkThemes['darkblue'] = {
@@ -89,7 +89,7 @@ darkThemes['darkblue'] = {
     dark: '#3bc8ff',
   },
   secondary: { main: '#c43700' },
-  background: { default: '#001E3C' },
+  background: { default: '#000' },
   text: { primary: '#f8f8f2' },
   divider: '#555',
 };
@@ -113,7 +113,7 @@ darkThemes['orangegreen'] = {
     dark: '#fd8f52',
   },
   secondary: { main: '#0c48a6' },
-  background: { default: '#0d4a3a' },
+  background: { default: '#000' },
   text: { primary: '#f8f8f2' },
   divider: '#555',
 };
@@ -125,7 +125,7 @@ darkThemes['limecoal'] = {
     dark: '#a8b735ff',
   },
   secondary: { main: '#5748ca' },
-  background: { default: '#233d4d' },
+  background: { default: '#000' },
   text: { primary: '#f8f8f2' },
   divider: '#555',
 };
