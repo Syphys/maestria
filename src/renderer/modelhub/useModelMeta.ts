@@ -67,6 +67,13 @@ async function callLoad(filePath: string): Promise<LoadResponse> {
 
 export interface EnrichModelMetaOptions {
   skipWrite?: boolean;
+  /**
+   * Location root. Without it, `enrichLocal` falls back to the immediate
+   * parent folder only, so per-file Regenerate drops ancestor `dir:<seg>`
+   * tags (e.g. `dir:llm`) that the bulk Parse-all keeps. Pass the current
+   * location path so both paths produce the same folder hierarchy.
+   */
+  rootDir?: string;
 }
 
 export async function enrichModelMeta(

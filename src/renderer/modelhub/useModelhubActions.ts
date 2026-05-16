@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { useTaggingActionsContext } from '-/hooks/useTaggingActionsContext';
 import { enrichModelMeta } from './useModelMeta';
@@ -41,6 +42,7 @@ export function useModelhubActions({
   filePath,
   readOnly,
 }: UseModelhubActionsOptions): UseModelhubActionsState {
+  const { currentLocation } = useCurrentLocationContext();
   const { openedEntry, reloadOpenedFile } = useOpenedEntryContext();
   const { removeTagsFromEntry } = useTaggingActionsContext();
   const [busy, setBusy] = useState<ModelhubBusy>('idle');
@@ -60,6 +62,7 @@ export function useModelhubActions({
     try {
       const result = await enrichModelMeta(filePath, {
         skipWrite: !!readOnly,
+        rootDir: currentLocation?.path,
       });
       if (result.ok) {
         setInfo(
@@ -82,7 +85,7 @@ export function useModelhubActions({
     } finally {
       setBusy('idle');
     }
-  }, [filePath, readOnly, reloadOpenedFile]);
+  }, [filePath, readOnly, reloadOpenedFile, currentLocation?.path]);
 
   const resetTags = useCallback(async () => {
     if (!openedEntry || readOnly) return;
@@ -128,6 +131,7 @@ export function useModelhubActions({
       // `computeAutoTags({ header, folderSegments })`.
       const result = await enrichModelMeta(filePath, {
         skipWrite: !!readOnly,
+        rootDir: currentLocation?.path,
       });
       if (!result.ok) {
         setError(result.error ?? 'regenerate failed');
@@ -150,7 +154,14 @@ export function useModelhubActions({
     } finally {
       setBusy('idle');
     }
-  }, [filePath, openedEntry, readOnly, removeTagsFromEntry, reloadOpenedFile]);
+  }, [
+    filePath,
+    openedEntry,
+    readOnly,
+    removeTagsFromEntry,
+    reloadOpenedFile,
+    currentLocation?.path,
+  ]);
 
   return {
     busy,

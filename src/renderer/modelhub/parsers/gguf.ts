@@ -303,9 +303,24 @@ function primitiveSize(t: GgufType): number {
   }
 }
 
-/** Keys we always decode (vs. skip). We now want everything to support exhaustive tagging. */
+/**
+ * Per-vocabulary tokenizer arrays: one entry per token (30k–256k strings)
+ * or per BPE merge. Useless in a metadata browser and they bloat every
+ * sidecar by megabytes, so we skip them at read time — never decoded,
+ * stored, or displayed. Small tokenizer keys (`model`, bos/eos ids,
+ * `token_type_count`, …) and everything else are still decoded for
+ * exhaustive tagging.
+ */
+const SKIPPED_HUGE_KEYS = new Set<string>([
+  'tokenizer.ggml.tokens',
+  'tokenizer.ggml.scores',
+  'tokenizer.ggml.token_type',
+  'tokenizer.ggml.merges',
+]);
+
+/** Keys we decode (vs. skip) — everything except the huge vocab arrays. */
 function isWantedKey(key: string): boolean {
-  return true;
+  return !SKIPPED_HUGE_KEYS.has(key);
 }
 
 function paramCountFromSizeLabel(label?: string): number | undefined {

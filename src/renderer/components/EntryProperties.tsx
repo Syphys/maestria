@@ -229,6 +229,8 @@ function EntryProperties({ tileServer }: Props) {
     filePath: openedEntry?.path,
     readOnly: location?.isReadOnly,
   });
+  const ggufRaw = modelHeaderForPanel?.rawMetadata;
+  const hasGgufMeta = !!ggufRaw && Object.keys(ggufRaw).length > 0;
   const backgroundImage = useRef<string>('none');
   const thumbImage = useRef<string>('none');
 
@@ -591,6 +593,24 @@ function EntryProperties({ tileServer }: Props) {
     return <div />;
   }
 
+  // Tags field. Rendered inline for ordinary files; for model files it is
+  // moved inside the "GGUF metadata" box, since the system tags are fed by
+  // Regenerate alongside the rest of the GGUF-derived data.
+  const tagsField = (
+    <TagDropContainer entry={openedEntry}>
+      <TagsSelect
+        label={t('core:fileTags')}
+        dataTid="PropertiesTagsSelectTID"
+        placeholderText={t('core:dropHere')}
+        tags={getAllTags(openedEntry, tagDelimiter)}
+        tagMode="default"
+        handleChange={handleChange}
+        selectedEntry={openedEntry}
+        generateButton={true}
+      />
+    </TagDropContainer>
+  );
+
   const ldtm = openedEntry.lmdt ? formatTimestampLocal(openedEntry.lmdt) : ' ';
   const cdt = openedEntry.cdt
     ? formatTimestampLocal(openedEntry.cdt)
@@ -730,51 +750,7 @@ function EntryProperties({ tileServer }: Props) {
             </FormHelperText>
           )}
         </Grid>
-        <Grid size={12}>
-          <TagDropContainer entry={openedEntry}>
-            <TagsSelect
-              label={t('core:fileTags')}
-              dataTid="PropertiesTagsSelectTID"
-              placeholderText={t('core:dropHere')}
-              tags={getAllTags(openedEntry, tagDelimiter)}
-              tagMode="default"
-              handleChange={handleChange}
-              selectedEntry={openedEntry}
-              // autoFocus={true}
-              generateButton={true}
-              extraEndAdornment={
-                isModelFile ? (
-                  <TsButton
-                    variant="text"
-                    onClick={modelhubActions.regenerateTags}
-                    disabled={
-                      modelhubActions.busy !== 'idle' || location?.isReadOnly
-                    }
-                    startIcon={
-                      modelhubActions.busy === 'regenerate' ? undefined : (
-                        <RefreshIcon />
-                      )
-                    }
-                    loading={modelhubActions.busy === 'regenerate'}
-                    tooltip={t('core:modelhubRegenerateTagsTooltip')}
-                    data-tid="modelhubRegenerateTagsTID"
-                  >
-                    {t('core:modelhubRegenerateTags')}
-                  </TsButton>
-                ) : undefined
-              }
-            />
-          </TagDropContainer>
-          {isModelFile && (modelhubActions.error || modelhubActions.info) && (
-            <Typography
-              variant="caption"
-              color={modelhubActions.error ? 'error' : 'text.secondary'}
-              sx={{ mt: 0.5, display: 'block' }}
-            >
-              {modelhubActions.error ?? modelhubActions.info}
-            </Typography>
-          )}
-        </Grid>
+        {!isModelFile && <Grid size={12}>{tagsField}</Grid>}
 
         {geoLocation && (
           <Grid size={12}>
@@ -941,73 +917,70 @@ function EntryProperties({ tileServer }: Props) {
           </Tooltip>
         </Grid>
 
-        {moeExpertSize && (
+        {isModelFile && (
           <Grid size={12}>
-            <TsTextField
-              value={moeExpertSize}
-              retrieveValue={() => moeExpertSize}
-              label={t('core:expertSize')}
-              slotProps={{
-                input: {
-                  readOnly: true,
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SizeIcon />
-                    </InputAdornment>
-                  ),
-                },
+            <Accordion
+              defaultExpanded
+              disableGutters
+              sx={{
+                background: 'transparent',
+                boxShadow: 'none',
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: 1,
+                '&:before': { display: 'none' },
               }}
-            />
-          </Grid>
-        )}
-
-        {headerFieldRows.map((row) => (
-          <Grid key={row.label} size={12}>
-            <TsTextField
-              value={row.value}
-              retrieveValue={() => row.value}
-              label={row.label}
-              slotProps={{ input: { readOnly: true } }}
-            />
-          </Grid>
-        ))}
-
-        {modelHeaderForPanel?.rawMetadata &&
-          Object.keys(modelHeaderForPanel.rawMetadata).length > 0 && (
-            <Grid size={12}>
-              <Accordion
-                disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
                 sx={{
-                  background: 'transparent',
-                  boxShadow: 'none',
-                  border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: 1,
-                  '&:before': { display: 'none' },
+                  px: 1.5,
+                  minHeight: 40,
+                  '& .MuiAccordionSummary-content': {
+                    my: 0.5,
+                    alignItems: 'center',
+                    gap: 1,
+                  },
                 }}
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{
-                    px: 1.5,
-                    minHeight: 40,
-                    '& .MuiAccordionSummary-content': {
-                      my: 0.5,
-                      alignItems: 'center',
-                      gap: 1,
-                    },
-                  }}
-                >
-                  <DataObjectIcon
-                    fontSize="small"
-                    sx={{ color: 'text.secondary' }}
-                  />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {t('core:rawGgufMetadata')}
-                  </Typography>
+                <DataObjectIcon
+                  fontSize="small"
+                  sx={{ color: 'text.secondary' }}
+                />
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {t('core:rawGgufMetadata')}
+                </Typography>
+                {hasGgufMeta && (
                   <Typography variant="caption" color="text.secondary">
-                    ({Object.keys(modelHeaderForPanel.rawMetadata).length})
+                    ({Object.keys(ggufRaw!).length})
                   </Typography>
-                  <Box sx={{ flexGrow: 1 }} />
+                )}
+                <Box sx={{ flexGrow: 1 }} />
+                <TsButton
+                  variant="text"
+                  size="small"
+                  onClick={(e) => {
+                    // The regenerate control lives in the GGUF box header:
+                    // it re-parses the header and rebuilds metadata +
+                    // system tags. stopPropagation so it doesn't toggle
+                    // the accordion.
+                    e.stopPropagation();
+                    modelhubActions.regenerateTags();
+                  }}
+                  disabled={
+                    modelhubActions.busy !== 'idle' || location?.isReadOnly
+                  }
+                  startIcon={
+                    modelhubActions.busy === 'regenerate' ? undefined : (
+                      <RefreshIcon />
+                    )
+                  }
+                  loading={modelhubActions.busy === 'regenerate'}
+                  tooltip={t('core:modelhubRegenerateTagsTooltip')}
+                  data-tid="modelhubRegenerateTagsTID"
+                >
+                  {t('core:modelhubRegenerateTags')}
+                </TsButton>
+                {hasGgufMeta && (
                   <Tooltip title={t('core:copyToClipboard')} arrow>
                     <TsIconButton
                       size="small"
@@ -1015,9 +988,7 @@ function EntryProperties({ tileServer }: Props) {
                         // Don't toggle the accordion when the user clicks
                         // the copy affordance in its header.
                         e.stopPropagation();
-                        const text = Object.entries(
-                          modelHeaderForPanel.rawMetadata!,
-                        )
+                        const text = Object.entries(ggufRaw!)
                           .map(([k, v]) => `${k} = ${JSON.stringify(v)}`)
                           .join('\n');
                         navigator.clipboard
@@ -1033,8 +1004,58 @@ function EntryProperties({ tileServer }: Props) {
                       <ContentCopyIcon fontSize="small" />
                     </TsIconButton>
                   </Tooltip>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5 }}>
+                )}
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5 }}>
+                {(modelhubActions.error || modelhubActions.info) && (
+                  <Typography
+                    variant="caption"
+                    color={modelhubActions.error ? 'error' : 'text.secondary'}
+                    sx={{ mb: 1, display: 'block' }}
+                  >
+                    {modelhubActions.error ?? modelhubActions.info}
+                  </Typography>
+                )}
+                <Box sx={{ mb: 1.5 }}>{tagsField}</Box>
+                {(moeExpertSize || headerFieldRows.length > 0) && (
+                  <Grid
+                    container
+                    columns={12}
+                    spacing={1.5}
+                    sx={{ mb: hasGgufMeta ? 1.5 : 0 }}
+                  >
+                    {moeExpertSize && (
+                      <Grid size={12}>
+                        <TsTextField
+                          value={moeExpertSize}
+                          retrieveValue={() => moeExpertSize}
+                          label={t('core:expertSize')}
+                          slotProps={{
+                            input: {
+                              readOnly: true,
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <SizeIcon />
+                                </InputAdornment>
+                              ),
+                            },
+                          }}
+                        />
+                      </Grid>
+                    )}
+                    {headerFieldRows.map((row) => (
+                      <Grid key={row.label} size={12}>
+                        <TsTextField
+                          value={row.value}
+                          retrieveValue={() => row.value}
+                          label={row.label}
+                          slotProps={{ input: { readOnly: true } }}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+                {hasGgufMeta ? (
                   <Box
                     sx={{
                       maxHeight: 320,
@@ -1044,76 +1065,79 @@ function EntryProperties({ tileServer }: Props) {
                       py: 0.5,
                     }}
                   >
-                    {Object.entries(modelHeaderForPanel.rawMetadata).map(
-                      ([k, v]) => {
-                        // One row per KV pair. Hovering reveals an explicit
-                        // copy icon at the end so the user can either select
-                        // a substring with the mouse OR click the icon for a
-                        // one-shot copy of the whole `key = value` line. The
-                        // row itself doesn't capture clicks — that would
-                        // fight against text selection on long lines.
-                        const line = `${k} = ${JSON.stringify(v)}`;
-                        return (
+                    {Object.entries(ggufRaw!).map(([k, v]) => {
+                      // One row per KV pair. Hovering reveals an explicit
+                      // copy icon at the end so the user can either select
+                      // a substring with the mouse OR click the icon for a
+                      // one-shot copy of the whole `key = value` line. The
+                      // row itself doesn't capture clicks — that would
+                      // fight against text selection on long lines.
+                      const line = `${k} = ${JSON.stringify(v)}`;
+                      return (
+                        <Box
+                          key={k}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 0.5,
+                            px: 1,
+                            py: 0.25,
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            '&:hover': { bgcolor: 'action.selected' },
+                            '&:hover .ggufmd-copy': { opacity: 1 },
+                          }}
+                        >
                           <Box
-                            key={k}
                             sx={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              gap: 0.5,
-                              px: 1,
-                              py: 0.25,
-                              fontSize: 11,
-                              fontFamily: 'monospace',
-                              '&:hover': { bgcolor: 'action.selected' },
-                              '&:hover .ggufmd-copy': { opacity: 1 },
+                              flex: 1,
+                              minWidth: 0,
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-all',
+                              userSelect: 'text',
                             }}
                           >
-                            <Box
+                            {line}
+                          </Box>
+                          <Tooltip title={t('core:copyToClipboard')} arrow>
+                            <TsIconButton
+                              className="ggufmd-copy"
+                              size="small"
                               sx={{
-                                flex: 1,
-                                minWidth: 0,
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-all',
-                                userSelect: 'text',
+                                opacity: 0,
+                                transition: 'opacity 0.15s',
+                                p: 0.25,
+                                flexShrink: 0,
+                              }}
+                              onClick={() => {
+                                navigator.clipboard
+                                  .writeText(line)
+                                  .then(() =>
+                                    showNotification(
+                                      t('core:mhAdvParamsHelpCopied'),
+                                    ),
+                                  )
+                                  .catch(() => {
+                                    /* clipboard denied — ignore */
+                                  });
                               }}
                             >
-                              {line}
-                            </Box>
-                            <Tooltip title={t('core:copyToClipboard')} arrow>
-                              <TsIconButton
-                                className="ggufmd-copy"
-                                size="small"
-                                sx={{
-                                  opacity: 0,
-                                  transition: 'opacity 0.15s',
-                                  p: 0.25,
-                                  flexShrink: 0,
-                                }}
-                                onClick={() => {
-                                  navigator.clipboard
-                                    .writeText(line)
-                                    .then(() =>
-                                      showNotification(
-                                        t('core:mhAdvParamsHelpCopied'),
-                                      ),
-                                    )
-                                    .catch(() => {
-                                      /* clipboard denied — ignore */
-                                    });
-                                }}
-                              >
-                                <ContentCopyIcon sx={{ fontSize: 12 }} />
-                              </TsIconButton>
-                            </Tooltip>
-                          </Box>
-                        );
-                      },
-                    )}
+                              <ContentCopyIcon sx={{ fontSize: 12 }} />
+                            </TsIconButton>
+                          </Tooltip>
+                        </Box>
+                      );
+                    })}
                   </Box>
-                </AccordionDetails>
-              </Accordion>
-            </Grid>
-          )}
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    {t('core:rawGgufMetadataEmpty')}
+                  </Typography>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          </Grid>
+        )}
 
         <Grid size={12}>
           <FormControl fullWidth={true}>
