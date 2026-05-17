@@ -13,6 +13,7 @@
 
 // Side-effect imports — each module self-registers its tools.
 import './tools/models';
+import './tools/route';
 import './tools/tags';
 import './tools/description';
 import './tools/hardware';

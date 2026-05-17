@@ -35,6 +35,11 @@ import {
   type HardwareOverride,
 } from './hardwareOverride';
 import {
+  getRoutingConfig,
+  setRoutingConfig,
+  type RoutingConfig,
+} from './routingConfig';
+import {
   detectAndMerge,
   listRunners,
   removeRunner,
@@ -326,6 +331,27 @@ export default function registerModelhubEvents(): void {
     async (_event, override: HardwareOverride) => {
       try {
         await setHardwareOverride(override ?? {});
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(MODELHUB_IPC.getRoutingConfig, async () => {
+    try {
+      const config = await getRoutingConfig();
+      return { ok: true, config };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(
+    MODELHUB_IPC.setRoutingConfig,
+    async (_event, config: RoutingConfig) => {
+      try {
+        await setRoutingConfig(config ?? {});
         return { ok: true };
       } catch (e) {
         return { ok: false, error: (e as Error).message };

@@ -548,6 +548,10 @@ export const MODELHUB_IPC = {
   characterizeAllProgress: 'modelhub:characterizeAllProgress',
   /** Invoke channel: request cancel — honoured after the current model. */
   characterizeAllCancel: 'modelhub:characterizeAllCancel',
+  /** Returns the persisted routing config (memory reserves). */
+  getRoutingConfig: 'modelhub:getRoutingConfig',
+  /** Persists the routing config; pass an empty object to reset to defaults. */
+  setRoutingConfig: 'modelhub:setRoutingConfig',
 } as const;
 
 /** Manual hardware override fields surfaced by Settings UI. */
@@ -556,6 +560,19 @@ export interface HardwareOverride {
   name?: string;
   vramBytes?: number;
   ramBytes?: number;
+}
+
+/**
+ * User-tunable routing knobs (Settings ▸ AI ▸ Routing). The live
+ * free-memory probe (D8.2) subtracts these reserves before deciding
+ * what fits — protects the desktop compositor + the routed model's
+ * runtime overhead a raw "free bytes" figure ignores.
+ */
+export interface RoutingConfig {
+  /** Bytes held back from probed free VRAM. Blank ⇒ 1 GiB default. */
+  vramReserveBytes?: number;
+  /** Bytes held back from probed free RAM. Blank ⇒ 2 GiB default. */
+  ramReserveBytes?: number;
 }
 
 /** Snapshot of the MCP server state for the renderer. */

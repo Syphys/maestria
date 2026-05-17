@@ -94,6 +94,8 @@ export type Channels =
   | 'modelhub:characterizeAllStart'
   | 'modelhub:characterizeAllProgress'
   | 'modelhub:characterizeAllCancel'
+  | 'modelhub:getRoutingConfig'
+  | 'modelhub:setRoutingConfig'
   | 'modelhub:enrichFolderStart'
   | 'modelhub:enrichFolderCancel'
   | 'modelhub:enrichFolderProgress'

@@ -27,6 +27,7 @@ import TsTextField from '-/components/TsTextField';
 import ModelhubBulkAccordion from '-/modelhub/ModelhubBulkAccordion';
 import { Pro } from '-/pro';
 import { formatBytes, useHardware } from '-/modelhub/hardware';
+import { useRoutingConfig } from '-/modelhub/routingConfig';
 import { buildClaudeDesktopConfig, useMcp } from '-/modelhub/mcp/useMcp';
 import { TS } from '-/tagspaces.namespace';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
@@ -74,6 +75,33 @@ function SettingsAI(_props: Props) {
           : '',
     });
   }, [hw.override]);
+  const rc = useRoutingConfig();
+  const [rcDraft, setRcDraft] = React.useState<{
+    vramGb: string;
+    ramGb: string;
+  }>({ vramGb: '', ramGb: '' });
+  // Sync the draft from the persisted config every time it lands. Blank
+  // means "use the documented default" — the placeholder shows it.
+  React.useEffect(() => {
+    const gb = (b: number | undefined) =>
+      typeof b === 'number' ? String(Number((b / 1024 ** 3).toFixed(2))) : '';
+    setRcDraft({
+      vramGb: gb(rc.config.vramReserveBytes),
+      ramGb: gb(rc.config.ramReserveBytes),
+    });
+  }, [rc.config]);
+
+  const saveRoutingDraft = async () => {
+    const v = parseFloat(rcDraft.vramGb);
+    const r = parseFloat(rcDraft.ramGb);
+    await rc.save({
+      vramReserveBytes:
+        Number.isFinite(v) && v > 0 ? Math.round(v * 1024 ** 3) : undefined,
+      ramReserveBytes:
+        Number.isFinite(r) && r > 0 ? Math.round(r * 1024 ** 3) : undefined,
+    });
+  };
+
   const [copyStatus, setCopyStatus] = React.useState<string | undefined>();
 
   const copy = async (value: string, label: string) => {
@@ -312,6 +340,81 @@ function SettingsAI(_props: Props) {
                 sx={{ mt: 0.5, display: 'block' }}
               >
                 {hw.error}
+              </Typography>
+            )}
+          </FormGroup>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion defaultExpanded>
+        <AccordionSummary
+          expandIcon={<ExpandIcon />}
+          aria-controls="modelhub-routing"
+          id="modelhub-routing-header"
+          data-tid="modelhubRoutingTID"
+        >
+          <Box sx={{ display: 'block' }}>
+            <Typography>{t('core:mhSettingsRouting')}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('core:mhSettingsRoutingDescription')}
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <FormGroup>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5 }}
+            >
+              {t('core:mhSettingsRoutingHint')}
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              <TsTextField
+                label={t('core:mhSettingsRoutingVramReserveGb')}
+                placeholder="1"
+                value={rcDraft.vramGb}
+                updateValue={(v) => setRcDraft((d) => ({ ...d, vramGb: v }))}
+                retrieveValue={() => rcDraft.vramGb}
+              />
+              <TsTextField
+                label={t('core:mhSettingsRoutingRamReserveGb')}
+                placeholder="2"
+                value={rcDraft.ramGb}
+                updateValue={(v) => setRcDraft((d) => ({ ...d, ramGb: v }))}
+                retrieveValue={() => rcDraft.ramGb}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <TsButton
+                onClick={() => void saveRoutingDraft()}
+                data-tid="routingSaveConfigTID"
+              >
+                {t('core:save')}
+              </TsButton>
+              <TsButton
+                variant="text"
+                color="warning"
+                onClick={() => void rc.save({})}
+                data-tid="routingResetConfigTID"
+                tooltip={t('core:mhSettingsRoutingResetTooltip')}
+              >
+                {t('core:mhSettingsRoutingReset')}
+              </TsButton>
+            </Box>
+            {rc.error && (
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
+                {rc.error}
               </Typography>
             )}
           </FormGroup>
