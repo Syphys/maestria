@@ -69,7 +69,7 @@ function callerLabelFor(req: Request, sessionId?: string): string {
 
 function buildMcpServer(): McpServer {
   const srv = new McpServer(
-    { name: 'tagspaces-modelhub', version: '1.0.0' },
+    { name: 'maestria-modelhub', version: '1.0.0' },
     { capabilities: { tools: {} } },
   );
 

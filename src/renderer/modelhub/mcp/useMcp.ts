@@ -203,7 +203,7 @@ export function useMcp(): UseMcpState {
 /**
  * Build the JSON config snippet for Claude Desktop's `mcpServers` block.
  * Returns the inner object only; the caller wraps it in
- * `{ "mcpServers": { "tagspaces": <this> } }` when displaying.
+ * `{ "mcpServers": { "maestria": <this> } }` when displaying.
  */
 export function buildClaudeDesktopConfig(
   url: string,
@@ -211,7 +211,7 @@ export function buildClaudeDesktopConfig(
 ): string {
   const cfg = {
     mcpServers: {
-      tagspaces: {
+      maestria: {
         // MCP spec canonical key is `type`, not `transport`. Clients
         // (Claude Desktop, Cursor, claude.json) silently skip the
         // entry when the key is wrong — server responds 200 but no
