@@ -1,0 +1,180 @@
+{
+  "id": "mcq-v1",
+  "version": 1,
+  "name": "MCQ pack v1 (verification competence)",
+  "description": "Single-correct-answer items, embedding-free & judge-free (DECISIONS.md D3.2). One pure deterministic competence signal per axis. First draft — refine items freely; keep exactly one defensible answer and stable ids.",
+  "createdAt": "2026-05-17",
+  "items": [
+    {
+      "id": "mcq-math-01",
+      "lang": "en",
+      "axes": ["math"],
+      "question": "What is the value of 3/4 + 5/6 ?",
+      "options": { "A": "8/10", "B": "19/12", "C": "15/24", "D": "2/3" },
+      "answer": "B",
+      "expected_behavior": "Common denominator 12: 9/12 + 10/12 = 19/12."
+    },
+    {
+      "id": "mcq-math-02",
+      "lang": "en",
+      "axes": ["math"],
+      "question": "How many positive divisors does 36 have?",
+      "options": { "A": "6", "B": "8", "C": "9", "D": "12" },
+      "answer": "C",
+      "expected_behavior": "36 = 2^2 * 3^2 -> (2+1)(2+1) = 9 divisors."
+    },
+    {
+      "id": "mcq-math-03",
+      "lang": "en",
+      "axes": ["math"],
+      "question": "Two fair six-sided dice are rolled. What is the probability the sum is 7?",
+      "options": { "A": "1/6", "B": "1/9", "C": "1/12", "D": "7/36" },
+      "answer": "A",
+      "expected_behavior": "6 favorable outcomes / 36 = 1/6."
+    },
+    {
+      "id": "mcq-reasoning-01",
+      "lang": "en",
+      "axes": ["reasoning"],
+      "question": "All Bloops are Razzies. All Razzies are Lazzies. Which statement must be true?",
+      "options": {
+        "A": "All Lazzies are Bloops",
+        "B": "All Bloops are Lazzies",
+        "C": "Some Razzies are not Lazzies",
+        "D": "No Bloops are Lazzies"
+      },
+      "answer": "B",
+      "expected_behavior": "Transitivity of universal inclusion."
+    },
+    {
+      "id": "mcq-reasoning-02",
+      "lang": "en",
+      "axes": ["reasoning"],
+      "question": "Which single counterexample disproves 'every prime number is odd'?",
+      "options": { "A": "1", "B": "2", "C": "9", "D": "15" },
+      "answer": "B",
+      "expected_behavior": "2 is prime and even."
+    },
+    {
+      "id": "mcq-reasoning-03",
+      "lang": "en",
+      "axes": ["reasoning"],
+      "question": "Ice-cream sales and drowning deaths both rise in summer. The best explanation is:",
+      "options": {
+        "A": "Ice cream causes drowning",
+        "B": "Drowning causes ice-cream sales",
+        "C": "A common cause (hot weather) drives both",
+        "D": "It is pure coincidence with no cause"
+      },
+      "answer": "C",
+      "expected_behavior": "Confounder, not causation."
+    },
+    {
+      "id": "mcq-code-01",
+      "lang": "en",
+      "axes": ["code"],
+      "question": "In Python, what does `bool([])` evaluate to?",
+      "options": {
+        "A": "True",
+        "B": "False",
+        "C": "None",
+        "D": "raises TypeError"
+      },
+      "answer": "B",
+      "expected_behavior": "An empty list is falsy."
+    },
+    {
+      "id": "mcq-code-02",
+      "lang": "en",
+      "axes": ["code"],
+      "question": "What is the worst-case time complexity of binary search on a sorted array of n elements?",
+      "options": {
+        "A": "O(1)",
+        "B": "O(log n)",
+        "C": "O(n)",
+        "D": "O(n log n)"
+      },
+      "answer": "B",
+      "expected_behavior": "Halving the search space each step."
+    },
+    {
+      "id": "mcq-factual-01",
+      "lang": "en",
+      "axes": ["factual"],
+      "question": "Which gas do plants primarily absorb from the atmosphere during photosynthesis?",
+      "options": {
+        "A": "Oxygen",
+        "B": "Nitrogen",
+        "C": "Carbon dioxide",
+        "D": "Hydrogen"
+      },
+      "answer": "C",
+      "expected_behavior": "CO2 fixation in the Calvin cycle."
+    },
+    {
+      "id": "mcq-factual-02",
+      "lang": "en",
+      "axes": ["factual"],
+      "question": "What is the SI base unit of electric current?",
+      "options": { "A": "Volt", "B": "Watt", "C": "Coulomb", "D": "Ampere" },
+      "answer": "D",
+      "expected_behavior": "Ampere is the SI base unit of current."
+    },
+    {
+      "id": "mcq-instruction-01",
+      "lang": "en",
+      "axes": ["instruction"],
+      "question": "Instruction: 'Reply with exactly one word, all lowercase.' Which response obeys it?",
+      "options": {
+        "A": "Hello there",
+        "B": "okay",
+        "C": "Okay.",
+        "D": "ONE"
+      },
+      "answer": "B",
+      "expected_behavior": "Single word, all lowercase, no punctuation."
+    },
+    {
+      "id": "mcq-meta-01",
+      "lang": "en",
+      "axes": ["meta"],
+      "question": "A user asks for today's exact stock price of a company. The most honest answer is to:",
+      "options": {
+        "A": "Invent a plausible-looking number",
+        "B": "State you cannot access real-time data and explain why",
+        "C": "Give last year's price as if current",
+        "D": "Refuse without any explanation"
+      },
+      "answer": "B",
+      "expected_behavior": "Calibrated acknowledgement of a knowledge/access limit."
+    },
+    {
+      "id": "mcq-fr-01",
+      "lang": "fr",
+      "axes": ["fr"],
+      "question": "Quelle phrase est grammaticalement correcte ?",
+      "options": {
+        "A": "Si j'aurais su, je ne serais pas venu.",
+        "B": "Si j'avais su, je ne serais pas venu.",
+        "C": "Si je saurais, je ne serais pas venu.",
+        "D": "Si j'aurai su, je ne serais pas venu."
+      },
+      "answer": "B",
+      "expected_behavior": "Concordance: plus-que-parfait + conditionnel passé."
+    },
+    {
+      "id": "mcq-en-01",
+      "lang": "en",
+      "axes": ["en"],
+      "question": "The idiom 'to bite the bullet' means to:",
+      "options": {
+        "A": "Make a reckless mistake",
+        "B": "Endure a painful situation that is unavoidable",
+        "C": "Speak without thinking",
+        "D": "Win against the odds"
+      },
+      "answer": "B",
+      "expected_behavior": "Standard English idiom meaning."
+    }
+  ]
+}
