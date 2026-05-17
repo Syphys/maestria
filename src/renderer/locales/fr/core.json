@@ -1381,7 +1381,7 @@
   "mhRunLogDialogExited": "Terminé {{when}}",
   "mhRunLogDialogRefresh": "Rafraîchir",
   "mhRunLogNoOutput": "(aucune sortie capturée)",
-  "mhBulkBarTitle": "Tags",
+  "mhBulkBarTitle": "Métadonnées",
   "mhBulkParseAll": "Tout parser",
   "mhBulkParseAllTooltip": "Parser les en-têtes de tous les modèles de cet emplacement (hors-ligne)",
   "mhBulkTagAll": "Tout taguer",

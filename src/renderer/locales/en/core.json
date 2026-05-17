@@ -1385,7 +1385,7 @@
   "mhRunLogDialogExited": "Exited {{when}}",
   "mhRunLogDialogRefresh": "Refresh",
   "mhRunLogNoOutput": "(no output captured)",
-  "mhBulkBarTitle": "Tags",
+  "mhBulkBarTitle": "Metadata",
   "mhBulkParseAll": "Parse all",
   "mhBulkParseAllTooltip": "Parse all model headers in this location (offline)",
   "mhBulkTagAll": "Tag all",
