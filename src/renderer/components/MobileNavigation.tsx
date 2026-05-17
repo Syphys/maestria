@@ -758,7 +758,6 @@ function MobileNavigation(props: Props) {
               </TsToolbarButton>
             </Box>
           </Box>
-          <CharacterizeAllPanel />
           <Box
             onPointerDown={onConsoleHandleDown}
             onPointerMove={onConsoleHandleMove}
@@ -800,6 +799,7 @@ function MobileNavigation(props: Props) {
               backgroundColor: theme.palette.background.default,
             }}
           >
+            <CharacterizeAllPanel />
             <RunningModelsPanel />
           </Box>
         </Box>

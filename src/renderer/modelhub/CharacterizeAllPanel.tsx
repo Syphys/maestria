@@ -80,9 +80,9 @@ function CharacterizeAllPanel(): JSX.Element {
   return (
     <Box
       sx={{
-        px: 1,
-        py: 0.75,
-        borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+        pb: 0.75,
+        mb: 0.75,
+        borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
       }}
     >
       <Stack
