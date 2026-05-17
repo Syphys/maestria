@@ -13,11 +13,21 @@
 
 import { listModelFiles } from '../listModelFiles';
 import { sumShardBytes } from '../shardFs';
-import { loadSignature } from './signatureStore';
+import { loadSignature, markUnsupported } from './signatureStore';
 import {
   runCharacterization,
+  UnsupportedModelError,
   type CharacterizeRunStatus,
 } from './characterizeRunner';
+
+/** A model that can't be characterized at all → quarantine, don't retry. */
+function isUnsupported(e: unknown): boolean {
+  if (e instanceof UnsupportedModelError) return true;
+  const m = (e as Error)?.message ?? '';
+  return /unsupported architecture|unknown model architecture|failed to load model|server exited before becoming ready/i.test(
+    m,
+  );
+}
 
 export interface CharacterizeAllProgress {
   phase: 'enumerating' | 'running' | 'done' | 'cancelled';
@@ -39,6 +49,7 @@ export interface CharacterizeAllDeps {
   sumShardBytes?: typeof sumShardBytes;
   loadSignature?: typeof loadSignature;
   runCharacterization?: typeof runCharacterization;
+  markUnsupported?: typeof markUnsupported;
 }
 
 export interface CharacterizeAllOptions {
@@ -119,7 +130,12 @@ export async function characterizeAll(
     for (const { f } of sized) {
       if (skipExisting) {
         const sig = await ls(f).catch(() => undefined);
-        if (sig?.behavioral && sig.characterization_state === 'complete') {
+        // Skip both the already-done AND the quarantined (a model
+        // llama-server can't run — don't re-launch a known-bad one).
+        if (
+          (sig?.behavioral && sig.characterization_state === 'complete') ||
+          sig?.characterization_state === 'failed'
+        ) {
           prog.skipped += 1;
           continue;
         }
@@ -154,9 +170,20 @@ export async function characterizeAll(
         });
         prog.ok += 1;
       } catch (e) {
-        prog.errors += 1;
-        if (prog.errorSamples.length < 10) {
-          prog.errorSamples.push({ file, error: (e as Error).message });
+        const reason = (e as Error).message;
+        if (isUnsupported(e)) {
+          // Set aside a model llama-server can't run: quarantine it so
+          // future passes skip it, and count it as skipped — not an error.
+          prog.skipped += 1;
+          const mu = d.markUnsupported ?? markUnsupported;
+          await mu(file, reason, { skipWrite: opts.skipWrite }).catch(
+            () => undefined,
+          );
+        } else {
+          prog.errors += 1;
+          if (prog.errorSamples.length < 10) {
+            prog.errorSamples.push({ file, error: reason });
+          }
         }
       }
       prog.done += 1;

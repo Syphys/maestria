@@ -11,11 +11,37 @@
 // external effect is injectable so the orchestration is unit-testable
 // offline (no fs / no spawn / no network).
 
-import { listRunning, stopProcess } from '../runners/launch';
+import { listRunning, stopProcess, getActiveEntry } from '../runners/launch';
 import { launchModelByPath } from '../launchModel';
+import { readModelHeader } from '../parseHeader';
 import { resolveCanonicalShardPath } from '../shardFs';
 import { characterize, type CharacterizeResult } from './characterize';
 import type { CharacterizationProgress } from '../../../shared/RoutingTypes';
+
+/**
+ * Architectures llama-server can't run as a chat/completions model:
+ * ASR, vision/segmentation encoders, seq2seq and embedding-only nets.
+ * Characterizing them is impossible — quarantine instead of launching.
+ */
+const NON_GENERATIVE_ARCH = new Set([
+  'whisper',
+  'clip',
+  'sam',
+  't5',
+  't5encoder',
+  'bert',
+  'nomic-bert',
+  'jina-bert-v2',
+  'xlm-roberta',
+]);
+
+/** Thrown when a model can't be characterized at all (skip, don't retry). */
+export class UnsupportedModelError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnsupportedModelError';
+  }
+}
 
 export type CharacterizeRunStatus =
   | { stage: 'preparing'; detail: 'reuse' | 'launching' | 'waiting_ready' }
@@ -34,6 +60,10 @@ export interface RunCharacterizationDeps {
   characterizeFn?: typeof characterize;
   waitReady?: (url: string) => Promise<void>;
   resolveCanonical?: (filePath: string) => Promise<string>;
+  /** Resolve a model's architecture (deny-list pre-filter). */
+  archOf?: (filePath: string) => Promise<string | undefined>;
+  /** Boot-crash probe for the launched pid (fail-fast). */
+  getExit?: (pid: number) => { exited: boolean; log?: string[] };
 }
 
 export interface RunCharacterizationOptions {
@@ -69,15 +99,30 @@ export function getCurrentRun(): {
   return currentRun;
 }
 
-/** Poll the llama-server OpenAI endpoint until it answers or times out. */
+/**
+ * Poll the llama-server OpenAI endpoint until it answers or times out.
+ * `checkExit` lets us bail in ~2 s when the launched process boot-crashes
+ * (e.g. `unknown model architecture`) instead of polling for 10 minutes.
+ */
 async function waitForServerReady(
   url: string,
-  timeoutMs = 600_000,
+  opts: {
+    timeoutMs?: number;
+    checkExit?: () => { exited: boolean; log?: string[] };
+  } = {},
 ): Promise<void> {
+  const timeoutMs = opts.timeoutMs ?? 600_000;
   const deadline = Date.now() + timeoutMs;
   const probe = `${url.replace(/\/$/, '')}/v1/models`;
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    const ex = opts.checkExit?.();
+    if (ex?.exited) {
+      const tail = (ex.log ?? []).slice(-6).join(' ').slice(-300);
+      throw new UnsupportedModelError(
+        `server exited before becoming ready${tail ? ` — ${tail}` : ''}`,
+      );
+    }
     try {
       const ac = new AbortController();
       const t = setTimeout(() => ac.abort(), 4000);
@@ -122,6 +167,21 @@ export async function runCharacterization(
   let ephemeralPid: number | undefined;
 
   try {
+    // Architecture pre-filter: don't even try to launch a model
+    // llama-server can't run as a chat model (ASR/vision/embedding/…).
+    const archOf =
+      d.archOf ??
+      (async (p: string) => {
+        const h = await readModelHeader(p);
+        return h.ok ? h.meta?.architecture : undefined;
+      });
+    const arch = (await archOf(canonical).catch(() => undefined))
+      ?.toString()
+      .toLowerCase();
+    if (arch && NON_GENERATIVE_ARCH.has(arch)) {
+      throw new UnsupportedModelError(`unsupported architecture: ${arch}`);
+    }
+
     const running = (d.listRunning ?? listRunning)();
     const hit = running.find(
       (r) => r.filePath === canonical && !r.exited && !!r.url,
@@ -143,9 +203,20 @@ export async function runCharacterization(
       ephemeralPid = res.pid;
       baseUrl = res.url;
       status({ stage: 'preparing', detail: 'waiting_ready' });
+      const pid = res.pid;
+      const getExit =
+        d.getExit ??
+        ((p: number) => {
+          const e = getActiveEntry(p);
+          return { exited: !!e?.exited, log: e?.log };
+        });
       await (
         d.waitReady ??
-        ((u: string) => waitForServerReady(u, opts.readyTimeoutMs))
+        ((u: string) =>
+          waitForServerReady(u, {
+            timeoutMs: opts.readyTimeoutMs,
+            checkExit: () => getExit(pid),
+          }))
       )(baseUrl);
     }
 

@@ -79,6 +79,43 @@ export function makePendingSignature(args: {
   };
 }
 
+const UNKNOWN_STRUCTURAL: StructuralSignature = {
+  architecture: 'unknown',
+  params: { total_b: 0, active_b: null },
+  quantization: 'unknown',
+  modality: 'text',
+  context_max: 0,
+  est_footprint_bytes: 0,
+};
+
+/**
+ * Quarantine a model that llama-server can't run (e.g. ASR `whisper`,
+ * `clip`, an embedding-only arch, or any boot-crash). Persists a `failed`
+ * signature so bulk characterization skips it on every subsequent pass
+ * instead of re-launching a known-bad model. `skipWrite` honoured.
+ */
+export async function markUnsupported(
+  filePath: string,
+  reason: string,
+  options: { skipWrite?: boolean } = {},
+): Promise<{ written: boolean; sidecarPath: string }> {
+  const existing = await loadSignature(filePath);
+  const base =
+    existing ??
+    makePendingSignature({
+      modelHash: 'sha256:unknown',
+      structural: UNKNOWN_STRUCTURAL,
+      suiteVersion: 'n/a',
+    });
+  const failed: Signature = {
+    ...base,
+    behavioral: null,
+    characterization_state: 'failed',
+    characterization_error: reason,
+  };
+  return saveSignature(filePath, failed, options);
+}
+
 /**
  * D8 freshness rule for the BEHAVIORAL block. It is trustworthy iff it was
  * completed AND the model weights, the suite+embedder identity, and the
