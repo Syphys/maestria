@@ -8,9 +8,11 @@ import {
   aggregateScore,
   describeMatched,
 } from './_types';
+import { normalizeMath } from './normalizeMath';
 
 export const score: DeterministicScorer = (response, prompt): ScoringResult => {
-  const text = response;
+  // D10: `41^{2}` / `41 \times 41` → `41^2` / `41 * 41` for the factor check.
+  const text = normalizeMath(response);
   const lower = text.toLowerCase();
   const partialCriteria: Record<string, boolean> = {};
 

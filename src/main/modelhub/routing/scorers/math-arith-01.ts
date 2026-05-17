@@ -8,9 +8,11 @@ import {
   aggregateScore,
   describeMatched,
 } from './_types';
+import { normalizeMath } from './normalizeMath';
 
 export const score: DeterministicScorer = (response, prompt): ScoringResult => {
-  const text = response;
+  // D10: e.g. `$17{:}17$` / `17\!:\!17` → `17:17` so the clock regex hits.
+  const text = normalizeMath(response);
   const partialCriteria: Record<string, boolean> = {};
 
   // handles_head_start_correctly: mentions 49 (km) or 35 min or "head start"/"avance"

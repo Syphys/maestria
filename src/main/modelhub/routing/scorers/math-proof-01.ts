@@ -8,9 +8,12 @@ import {
   aggregateScore,
   describeMatched,
 } from './_types';
+import { normalizeMath } from './normalizeMath';
 
 export const score: DeterministicScorer = (response, prompt): ScoringResult => {
-  const text = response.replace(/\s+/g, ' ');
+  // D10: LaTeX → plain. Idempotent on plain text; newlines preserved so
+  // the `concise` line/length heuristic below stays on raw `response`.
+  const text = normalizeMath(response).replace(/\s+/g, ' ');
   const lower = text.toLowerCase();
   const partialCriteria: Record<string, boolean> = {};
 
