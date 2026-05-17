@@ -87,6 +87,7 @@ export type Channels =
   | 'modelhub:parseHeader'
   | 'modelhub:enrichLocal'
   | 'modelhub:loadModelMeta'
+  | 'modelhub:loadSignature'
   | 'modelhub:enrichFolderStart'
   | 'modelhub:enrichFolderCancel'
   | 'modelhub:enrichFolderProgress'

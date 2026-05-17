@@ -21,6 +21,7 @@ import { ModelMeta } from './types';
 import RunModelButton from './runners/RunModelButton';
 import { canonicalShardName, detectShardInfo, isCanonicalShard } from './shard';
 import RunParamsEditor from './RunParamsEditor';
+import CompetenceSection from './radar/CompetenceSection';
 
 function basename(p: string): string {
   return p.replace(/^.*[\\/]/, '');
@@ -125,6 +126,7 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
             }
           />
         )}
+        {filePath && <CompetenceSection filePath={filePath} />}
       </Stack>
     </Box>
   );

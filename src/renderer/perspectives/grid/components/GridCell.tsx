@@ -24,6 +24,7 @@ import {
   UnSelectedIcon,
 } from '-/components/CommonIcons';
 import EntryIcon from '-/components/EntryIcon';
+import ModelTileGlyph from '-/modelhub/radar/ModelTileGlyph';
 import FileExtBadge from '-/components/FileExtBadge';
 import TagContainer from '-/components/TagContainer';
 import TagContainerDnd from '-/components/TagContainerDnd';
@@ -529,9 +530,15 @@ function GridCell(props: Props) {
               margin: '0 auto',
             }}
           >
-            <EntryIcon
-              isFile={fsEntry.isFile}
-              fileExtension={fsEntry.extension}
+            <ModelTileGlyph
+              filePath={fsEntry.path}
+              isVisible={isVisible}
+              fallback={
+                <EntryIcon
+                  isFile={fsEntry.isFile}
+                  fileExtension={fsEntry.extension}
+                />
+              }
             />
           </Box>
         )}

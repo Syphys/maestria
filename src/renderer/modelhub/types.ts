@@ -513,6 +513,13 @@ export const MODELHUB_IPC = {
   mcpGetAutoStart: 'modelhub:mcpGetAutoStart',
   /** Persists the flag; if turning on while server is idle, starts it. */
   mcpSetAutoStart: 'modelhub:mcpSetAutoStart',
+  /**
+   * Reads the model's behavioral `signature` block from the sidecar
+   * (resolves the canonical shard internally — same convention as
+   * loadModelMeta). Read-only; returns `undefined` when not characterized
+   * yet. Drives the competence radar (R9.8 / D7).
+   */
+  loadSignature: 'modelhub:loadSignature',
 } as const;
 
 /** Manual hardware override fields surfaced by Settings UI. */

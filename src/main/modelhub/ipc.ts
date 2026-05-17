@@ -13,6 +13,7 @@ import {
 import { readModelHeader } from './parseHeader';
 import { enrichLocal, EnrichLocalOptions } from './enrichLocal';
 import { loadModelMeta, patchModelMeta } from './sidecar';
+import { loadSignature } from './routing/signatureStore';
 import {
   enrichFolder,
   EnrichFolderOptions,
@@ -120,6 +121,19 @@ export default function registerModelhubEvents(): void {
       try {
         const meta = await loadModelMeta(filePath);
         return { ok: true, modelMeta: meta };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    MODELHUB_IPC.loadSignature,
+    async (_event, filePath: string) => {
+      try {
+        // loadSignature resolves the canonical shard internally.
+        const signature = await loadSignature(filePath);
+        return { ok: true, signature: signature ?? null };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
