@@ -1,179 +1,95 @@
-![TagSpaces Logo](https://www.tagspaces.org/img/tagspaces-logo.svg)
+<p align="center">
+  <img src="brand/exports/icon.png" alt="Maestria" width="120" />
+</p>
 
-[![GitHub All Releases](https://img.shields.io/github/downloads/tagspaces/tagspaces/total.svg)](https://github.com/tagspaces/tagspaces/releases)
+# Maestria
 
-# TagSpaces
+**Maestria** is a local **AI-model browser & manager**. It scans a folder of
+model files (GGUF / safetensors), parses their headers, enriches and tags them,
+and lets you launch them as local inference servers — all offline, no cloud, no
+account, no telemetry. Available for **Windows**, **Linux**, and **macOS**.
 
-**TagSpaces** is a free and open-source platform for organizing, tagging, and managing your local files. It runs completely offline, with no need for cloud services, internet connection, or vendor lock-in. Available for **Windows**, **Linux**, and **macOS**, it also includes a [browser extension](https://github.com/tagspaces/browser-extensions) (Web Clipper) for Firefox, Edge, and Chrome to capture online content as local files.
-
-![TagSpaces with the Markdown Editor](https://www.tagspaces.org/content/v6/tagspaces-lite-demo.avif)
-
-## 🌐 Learn More
-
-- 🌍 [Website](https://www.tagspaces.org/)
-- 📰 [Blog](https://www.tagspaces.org/blog/)
-- 📚 [Documentation](https://docs.tagspaces.org/)
-- 💬 [Community Forum](https://tagspaces.discourse.group/)
-- 🐛 [GitHub Issues](https://github.com/tagspaces/tagspaces/issues)
-
----
-
-## 📦 Downloads
-
-Grab the latest release from the [GitHub Releases Page](https://github.com/tagspaces/tagspaces/releases).  
-Check out the full [changelog](https://www.tagspaces.org/whatsnew/) for recent updates.
+> **Maestria is an independent fork of [TagSpaces](https://github.com/tagspaces/tagspaces)**
+> (© TagSpaces GmbH), re-purposed from a general file organizer into a
+> specialized AI-model hub. It is **not affiliated with, nor endorsed by,
+> TagSpaces GmbH**. Distributed under **AGPL-3.0**; original TagSpaces
+> copyright and license notices are preserved.
 
 ---
 
-## 🚀 Features at a Glance
+## ✨ What it does
 
-- **File & Folder Management** – Browse, organize, and manage local files in a powerful interface.
-- **Tagging System** – Add tags directly into filenames or use sidecar files for metadata storage.
-- **Flexible Search** – Filter and find files by name or tags using fuzzy search.
-- **Offline First** – 100% offline, serverless, and privacy-focused.
-- **Cross-platform** – Runs seamlessly on Windows, Linux, and macOS.
-- **Note Taking** – Create notes in TXT, Markdown, or HTML.
-- **To-Do Support** – Manage task lists using the built-in HTML editor.
-- **Media Player** – Play common audio and video formats directly within the app.
-- **Web Clipper** – Save web pages or screenshots locally using our browser extension.
+- **Model library browser** — treat a directory of local models as a tagged,
+  searchable library (grid / list / treemap / calendar / graph perspectives).
+- **Header parsing** — reads GGUF / safetensors metadata (architecture, params,
+  quantization, context length, license, …) without loading the whole file.
+  Sharded models are handled as one logical entity.
+- **Auto-tagging & sidecars** — derives system tags (`arch:`, `quant:`,
+  `ctx:`, `lic:`, `dir:`, …) and stores them in per-file `.ts/` sidecars; your
+  manual tags, notes and run presets are kept.
+- **Run via llama.cpp** — `llama-server` is the only supported runner.
+  Hardware-aware autotune picks `ngl`, `ctx`, `threads`, `batch`, `flashAttn`,
+  `mlock`, `port`; the model's native llama-server UI opens in your browser.
+- **MCP server** — exposes the library to external clients (Claude Code,
+  Cursor, scripts) over a local HTTP+SSE transport with bearer-token auth:
+  namespaced `models.*`, `tags.*`, `description.*`, `hardware.*` tools.
+- **Offline & private** — 100% local, serverless, no vendor lock-in.
 
 ---
 
-## 👩‍💻 Developer Guide
+## 👩‍💻 Developer guide
 
-### 🛠️ Technologies
+### Stack
 
-- **Javascript Framework:** [React.js](https://reactjs.org/)
-- **User Interface Styling:** [MUI](https://mui.com/)
-- **Desktop App Framework:** [Electron](https://electron.atom.io/)
-- **Boilerplate:** [Electron React Boilerplate](https://github.com/chentsulin/electron-react-boilerplate)
+- **UI:** [React](https://react.dev/) + [MUI](https://mui.com/)
+- **Desktop:** [Electron](https://www.electronjs.org/)
+- **Engine:** [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server`)
 
-### 📁 Project Structure
+### Build & run from source
 
-```text
-src/
-  renderer/         # Core application logic
-  main/             # Electron main process
-  locales/          # Language translation files
-  node_modules/     # TagSpaces extension modules
+```bash
+git clone https://github.com/Syphys/maestria.git
+cd maestria
+git checkout develop
+npm install
 
-cordova/            # Deprecated Android build
-dll/                # Live reload support for development
-docker/             # Docker container setup
-internals/          # Flow and ESLint configurations
-resources/          # Images and build resources
-scripts/            # NPM task-related scripts
-test/               # Unit and E2E tests
-web/                # Assets for web version
+# A local web service handles indexing + thumbnails. Create release/app/.env
+# with a custom key so instances don't collide on the shared port:
+echo "KEY=a_custom_key" > release/app/.env
+
+npm run dev          # development (hot reload)
+# or
+npm run build && npm run start
 ```
 
-### ▶️ Running from Source
-
-#### Prerequisites
-
-Install the following tools:
-
-- [Node.js](https://nodejs.org/)
-- [npm](https://www.npmjs.com/)
-- [Git](http://git-scm.org/)
-
-#### Setup Steps
-
-    git clone https://github.com/tagspaces/tagspaces.git
-    cd tagspaces
-    git checkout develop  # or 'master' for stable release
-    npm install
-
-#### Set Up Local Web Service
-
-Create a .env file in release/app/ with a custom key to avoid conflicts:
-
-The desktop version of the application uses a web service which is running locally as a separate process. The web service is responsible for the search index creation and the generation of the thumbnails for most of the images formats. A key is required in order for the main application to communicate with the web server. It should be generated from webpack script in the `.env` file located in `release/app` folder. This is an example for an .env file.
-
-    KEY=a_custom_key
-
-> Having a custom key, ensures that another instance of TagSpaces will not communicate with the web service of the initial instance, since it is always running on the same port.
-
-#### Build & Start
-
-    npm run build
-    npm run start
-
-#### Start in Development Mode
-
-    npm run dev
-
-This will start a development server in background, which watches for changes in background and refreshes the application automatically once you have done some changes in the source code.
-
-### 🧪 Testing
-
-Run unit and integration tests:
+### Testing
 
 ```bash
 npm run test-unit
 npm run test-playwright
-npm run test-playwright-web
-
 ```
 
-### 💻 Packaging the Desktop App
-
-Build native apps for each platform:
+### Packaging
 
 ```bash
-npm run package-win
-npm run package-linux
-npm run package-mac
+npm run package-win      # Windows
+npm run package-linux    # Linux
+npm run package-mac      # macOS (Intel)
 npm run package-mac-arm64
 ```
 
-The commands will create packages for Windows, Linux, Mac OS and Mac OS with the M1 processor respectively.
+> Run `npm run build` before packaging. Use the **non-`-pro`** package scripts
+> only — the proprietary `@tagspacespro` code must not be bundled in this
+> AGPL fork.
 
-> ⚠️ Run npm run build before packaging.
-
-### 📱 Android Build (Deprecated)
-
-```bash
-npm run version-meta
-npm run prepare-cordova
-npm run package-android
-```
-
-### 🌐 Web Version
-
-Start the web version locally:
-
-    npm run run-web
-
-### 🔌 Extend with Custom Viewers & Editors
-
-TagSpaces supports extension modules for opening and editing different file types. Learn more on our [Extensions Page](https://www.tagspaces.org/extensions/).
-
-### 🤝 Contributing
-
-We welcome contributions! Please review and sign the [Contributor License Agreement (CLA)](https://www.tagspaces.org/contribute/) before submitting PRs.
-
-## 🌍 Localization
-
-TagSpaces is available in over 20 languages. Help us translate the app by joining our team on [Transifex](https://www.transifex.com/tagspaces/tagspaces/).
-
-## 💡 Ideas & Suggestions
-
-Have an idea or a feature request? Share it on our [community forum](https://tagspaces.discourse.group/c/feature-requests/6) and join the discussion.
-
-## 🐞 Support & Bug Reports
-
-If you encounter a bug or need help, [open an issue](https://github.com/tagspaces/tagspaces/issues) on GitHub.
-
-## ⚠️ Known Limitations
-
-TagSpaces is not optimized for locations with more than 100,000 files.
-
-## 📡 Feeds
-
-- [Blog RSS Feed](http://www.tagspaces.org/blog/rss.xml)
-- [GitHub Commits (master)](https://github.com/tagspaces/tagspaces/commits/master.atom)
+---
 
 ## 📄 License
 
-TagSpaces is dual-licensed under the [AGPL](LICENSE.txt) (GNU Affero General Public License) v3 for open-source projects and a commercial license for vendors or resellers. Contact us if you're interested in using TagSpaces under different terms.
+Maestria is licensed under the **[GNU AGPL-3.0](LICENSE.txt)**.
+
+It is a modified fork of TagSpaces (© TagSpaces GmbH, also AGPL-3.0). The
+original copyright, license, and author notices are retained as required by
+the AGPL. The TagSpaces name and logo are trademarks of TagSpaces GmbH and are
+**not** used by this fork; "Maestria" and its assets are distinct. There is no
+commercial/dual license for Maestria — AGPL-3.0 only.
