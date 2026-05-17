@@ -25,8 +25,17 @@ const MATH_HINT =
 const REASONING_HINT =
   /\b(why|pourquoi|because|donc|therefore|deduce|déduis|logic|logique|puzzle|riddle|énigme|if .* then|si .* alors|consequenc|implies|contradiction)\b/i;
 
-const FACTUAL_HINT =
-  /\b(who|qui|when|quand|where|où|what year|quelle année|in which|capital|capitale|date of|inventeur|discovered|président|history|histoire)\b|\?\s*$/i;
+// Unambiguous topical factual signals — fire anywhere.
+const FACTUAL_STRONG =
+  /\b(what year|quelle année|in which|capitale?|date of|inventeur|discovered|président|history|histoire)\b/i;
+// Interrogative pronouns are factual ONLY when actually asking: the
+// query ends with "?" OR the pronoun opens a sentence. Otherwise the
+// French RELATIVE pronouns "qui"/"où" ("une fonction qui parse…",
+// "le cas où…") wrongly tagged code/other tasks as factual and, given
+// flat 1.0 signatures, that 0.7 axis silently decided the route.
+const FACTUAL_INTERROG =
+  /(?:^|[.!?\n]\s*)["'(–\- ]*(who|whom|whose|when|where|qui|quand|où)\b/i;
+const ENDS_WITH_QUESTION = /\?\s*$/;
 
 const INSTRUCTION_HINT =
   /\b(exactly|exactement|json|yaml|format|bullet|liste? à puces|in \d+ words|en \d+ mots|one line|une ligne|step ?by ?step|étape par étape|table|tableau|markdown)\b/i;
@@ -66,7 +75,13 @@ export function classifyQuery(query: string): AxisWeights {
   if (CODE_HINT.test(q)) set('code', 1);
   if (MATH_HINT.test(q)) set('math', 1);
   if (REASONING_HINT.test(q)) set('reasoning', 0.8);
-  if (FACTUAL_HINT.test(q)) set('factual', 0.7);
+  if (
+    FACTUAL_STRONG.test(q) ||
+    ENDS_WITH_QUESTION.test(q) ||
+    FACTUAL_INTERROG.test(q)
+  ) {
+    set('factual', 0.7);
+  }
   if (INSTRUCTION_HINT.test(q)) set('instruction', 0.7);
   if (MULTISTEP_HINT.test(q)) set('multistep', 0.7);
   if (CREATIVE_HINT.test(q)) set('creative', 0.8);
