@@ -19,6 +19,10 @@ import {
   getCurrentRun,
 } from './routing/characterizeRunner';
 import {
+  characterizeAll,
+  cancelCharacterizeAll,
+} from './routing/characterizeAll';
+import {
   enrichFolder,
   EnrichFolderOptions,
   EnrichFolderProgress,
@@ -167,6 +171,33 @@ export default function registerModelhubEvents(): void {
 
   ipcMain.handle(MODELHUB_IPC.characterizeStatus, async () => {
     return { ok: true, run: getCurrentRun() };
+  });
+
+  ipcMain.handle(
+    MODELHUB_IPC.characterizeAllStart,
+    async (
+      _event,
+      rootDir: string,
+      skipWrite?: boolean,
+      skipExisting?: boolean,
+    ) => {
+      try {
+        const result = await characterizeAll(rootDir, {
+          skipWrite,
+          skipExisting,
+          onProgress: (p) =>
+            broadcastToAllWindows(MODELHUB_IPC.characterizeAllProgress, p),
+        });
+        return { ok: true, result };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(MODELHUB_IPC.characterizeAllCancel, async () => {
+    cancelCharacterizeAll();
+    return { ok: true };
   });
 
   ipcMain.handle(

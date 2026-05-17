@@ -45,6 +45,7 @@ import HelpFeedbackPanel from '-/components/HelpFeedbackPanel';
 import InfoIcon from '-/components/InfoIcon';
 import LocationManager from '-/components/LocationManager';
 import RunningModelsPanel from '-/modelhub/RunningModelsPanel';
+import CharacterizeAllPanel from '-/modelhub/CharacterizeAllPanel';
 import StoredSearches from '-/components/StoredSearches';
 import TagLibrary from '-/components/TagLibrary';
 import TsButton from '-/components/TsButton';
@@ -757,6 +758,7 @@ function MobileNavigation(props: Props) {
               </TsToolbarButton>
             </Box>
           </Box>
+          <CharacterizeAllPanel />
           <Box
             onPointerDown={onConsoleHandleDown}
             onPointerMove={onConsoleHandleMove}

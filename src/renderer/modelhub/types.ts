@@ -538,6 +538,16 @@ export const MODELHUB_IPC = {
    * null. Lets a freshly-mounted panel re-attach after navigating away.
    */
   characterizeStatus: 'modelhub:characterizeStatus',
+  /**
+   * Invoke channel: bulk-characterize every model under a root, smallest
+   * first, skipping already-characterized ones (Slice 5). Resolves with
+   * the final progress; updates arrive on `characterizeAllProgress`.
+   */
+  characterizeAllStart: 'modelhub:characterizeAllStart',
+  /** Event channel: main → renderer `CharacterizeAllProgress` updates. */
+  characterizeAllProgress: 'modelhub:characterizeAllProgress',
+  /** Invoke channel: request cancel — honoured after the current model. */
+  characterizeAllCancel: 'modelhub:characterizeAllCancel',
 } as const;
 
 /** Manual hardware override fields surfaced by Settings UI. */
