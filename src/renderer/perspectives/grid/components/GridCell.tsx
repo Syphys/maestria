@@ -23,7 +23,6 @@ import {
   SelectedIcon,
   UnSelectedIcon,
 } from '-/components/CommonIcons';
-import EntryIcon from '-/components/EntryIcon';
 import ModelTileGlyph from '-/modelhub/radar/ModelTileGlyph';
 import FileExtBadge from '-/components/FileExtBadge';
 import TagContainer from '-/components/TagContainer';
@@ -95,12 +94,23 @@ const ENTRY_SIZES = {
   normal: 200,
 } as const;
 
+// Cells are taller than they are wide so the competence radar (rendered
+// below the title/description) has room with its axis labels. Width keeps
+// the ENTRY_SIZES scale; only the height grows.
+const ENTRY_HEIGHTS = {
+  tiny: 210,
+  small: 250,
+  big: 360,
+  huge: 430,
+  normal: 300,
+} as const;
+
 export function calculateEntryWidth(entrySize: TS.EntrySizes) {
   return ENTRY_SIZES[entrySize] ?? ENTRY_SIZES.normal;
 }
 
 export function calculateEntryHeight(entrySize: TS.EntrySizes) {
-  return ENTRY_SIZES[entrySize] ?? ENTRY_SIZES.normal;
+  return ENTRY_HEIGHTS[entrySize] ?? ENTRY_HEIGHTS.normal;
 }
 
 interface Props {
@@ -485,30 +495,33 @@ function GridCell(props: Props) {
       onClick={handleCellClick}
       onDrag={handleCellClick}
     >
-      <Box
-        sx={{
-          height: maxHeight - 70,
-          position: 'relative',
-          backgroundColor: findBackgroundColorForFolder(fsEntry),
-        }}
-      >
-        <Box sx={{ position: 'absolute' }}>
-          {showTags && entryTags.length > 0 ? (
-            <>
-              {renderTags()}
-              {overflowTags && (
-                <TagsOverflowChip
-                  remaining={overflowTags}
-                  entry={fsEntry}
-                  handleTagMenu={handleTagMenu}
-                />
-              )}
-            </>
-          ) : (
-            <TagsPreview tags={entryTags} />
-          )}
-        </Box>
-        {fsEntry.meta?.thumbPath && thumbSrc ? (
+      {/* Tags strip — kept at the very top. The generic file icon that
+          used to fill this area was removed: it polluted every card and
+          the competence radar (rendered just below) is the real glyph. */}
+      {fsEntry.meta?.thumbPath && thumbSrc ? (
+        <Box
+          sx={{
+            height: maxHeight - 70,
+            position: 'relative',
+            backgroundColor: findBackgroundColorForFolder(fsEntry),
+          }}
+        >
+          <Box sx={{ position: 'absolute' }}>
+            {showTags && entryTags.length > 0 ? (
+              <>
+                {renderTags()}
+                {overflowTags && (
+                  <TagsOverflowChip
+                    remaining={overflowTags}
+                    entry={fsEntry}
+                    handleTagMenu={handleTagMenu}
+                  />
+                )}
+              </>
+            ) : (
+              <TagsPreview tags={entryTags} />
+            )}
+          </Box>
           <CardMedia
             component="img"
             loading="lazy"
@@ -522,29 +535,59 @@ function GridCell(props: Props) {
               objectFit: thumbnailMode,
             }}
           />
-        ) : (
-          <Box
-            sx={{
-              width: '50%',
-              height: 'auto',
-              margin: '0 auto',
-            }}
-          >
-            <ModelTileGlyph
-              filePath={fsEntry.path}
-              isVisible={isVisible}
-              fallback={
-                <EntryIcon
-                  isFile={fsEntry.isFile}
-                  fileExtension={fsEntry.extension}
-                />
-              }
-            />
+        </Box>
+      ) : (
+        showTags &&
+        entryTags.length > 0 && (
+          <Box sx={{ px: 0.5, pt: 0.5, flexShrink: 0 }}>
+            {renderTags()}
+            {overflowTags && (
+              <TagsOverflowChip
+                remaining={overflowTags}
+                entry={fsEntry}
+                handleTagMenu={handleTagMenu}
+              />
+            )}
           </Box>
-        )}
-      </Box>
+        )
+      )}
 
-      <CardContent sx={{ padding: '1px 5px 0px 5px', flexGrow: 1 }}>
+      <CardContent
+        sx={{
+          padding: '1px 5px 0px 5px',
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}
+      >
+        {/* Competence radar — between the tags (above) and the model
+            name (below). Fills the freed space; renders nothing for
+            non-models / uncharacterized files. */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            minHeight: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <ModelTileGlyph
+            filePath={fsEntry.path}
+            isVisible={isVisible}
+            size={Math.max(
+              96,
+              Math.min(
+                190,
+                maxHeight - 96,
+                calculateEntryWidth(entrySize) - 16,
+              ),
+            )}
+            fallback={<></>}
+          />
+        </Box>
         <Typography
           title={fsEntry.name}
           sx={{
