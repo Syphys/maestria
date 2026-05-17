@@ -1,5 +1,21 @@
-// R0.6 — Pure function: canonical hash of (suite + weights + tare-table + embedder).
-// Spec: SEMANTIC_ROUTING_FEATURES.md §R0.6.
+// R0.6 — Hashes that gate signature validity vs. decision provenance.
+// Spec: SEMANTIC_ROUTING_FEATURES.md §R0.6 ; arbitration: DECISIONS.md D8.
+//
+// D8 (authoritative — supersedes the spec on this point): a model's
+// BEHAVIORAL signature is intrinsic to (model × suite × embedder). It does
+// NOT depend on the routing weights (α/β/γ/δ) or the tare table. Those, plus
+// live resource state (free VRAM, hot/resident model, queue depth, hardware
+// fit), are applied at *routing time* by the dynamic, capability-aware scorer
+// (R5). Changing a weight must re-rank instantly — never re-characterize.
+//
+// Therefore two distinct hashes:
+//   • signatureHash = sha256(suiteCore + embedderId)
+//       The ONLY thing that invalidates a cached behavioral signature
+//       (together with modelHash + suite_version). Used by signatureStore
+//       (R0.3) to decide "is this signature still trustworthy?".
+//   • policyHash    = sha256(suiteCore + weights + tareTableId + embedderId)
+//       AUDIT ONLY. Stamped into a RoutingDecision so a past ranking is
+//       reproducible. Never gates signature validity.
 
 import { createHash } from 'node:crypto';
 import type {
@@ -35,14 +51,52 @@ export function sha256Hex(input: string): string {
 }
 
 /**
- * Compute a stable policy hash from everything that affects scoring identity.
- * Any change invalidates cached behavioral signatures.
- *
- * Inputs we hash:
- *   - suite.id + suite.version + the prompts array (id + axes + prompt text + rubric only — descriptive fields ignored)
- *   - weights (α, β, γ, δ — extend when ε/ζ/η are added)
- *   - tareTableId (semver-like string from tare.ts)
- *   - embedderId (R1.7 — string like "local:bge-m3:Q8" or "openai:text-embedding-3-large")
+ * The part of a suite that actually changes what a model is asked to do:
+ * id + version + (per prompt) id, axes, prompt text, rubric, runtime inject,
+ * skip rule. Descriptive fields (name/description/createdAt) are ignored —
+ * editing a comment must not invalidate signatures.
+ */
+function suiteCore(suite: DiagnosticSuite) {
+  return {
+    id: suite.id,
+    version: suite.version,
+    prompts: suite.prompts.map((p) => ({
+      id: p.id,
+      axes: [...p.axes].sort(),
+      prompt: p.prompt,
+      rubric: p.rubric.map((r) => ({ c: r.criterion, w: r.weight })),
+      runtime_inject: p.runtime_inject ?? null,
+      skip_if: p.skip_if ?? null,
+    })),
+  };
+}
+
+/**
+ * Invalidation key for a behavioral signature. A cached signature is trusted
+ * iff its stored signatureHash matches this AND its modelHash still matches
+ * the file on disk. Weights / tare / live capabilities are deliberately NOT
+ * inputs (D8) — they only affect routing-time ranking, not the measurements.
+ */
+export function computeSignatureHash(args: {
+  suite: DiagnosticSuite;
+  embedderId: string;
+}): string {
+  return (
+    'sha256:' +
+    sha256Hex(
+      canonicalize({
+        suite: suiteCore(args.suite),
+        embedderId: args.embedderId,
+      }),
+    )
+  );
+}
+
+/**
+ * Provenance hash for a routing decision (audit only). Includes the weights
+ * and tare table so a past ranking can be reproduced exactly. MUST NOT be
+ * used to decide whether a behavioral signature is stale — see
+ * {@link computeSignatureHash} and DECISIONS.md D8.
  */
 export function computePolicyHash(args: {
   suite: DiagnosticSuite;
@@ -50,29 +104,21 @@ export function computePolicyHash(args: {
   tareTableId: string;
   embedderId: string;
 }): string {
-  const promptsCore = args.suite.prompts.map((p) => ({
-    id: p.id,
-    axes: [...p.axes].sort(),
-    prompt: p.prompt,
-    rubric: p.rubric.map((r) => ({ c: r.criterion, w: r.weight })),
-    runtime_inject: p.runtime_inject ?? null,
-    skip_if: p.skip_if ?? null,
-  }));
-  const payload = {
-    suite: {
-      id: args.suite.id,
-      version: args.suite.version,
-      prompts: promptsCore,
-    },
-    weights: args.weights,
-    tareTableId: args.tareTableId,
-    embedderId: args.embedderId,
-  };
-  return 'sha256:' + sha256Hex(canonicalize(payload));
+  return (
+    'sha256:' +
+    sha256Hex(
+      canonicalize({
+        suite: suiteCore(args.suite),
+        weights: args.weights,
+        tareTableId: args.tareTableId,
+        embedderId: args.embedderId,
+      }),
+    )
+  );
 }
 
 /**
- * Build a complete Policy object with its hash populated.
+ * Build a complete Policy object with its (audit) hash populated.
  */
 export function buildPolicy(args: {
   id: string;
