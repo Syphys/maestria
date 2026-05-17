@@ -152,17 +152,28 @@ export type DiagnosticRunEntry = {
   startedAt: string;
   finishedAt?: string;
   response?: string;
-  responseEmbedding?: number[]; // R1.3
-  judgeScores?: Record<string, number>; // criterion -> 0..1
-  judgeAggregate?: number; // 0..1, weighted sum
+  responseEmbedding?: number[]; // R1.3 (embedding track — unused in MVP)
+  judgeScores?: Record<string, number>; // criterion -> 0..1 (judge track — unused, D3)
+  judgeAggregate?: number; // judge track — unused, D3
+  // Deterministic scoring (R2.6 / D3 / D3.2):
+  score?: number; // 0..1 weighted (rubric) or 0|1 (MCQ)
+  pass?: boolean;
+  detail?: string;
+  axes?: DiagnosticAxis[]; // axes this item exercised (for aggregation/UI)
   error?: string;
   judge_pending?: boolean;
 };
 
 export type BehavioralSignature = {
   diagnostic_run: Record<string, DiagnosticRunEntry>;
-  scores_per_axis: Record<DiagnosticAxis, number>; // averaged judgeAggregate over prompts on that axis
-  behavior_centroid: number[]; // mean of all responseEmbedding vectors
+  // D8.B: only MEASURED axes appear — an absent axis means "no data", never
+  // a misleading 0 (creative/refusal/vision/zh aren't auto-scorable).
+  scores_per_axis: Partial<Record<DiagnosticAxis, number>>;
+  /** Sample size behind each axis (small ⇒ noisy; surfaced by the radar). */
+  n_per_axis?: Partial<Record<DiagnosticAxis, number>>;
+  /** Mean score over every scored item (axis-agnostic). */
+  overall?: number;
+  behavior_centroid: number[]; // embedding track — [] in the MVP (no embeddings)
 };
 
 export type Signature = {

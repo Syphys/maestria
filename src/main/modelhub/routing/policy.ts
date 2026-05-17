@@ -93,6 +93,49 @@ export function computeSignatureHash(args: {
 }
 
 /**
+ * Invalidation key for the EMBEDDING-FREE deterministic characterization
+ * (Slice 2 / DECISIONS.md D8.A). No embedder is involved, so the key binds
+ * to exactly what was measured: the subset of suite prompts actually scored
+ * (`usedPromptIds`) + the MCQ pack identity & per-item core. Editing the
+ * suite subset or any MCQ item invalidates the cached behavioral block;
+ * tuning a routing weight does not (consistent with D8). The
+ * `mode: 'deterministic'` marker keeps this distinct from an
+ * embedding-based signatureHash for the same suite.
+ */
+export function computeCharacterizationHash(args: {
+  suite: DiagnosticSuite;
+  usedPromptIds: string[];
+  mcqPack: {
+    id: string;
+    version: number;
+    items: { id: string; answer: string; axes: string[] }[];
+  };
+}): string {
+  const used = new Set(args.usedPromptIds);
+  const suiteSubset = suiteCore({
+    ...args.suite,
+    prompts: args.suite.prompts.filter((p) => used.has(p.id)),
+  });
+  const mcqCore = {
+    id: args.mcqPack.id,
+    version: args.mcqPack.version,
+    items: [...args.mcqPack.items]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((i) => ({ id: i.id, answer: i.answer, axes: [...i.axes].sort() })),
+  };
+  return (
+    'sha256:' +
+    sha256Hex(
+      canonicalize({
+        mode: 'deterministic',
+        suite: suiteSubset,
+        mcq: mcqCore,
+      }),
+    )
+  );
+}
+
+/**
  * Provenance hash for a routing decision (audit only). Includes the weights
  * so a past ranking can be reproduced exactly. MUST NOT be used to decide
  * whether a behavioral signature is stale — see {@link computeSignatureHash}
