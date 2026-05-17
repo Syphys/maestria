@@ -46,7 +46,12 @@ export function extractChoice(
   options: Record<string, string>,
 ): string | null {
   const letters = Object.keys(options).map((l) => l.toUpperCase());
-  const text = response.trim();
+  // D11: drop reasoning models' chain-of-thought scaffold — a `<think>…
+  // </think>` block enumerates "A, B, C, D" and would make step 3 pick the
+  // first stray letter. We strip ONLY that, nothing more: the prompt asks
+  // explicitly for a single letter, so if the post-think answer still has
+  // no parseable choice the model legitimately fails (user decision).
+  const text = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   if (!text) return null;
   const lettersClass = letters.join('');
 
