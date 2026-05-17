@@ -10,16 +10,27 @@
 // from that offset to EOF) yields the same digest before and after any
 // metadata-only edit.
 //
+// Sharded models: a model split across N files is one logical entity. Each
+// shard is itself a GGUF (own header + own slice of the weights). We hash the
+// tensor payload of EVERY shard, concatenated in shard order 1→N, into a
+// single running digest. This is required for correctness: per-tensor splits
+// (e.g. THIREUS "SPECIAL_TENSOR", 1 tensor/shard) keep almost no tensor data
+// in shard 1 — hashing only shard 1's payload would collapse every such model
+// to the empty-input digest. A shard with no GGUF header (naive blob split)
+// is hashed whole.
+//
 // `general.uuid` (llama.cpp's weight-derived UUIDv5, `gguf-hash --uuid`) is the
 // alternative D4 mentions; we don't depend on the external `gguf-hash` binary
 // (Maestria ships only `llama-server`), so we compute the payload hash
-// ourselves. When the file carries `general.uuid` we still surface it for
+// ourselves. When shard 1 carries `general.uuid` we still surface it for
 // cross-referencing, but the canonical id stays our streamed payload digest.
 
-import { createHash } from 'node:crypto';
+import { createHash, type Hash } from 'node:crypto';
 import { createReadStream, promises as fsp } from 'node:fs';
-import { extname } from 'node:path';
-import { resolveCanonicalShardPath } from '../shardFs';
+import {
+  resolveCanonicalShardPath,
+  findExistingSiblingShards,
+} from '../shardFs';
 
 /** GGUF magic, little-endian 'GGUF'. */
 const GGUF_MAGIC = 0x46554747;
@@ -125,7 +136,7 @@ class HeaderWalker {
     this.pos += n;
   }
 
-  /** GGUF string = u64 length prefix + raw UTF-8 bytes. We never decode it. */
+  /** GGUF string = u64 length prefix + raw UTF-8 bytes. */
   private skipString(): string {
     const len = this.u64();
     this.need(len);
@@ -259,18 +270,23 @@ class HeaderWalker {
 export type ModelHashScope = 'gguf-tensor-payload' | 'full-file';
 
 export type ModelHashResult = {
-  /** `sha256:<hex>` of the bytes covered by {@link ModelHashResult.scope}. */
+  /** `sha256:<hex>` of the concatenated payloads (shard order 1→N). */
   modelHash: string;
-  /** What was hashed. `full-file` is the graceful fallback for non-GGUF
-   *  files (safetensors, …) or an unparseable / pathologically large header. */
+  /** `gguf-tensor-payload` when ≥1 shard had its header parsed and only its
+   *  tensor data was hashed; `full-file` when no header could be parsed
+   *  (single non-GGUF file). */
   scope: ModelHashScope;
-  /** Absolute byte offset hashing started at (0 for `full-file`). */
+  /** Tensor-data offset of shard 1 (0 when shard 1 wasn't a parseable GGUF).
+   *  Informative only — the digest spans every shard. */
   dataOffset: number;
-  /** Size of the canonical file in bytes. */
+  /** Number of shard files actually hashed (1 for non-sharded). */
+  shardCount: number;
+  /** Sum of byte sizes across every hashed shard. */
   fileSize: number;
-  /** mtime of the canonical file (ms). */
+  /** Most recent mtime across every hashed shard (ms) — any shard edit
+   *  bumps this so {@link isHashStale} triggers a recompute. */
   mtimeMs: number;
-  /** `general.uuid` from the GGUF header, when present (cross-reference only). */
+  /** `general.uuid` from shard 1's header, when present (cross-reference). */
   ggufUuid?: string;
   durationMs: number;
 };
@@ -297,44 +313,78 @@ async function readHeaderWindow(
   }
 }
 
-function streamSha256(
+/**
+ * Locate a shard's tensor-data offset. Returns `null` when the file isn't a
+ * GGUF (magic mismatch) or its header can't be parsed within
+ * {@link MAX_HEADER_BYTES} — the caller then hashes the whole shard.
+ */
+async function ggufDataOffset(
+  filePath: string,
+  fileSize: number,
+): Promise<{ offset: number; ggufUuid?: string } | null> {
+  if (fileSize < 4) return null;
+  let windowBytes = Math.min(INITIAL_HEADER_BYTES, fileSize);
+  for (;;) {
+    const header = await readHeaderWindow(filePath, windowBytes);
+    if (header.length < 4 || header.readUInt32LE(0) !== GGUF_MAGIC) {
+      return null; // not a GGUF shard — caller hashes it whole
+    }
+    try {
+      return new HeaderWalker(header).findTensorDataOffset();
+    } catch (e) {
+      if (e instanceof NeedMoreBytes && windowBytes < fileSize) {
+        windowBytes = Math.min(windowBytes * 2, fileSize, MAX_HEADER_BYTES);
+        if (windowBytes >= MAX_HEADER_BYTES) return null; // pathological
+        continue;
+      }
+      return null; // malformed despite magic → full-file fallback
+    }
+  }
+}
+
+function streamInto(
+  hash: Hash,
   filePath: string,
   start: number,
-  onProgress?: (bytesRead: number, total: number) => void,
-  total = 0,
-): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const hash = createHash('sha256');
+  onChunk?: (n: number) => void,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const stream = createReadStream(filePath, {
       start,
       highWaterMark: 4 * 1024 * 1024,
     });
-    let read = 0;
     stream.on('data', (chunk: Buffer) => {
       // Cast: see readHeaderWindow — TS5+ Buffer/ArrayBufferView tightening.
       hash.update(chunk as unknown as Uint8Array);
-      read += chunk.length;
-      onProgress?.(read, total);
+      onChunk?.(chunk.length);
     });
-    stream.on('end', () => resolve('sha256:' + hash.digest('hex')));
+    stream.on('end', () => resolve());
     stream.on('error', reject);
   });
 }
 
+type ShardPlan = {
+  path: string;
+  /** Byte offset to start hashing from (0 = whole file). */
+  start: number;
+  size: number;
+  mtimeMs: number;
+  /** True when the GGUF header was parsed and only the payload is hashed. */
+  parsed: boolean;
+  /** Only set for shard 1. */
+  ggufUuid?: string;
+};
+
 /**
  * Compute the stable model hash for a model file. Resolves the canonical
- * shard (shard 1) first, per the codebase shard convention. Streamed — never
- * loads the weights into memory.
+ * shard (shard 1), enumerates every existing sibling shard in order, and
+ * hashes the concatenation of each shard's tensor payload (D4). Streamed —
+ * never loads weights into memory.
  *
- * For GGUF: parses the header, locates the tensor-data offset, and hashes
- * from there to EOF (D4). For anything else, or if the header can't be parsed
- * within {@link MAX_HEADER_BYTES}, it falls back to a full-file hash and says
- * so via `scope`.
- *
- * Callers should cache the result keyed by (path, fileSize, mtimeMs) and only
- * recompute when {@link isHashStale} is true. A metadata-only edit bumps mtime
- * so a recompute is triggered — but the GGUF-payload digest is unchanged, so
- * R7 portable matching still holds.
+ * Callers should cache the result keyed by (fileSize, mtimeMs) and only
+ * recompute when {@link isHashStale} is true. A metadata-only edit on any
+ * shard bumps that shard's mtime so a recompute is triggered — but the
+ * payload digest is unchanged, so R7 portable matching still holds.
  */
 export async function computeModelHash(
   filePath: string,
@@ -342,67 +392,61 @@ export async function computeModelHash(
     onProgress?: (bytesRead: number, total: number) => void;
   } = {},
 ): Promise<ModelHashResult> {
-  const canonical = await resolveCanonicalShardPath(filePath);
-  const stats = await fsp.stat(canonical);
-  const fileSize = stats.size;
   const t0 = Date.now();
+  const canonical = await resolveCanonicalShardPath(filePath);
+  const shards = await findExistingSiblingShards(canonical); // ordered 1→N, ≥1
 
-  let scope: ModelHashScope = 'full-file';
-  let dataOffset = 0;
-  let ggufUuid: string | undefined;
-
-  if (extname(canonical).toLowerCase() === '.gguf') {
-    let windowBytes = Math.min(INITIAL_HEADER_BYTES, fileSize);
-    // Grow the header window until the walker succeeds or we hit the cap.
-    for (;;) {
-      try {
-        const header = await readHeaderWindow(canonical, windowBytes);
-        const res = new HeaderWalker(header).findTensorDataOffset();
-        dataOffset = Math.min(res.offset, fileSize);
-        ggufUuid = res.ggufUuid;
-        scope = 'gguf-tensor-payload';
-        break;
-      } catch (e) {
-        if (e instanceof NeedMoreBytes && windowBytes < fileSize) {
-          windowBytes = Math.min(windowBytes * 2, fileSize, MAX_HEADER_BYTES);
-          if (windowBytes >= MAX_HEADER_BYTES) {
-            // Pathological header — degrade to full-file rather than fail.
-            scope = 'full-file';
-            dataOffset = 0;
-            break;
-          }
-          continue;
-        }
-        // Not GGUF after all, or a malformed header: full-file fallback.
-        scope = 'full-file';
-        dataOffset = 0;
-        break;
-      }
-    }
+  // Pass 1: stat + locate each shard's payload start.
+  const plans: ShardPlan[] = [];
+  for (let i = 0; i < shards.length; i++) {
+    const p = shards[i];
+    // eslint-disable-next-line no-await-in-loop
+    const st = await fsp.stat(p);
+    // eslint-disable-next-line no-await-in-loop
+    const gguf = await ggufDataOffset(p, st.size);
+    plans.push({
+      path: p,
+      start: gguf ? Math.min(gguf.offset, st.size) : 0,
+      size: st.size,
+      mtimeMs: st.mtimeMs,
+      parsed: gguf !== null,
+      ggufUuid: i === 0 ? gguf?.ggufUuid : undefined,
+    });
   }
 
-  const modelHash = await streamSha256(
-    canonical,
-    dataOffset,
-    opts.onProgress,
-    Math.max(fileSize - dataOffset, 0),
+  const totalPayload = plans.reduce(
+    (acc, p) => acc + Math.max(p.size - p.start, 0),
+    0,
   );
 
+  // Pass 2: stream every shard's payload into one running digest.
+  const hash = createHash('sha256');
+  let read = 0;
+  for (const p of plans) {
+    // eslint-disable-next-line no-await-in-loop
+    await streamInto(hash, p.path, p.start, (n) => {
+      read += n;
+      opts.onProgress?.(read, totalPayload);
+    });
+  }
+
   return {
-    modelHash,
-    scope,
-    dataOffset,
-    fileSize,
-    mtimeMs: stats.mtimeMs,
-    ggufUuid,
+    modelHash: 'sha256:' + hash.digest('hex'),
+    scope: plans.some((p) => p.parsed) ? 'gguf-tensor-payload' : 'full-file',
+    dataOffset: plans[0]?.start ?? 0,
+    shardCount: plans.length,
+    fileSize: plans.reduce((acc, p) => acc + p.size, 0),
+    mtimeMs: plans.reduce((acc, p) => Math.max(acc, p.mtimeMs), 0),
+    ggufUuid: plans[0]?.ggufUuid,
     durationMs: Date.now() - t0,
   };
 }
 
 /**
- * Cheap staleness check: recompute when filesize or mtime changed. A
- * metadata-only edit changes mtime (so this returns true and we recompute),
- * but the GGUF tensor-payload digest stays identical — exactly the D4 intent.
+ * Cheap staleness check: recompute when the aggregate filesize or the newest
+ * shard mtime changed. A metadata-only edit on any shard changes that shard's
+ * mtime (so this returns true and we recompute), but the tensor-payload digest
+ * stays identical — exactly the D4 intent.
  */
 export async function isHashStale(
   filePath: string,
@@ -411,8 +455,17 @@ export async function isHashStale(
   if (!cached) return true;
   try {
     const canonical = await resolveCanonicalShardPath(filePath);
-    const stats = await fsp.stat(canonical);
-    return stats.size !== cached.fileSize || stats.mtimeMs !== cached.mtimeMs;
+    const shards = await findExistingSiblingShards(canonical);
+    if (shards.length === 0) return true;
+    let totalBytes = 0;
+    let newest = 0;
+    for (const s of shards) {
+      // eslint-disable-next-line no-await-in-loop
+      const st = await fsp.stat(s);
+      totalBytes += st.size;
+      newest = Math.max(newest, st.mtimeMs);
+    }
+    return totalBytes !== cached.fileSize || newest !== cached.mtimeMs;
   } catch {
     return true; // can't stat → assume stale, force recompute
   }
