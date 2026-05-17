@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { getMetaFileLocationForFile } from '@tagspaces/tagspaces-common/paths';
 import { ModelMeta } from '../../renderer/modelhub/types';
+import type { Signature } from '../../shared/RoutingTypes';
 
 /**
  * Path to the sidecar file for a given content file path.
@@ -37,6 +38,8 @@ interface SidecarPayload {
   [k: string]: unknown;
   tags?: SidecarTag[];
   modelMeta?: ModelMeta;
+  /** Semantic-routing signature block (R0.3). Managed by signatureStore.ts. */
+  signature?: Signature;
 }
 
 async function readSidecarJson(metaPath: string): Promise<SidecarPayload> {

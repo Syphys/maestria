@@ -130,11 +130,20 @@ export type StructuralSignature = {
   architecture: string; // 'qwen3moe', 'llama', 'sdxl', ...
   params: { total_b: number; active_b: number | null }; // active = total for dense
   quantization: string;
-  tare: number; // 0..1 — quality degradation score
   modality: 'text' | 'multimodal' | 'embedding' | 'image-gen' | 'audio';
   context_max: number;
-  fits_in_vram: boolean;
-  fits_in_ram: boolean;
+  /**
+   * Model-intrinsic loaded-weights footprint estimate (bytes), summed
+   * across shards. This belongs in the signature because it's a property
+   * of the *model*. Whether it FITS is NOT stored: that depends on the
+   * machine, and signatures are portable across machines (D6/R7) — a
+   * persisted "fits" boolean from one box is a lie on another (and stale
+   * here the moment the GPU/override changes). Compute fit at the point of
+   * use with `memoryFits()` — against TOTAL memory for the static "could it
+   * ever run" question, against FREE memory for R5's dynamic decision
+   * (DECISIONS.md D8.1). Never persist the boolean.
+   */
+  est_footprint_bytes: number;
   supported_langs?: string[]; // best-effort, derived from training data signals or HF card
 };
 
@@ -157,11 +166,27 @@ export type BehavioralSignature = {
 };
 
 export type Signature = {
-  modelHash: string; // 'sha256:...'
+  modelHash: string; // 'sha256:...' — D4 tensor-payload digest (R0.2)
   structural: StructuralSignature;
   behavioral: BehavioralSignature | null;
-  policy_hash: string; // 'sha256:...'
-  characterized_at: string;
+  /**
+   * D8 invalidation key: `computeSignatureHash(suiteCore + embedderId)`.
+   * The cached `behavioral` block is trusted iff this still matches the
+   * active suite+embedder AND `modelHash` still matches the file on disk
+   * AND `suite_version` matches. `null` until first characterization.
+   */
+  signature_hash: string | null;
+  /** Embedder the behavioral block was produced with (UI/debug; the value
+   *  is already folded into `signature_hash`). `null` until characterized. */
+  embedder_id: string | null;
+  /**
+   * AUDIT only (D8): `computePolicyHash(...weights...)` snapshot at
+   * characterization time, so a past ranking is reproducible. NEVER gates
+   * validity — changing a weight must not invalidate this signature.
+   * `null` until characterized.
+   */
+  policy_hash: string | null;
+  characterized_at: string | null;
   characterization_state: 'pending' | 'running' | 'complete' | 'failed';
   characterization_error: string | null;
   suite_version: string; // 'v1-30' | 'v2-100' | 'v3-1000'
@@ -175,7 +200,6 @@ export type RoutingWeights = {
   alpha: number; // rerank weight
   beta: number; // speed bonus weight
   gamma: number; // size penalty weight
-  delta: number; // tare penalty weight
 };
 
 export type Policy = {
@@ -183,16 +207,13 @@ export type Policy = {
   name: string;
   suiteVersion: string;
   weights: RoutingWeights;
-  // Tare table is referenced by name; the resolver loads ./tare.ts
-  tareTableId: string;
-  // Hash computed from (suite, weights, tareTable, embedder). See policy.ts (R0.6).
+  // Hash computed from (suite, weights, embedder). See policy.ts (R0.6).
   policyHash: string;
 };
 
 export type EliminatedReason =
   | 'lang_unsupported'
   | 'vision_needed_not_available'
-  | 'tare_too_high'
   | 'oversized_hw'
   | 'failed_characterization';
 

@@ -3,17 +3,17 @@
 //
 // D8 (authoritative — supersedes the spec on this point): a model's
 // BEHAVIORAL signature is intrinsic to (model × suite × embedder). It does
-// NOT depend on the routing weights (α/β/γ/δ) or the tare table. Those, plus
-// live resource state (free VRAM, hot/resident model, queue depth, hardware
-// fit), are applied at *routing time* by the dynamic, capability-aware scorer
-// (R5). Changing a weight must re-rank instantly — never re-characterize.
+// NOT depend on the routing weights (α/β/γ). Those, plus live resource state
+// (free VRAM/RAM, hot/resident model, queue depth, fit), are applied at
+// *routing time* by the dynamic, capability-aware scorer (R5). Changing a
+// weight must re-rank instantly — never re-characterize.
 //
 // Therefore two distinct hashes:
 //   • signatureHash = sha256(suiteCore + embedderId)
 //       The ONLY thing that invalidates a cached behavioral signature
 //       (together with modelHash + suite_version). Used by signatureStore
 //       (R0.3) to decide "is this signature still trustworthy?".
-//   • policyHash    = sha256(suiteCore + weights + tareTableId + embedderId)
+//   • policyHash    = sha256(suiteCore + weights + embedderId)
 //       AUDIT ONLY. Stamped into a RoutingDecision so a past ranking is
 //       reproducible. Never gates signature validity.
 
@@ -74,8 +74,8 @@ function suiteCore(suite: DiagnosticSuite) {
 /**
  * Invalidation key for a behavioral signature. A cached signature is trusted
  * iff its stored signatureHash matches this AND its modelHash still matches
- * the file on disk. Weights / tare / live capabilities are deliberately NOT
- * inputs (D8) — they only affect routing-time ranking, not the measurements.
+ * the file on disk. Weights / live capabilities are deliberately NOT inputs
+ * (D8) — they only affect routing-time ranking, not the measurements.
  */
 export function computeSignatureHash(args: {
   suite: DiagnosticSuite;
@@ -94,14 +94,13 @@ export function computeSignatureHash(args: {
 
 /**
  * Provenance hash for a routing decision (audit only). Includes the weights
- * and tare table so a past ranking can be reproduced exactly. MUST NOT be
- * used to decide whether a behavioral signature is stale — see
- * {@link computeSignatureHash} and DECISIONS.md D8.
+ * so a past ranking can be reproduced exactly. MUST NOT be used to decide
+ * whether a behavioral signature is stale — see {@link computeSignatureHash}
+ * and DECISIONS.md D8.
  */
 export function computePolicyHash(args: {
   suite: DiagnosticSuite;
   weights: RoutingWeights;
-  tareTableId: string;
   embedderId: string;
 }): string {
   return (
@@ -110,7 +109,6 @@ export function computePolicyHash(args: {
       canonicalize({
         suite: suiteCore(args.suite),
         weights: args.weights,
-        tareTableId: args.tareTableId,
         embedderId: args.embedderId,
       }),
     )
@@ -125,7 +123,6 @@ export function buildPolicy(args: {
   name: string;
   suite: DiagnosticSuite;
   weights: RoutingWeights;
-  tareTableId: string;
   embedderId: string;
 }): Policy {
   return {
@@ -133,11 +130,9 @@ export function buildPolicy(args: {
     name: args.name,
     suiteVersion: args.suite.id,
     weights: args.weights,
-    tareTableId: args.tareTableId,
     policyHash: computePolicyHash({
       suite: args.suite,
       weights: args.weights,
-      tareTableId: args.tareTableId,
       embedderId: args.embedderId,
     }),
   };
