@@ -20,7 +20,7 @@ const urlParams = '?utm_source=app';
 
 const Links = {
   links: {
-    checkNewVersionURL: 'https://updates.tagspaces.org/releases/',
+    checkNewVersionURL: 'https://github.com/Syphys/maestria/releases/',
     productsOverview: 'https://www.tagspaces.org/products/' + urlParams,
     productProObjectStore:
       'https://www.tagspaces.org/products/pro/#connectingObjectStorage' +
@@ -39,15 +39,18 @@ const Links = {
     productPro: 'https://www.tagspaces.org/products/pro/' + urlParams,
     productEnterprise:
       'https://www.tagspaces.org/products/enterprise/' + urlParams,
-    downloadURL: 'https://www.tagspaces.org/downloads/' + urlParams,
+    downloadURL: 'https://github.com/Syphys/maestria/releases',
     downloadProURL: 'https://tagspacesstore.onfastspring.com/account',
     howToStart: 'https://www.tagspaces.org/products/howtostart/' + urlParams,
-    changelogURL: 'https://www.tagspaces.org/whatsnew/' + urlParams,
-    imprintURL: 'https://www.tagspaces.org/about/imprint/' + urlParams,
-    privacyURL: 'https://www.tagspaces.org/legal/privacy-app/' + urlParams,
-    suggestFeature: 'https://tagspaces.discourse.group/c/feature-requests/6',
-    forumsUrl: 'https://tagspaces.discourse.group',
-    reportIssue: 'https://github.com/tagspaces/tagspaces/issues/',
+    changelogURL: 'https://github.com/Syphys/maestria/releases',
+    // Maestria is an offline, no-account, no-telemetry fork — an Imprint and
+    // an app Privacy Policy on tagspaces.org do not apply here. Empty strings
+    // make AboutDialog hide both buttons via its `{url && (...)}` guards.
+    imprintURL: '',
+    privacyURL: '',
+    suggestFeature: 'https://github.com/Syphys/maestria/issues/',
+    forumsUrl: 'https://github.com/Syphys/maestria',
+    reportIssue: 'https://github.com/Syphys/maestria/issues/',
     helpTranslating: 'https://www.transifex.com/tagspaces/tagspaces/',
     webClipperChrome:
       'https://chrome.google.com/webstore/detail/tagspaces-web-clipper/ldalmgifdlgpiiadeccbcjojljeanhjk',

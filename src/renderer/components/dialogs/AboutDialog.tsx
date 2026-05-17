@@ -19,7 +19,6 @@
 import AppConfig from '-/AppConfig';
 import LogoIcon from '-/assets/icons/icon.png';
 import LogoIconDark from '-/assets/icons/icon-dark.svg';
-import TextLogoIcon from '-/assets/images/text-logo.svg';
 import DraggablePaper from '-/components/DraggablePaper';
 import TooltipTS from '-/components/Tooltip';
 import TsButton from '-/components/TsButton';
@@ -29,7 +28,7 @@ import TsDialogTitle from '-/components/dialogs/components/TsDialogTitle';
 import { useLicenseDialogContext } from '-/components/dialogs/hooks/useLicenseDialogContext';
 import { useThirdPartyLibsDialogContext } from '-/components/dialogs/hooks/useThirdPartyLibsDialogContext';
 import { Pro } from '-/pro';
-import { getLastVersionPromise, openURLExternally } from '-/services/utils-io';
+import { openURLExternally } from '-/services/utils-io';
 import versionMeta from '-/version.json';
 import { Box } from '@mui/material';
 import DialogContent from '@mui/material/DialogContent';
@@ -38,9 +37,7 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Links from 'assets/links';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import semver from 'semver';
 
 interface Props {
   open: boolean;
@@ -59,45 +56,16 @@ function AboutDialog(props: Props) {
   const { t } = useTranslation();
   const { openLicenseDialog } = useLicenseDialogContext();
   const { openThirdPartyLibsDialog } = useThirdPartyLibsDialogContext();
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [newVersion, setNewVersion] = useState('');
   const { open, onClose } = props;
 
+  // Maestria ships via GitHub Releases — there is no tagspaces.org update
+  // server and no version ping (offline / no-telemetry fork). "Check for
+  // updates" simply opens the releases page in the default browser.
   function checkForUpdates() {
-    if (updateAvailable) {
-      openURLExternally(Links.links.downloadURL, true);
-    } else {
-      getLastVersionPromise()
-        .then((lastVersion) => {
-          console.log('Last version on server: ' + lastVersion);
-          const cleanedLastVersion = semver.coerce(lastVersion);
-          // const cleanedCurrentVersion = '3.0.2'
-          const cleanedCurrentVersion = semver.coerce(versionMeta.version);
-          if (
-            semver.valid(cleanedLastVersion) &&
-            semver.gt(cleanedLastVersion, cleanedCurrentVersion)
-          ) {
-            setUpdateAvailable(true);
-            setNewVersion(cleanedLastVersion.version);
-          } else {
-            setNewVersion(versionMeta.version);
-          }
-          return true;
-        })
-        .catch((error) => {
-          console.log('Error while checking for update: ' + error);
-        });
-    }
+    openURLExternally(Links.links.downloadURL, true);
   }
 
-  let versionInfo = 'Check for updates';
-  if (newVersion && newVersion.length > 1) {
-    if (updateAvailable) {
-      versionInfo = t('getNewVersion', { newVersion });
-    } else {
-      versionInfo = t('latestVersion', { productName });
-    }
-  }
+  const versionInfo = t('core:checkForNewVersion');
 
   let privacyURL = Links.links.privacyURL;
   if (AppConfig.isWeb) {
@@ -129,16 +97,15 @@ function AboutDialog(props: Props) {
     >
       <TsDialogTitle
         dialogTitle={
-          <Box sx={{ display: 'flex' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <img
-              style={{
-                maxHeight: 26,
-                maxWidth: 200,
-                marginRight: 10,
-              }}
-              src={TextLogoIcon}
-              alt="Application Text Logo"
+              style={{ height: 26, width: 26 }}
+              src={theme.palette.mode === 'dark' ? LogoIconDark : LogoIcon}
+              alt="Maestria logo"
             />
+            <Typography variant="h6" component="span" sx={{ fontWeight: 600 }}>
+              {productName}
+            </Typography>
           </Box>
         }
         onClose={onClose}
