@@ -95,6 +95,7 @@ export async function fetchSignature(
 export function useSignature(
   filePath?: string,
   enabled = true,
+  reloadToken = 0,
 ): UseSignatureState {
   const [state, setState] = useState<UseSignatureState>(() => {
     if (!filePath || !enabled) return { loading: false };
@@ -155,9 +156,22 @@ export function useSignature(
       });
 
     return done;
-  }, [filePath, enabled]);
+    // `reloadToken` is intentionally a dep: bumping it (after a
+    // characterization run + invalidateSignature) re-runs this effect,
+    // which now misses the cleared cache and re-reads from disk.
+  }, [filePath, enabled, reloadToken]);
 
   return state;
+}
+
+/**
+ * Drop the cached signature for one path so the next `useSignature` /
+ * `fetchSignature` re-reads it from disk. Call after a characterization
+ * run persists a new signature.
+ */
+export function invalidateSignature(filePath: string): void {
+  cache.delete(filePath);
+  inflight.delete(filePath);
 }
 
 /** Test-only: clear the in-memory cache. */

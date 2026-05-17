@@ -520,6 +520,24 @@ export const MODELHUB_IPC = {
    * yet. Drives the competence radar (R9.8 / D7).
    */
   loadSignature: 'modelhub:loadSignature',
+  /**
+   * Invoke channel: run the deterministic characterization for a model
+   * (Slice 4). Hybrid execution — reuse the running instance or launch a
+   * dedicated ephemeral server, then persist the signature (unless the
+   * location is read-only). Resolves with the result; progress arrives
+   * on `characterizeProgress`. One run at a time.
+   */
+  characterizeStart: 'modelhub:characterizeStart',
+  /**
+   * Event channel: main → renderer `{ filePath, status }` updates so any
+   * mounted panel for that model can re-attach its progress bar.
+   */
+  characterizeProgress: 'modelhub:characterizeProgress',
+  /**
+   * Invoke channel: snapshot of the active run (`{ filePath, status }`) or
+   * null. Lets a freshly-mounted panel re-attach after navigating away.
+   */
+  characterizeStatus: 'modelhub:characterizeStatus',
 } as const;
 
 /** Manual hardware override fields surfaced by Settings UI. */

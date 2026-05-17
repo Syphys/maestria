@@ -4,8 +4,9 @@
  *
  * A thin, theme-aware SVG wrapper over the pure `buildRadarGeometry` core.
  * No charting dependency (D7). Two variants:
- *   - `mini`  — tile glyph: value polygon + faint outer ring, no labels,
- *                non-interactive (replaces the lost generic preview image);
+ *   - `mini`  — tile glyph (replaces the lost generic preview image).
+ *               Non-interactive; `showLabels` adds the axis names + spokes
+ *               so the tile reads as a real radar, not a bare polygon.
  *   - `full`  — detail view: rings, spokes, labelled axes with score + n,
  *                centre overall, clickable axes (audit drill-down — D7).
  *
@@ -33,6 +34,8 @@ export interface CompetenceRadarProps {
   onAxisClick?: (axis: DiagnosticAxis) => void;
   /** Optional title for the accessible label. */
   title?: string;
+  /** Force axis names + spokes (default: on for `full`, off for `mini`). */
+  showLabels?: boolean;
 }
 
 function pct(n: number): string {
@@ -46,27 +49,30 @@ export function CompetenceRadar({
   overall,
   onAxisClick,
   title,
+  showLabels,
 }: CompetenceRadarProps): JSX.Element | null {
   const theme = useTheme();
   const [hovered, setHovered] = useState<DiagnosticAxis | null>(null);
 
   const mini = variant === 'mini';
+  const labels = showLabels ?? !mini;
   const px = size ?? (mini ? 72 : 280);
 
-  // Full mode reserves a ring of space for labels; mini bleeds to the edge.
+  // Labels need a ring of margin for the text; a bare polygon bleeds out.
   const geom = buildRadarGeometry(data, {
     size: 100,
-    padding: mini ? 4 : 22,
-    rings: mini ? [1] : [0.25, 0.5, 0.75, 1],
+    padding: labels ? 22 : 4,
+    rings: labels ? [0.25, 0.5, 0.75, 1] : [1],
     labelOffsetFactor: 0.16,
   });
   if (!geom) return null;
 
   const gridColor = theme.palette.divider;
   const valStroke = theme.palette.primary.main;
-  const valFill = alpha(theme.palette.primary.main, mini ? 0.45 : 0.22);
+  const valFill = alpha(theme.palette.primary.main, mini ? 0.4 : 0.22);
   const labelColor = theme.palette.text.secondary;
   const hoverColor = theme.palette.primary.main;
+  const interactive = !mini && !!onAxisClick;
 
   const accLabel =
     title ??
@@ -99,8 +105,8 @@ export function CompetenceRadar({
         />
       ))}
 
-      {/* Spokes (full only) */}
-      {!mini &&
+      {/* Spokes (whenever axes are labelled) */}
+      {labels &&
         geom.axes.map((a) => (
           <line
             key={`spoke-${a.axis}`}
@@ -123,40 +129,39 @@ export function CompetenceRadar({
         strokeLinejoin="round"
       />
 
-      {/* Value vertices + interactive axis labels (full only) */}
-      {!mini &&
-        geom.axes.map((a) => {
-          const isHot = hovered === a.axis;
-          const clickable = !!onAxisClick;
-          return (
-            <g
-              key={`axis-${a.axis}`}
-              onClick={clickable ? () => onAxisClick?.(a.axis) : undefined}
-              onMouseEnter={() => setHovered(a.axis)}
-              onMouseLeave={() => setHovered(null)}
-              onFocus={() => setHovered(a.axis)}
-              onBlur={() => setHovered(null)}
-              tabIndex={clickable ? 0 : undefined}
-              role={clickable ? 'button' : undefined}
-              aria-label={
-                clickable
-                  ? `${a.axis}: ${pct(a.score)}${
-                      a.n != null ? `, ${a.n} items` : ''
-                    }`
-                  : undefined
-              }
-              style={{ cursor: clickable ? 'pointer' : 'default' }}
-            >
-              <circle
-                cx={a.valuePoint.x}
-                cy={a.valuePoint.y}
-                r={isHot ? 2.4 : 1.6}
-                fill={valStroke}
-              />
+      {/* Value vertices + axis labels */}
+      {geom.axes.map((a) => {
+        const isHot = hovered === a.axis;
+        return (
+          <g
+            key={`axis-${a.axis}`}
+            onClick={interactive ? () => onAxisClick?.(a.axis) : undefined}
+            onMouseEnter={interactive ? () => setHovered(a.axis) : undefined}
+            onMouseLeave={interactive ? () => setHovered(null) : undefined}
+            onFocus={interactive ? () => setHovered(a.axis) : undefined}
+            onBlur={interactive ? () => setHovered(null) : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            role={interactive ? 'button' : undefined}
+            aria-label={
+              interactive
+                ? `${a.axis}: ${pct(a.score)}${
+                    a.n != null ? `, ${a.n} items` : ''
+                  }`
+                : undefined
+            }
+            style={{ cursor: interactive ? 'pointer' : 'default' }}
+          >
+            <circle
+              cx={a.valuePoint.x}
+              cy={a.valuePoint.y}
+              r={isHot ? 2.4 : mini ? 1.3 : 1.6}
+              fill={valStroke}
+            />
+            {labels && (
               <text
                 x={a.labelPoint.x}
                 y={a.labelPoint.y}
-                fontSize={5.5}
+                fontSize={mini ? 5 : 5.5}
                 fontWeight={isHot ? 700 : 500}
                 textAnchor={a.labelAnchor}
                 dominantBaseline="middle"
@@ -164,6 +169,9 @@ export function CompetenceRadar({
               >
                 {a.axis}
               </text>
+            )}
+            {/* %·n sub-label only in the full detail view (tile stays clean) */}
+            {!mini && labels && (
               <text
                 x={a.labelPoint.x}
                 y={a.labelPoint.y + 6}
@@ -176,9 +184,10 @@ export function CompetenceRadar({
                 {pct(a.score)}
                 {a.n != null ? ` ·n${a.n}` : ''}
               </text>
-            </g>
-          );
-        })}
+            )}
+          </g>
+        );
+      })}
 
       {/* Centre overall (full only) */}
       {!mini && typeof overall === 'number' && Number.isFinite(overall) && (

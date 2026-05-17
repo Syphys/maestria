@@ -23,7 +23,7 @@ interface Props {
   isVisible: boolean;
   /** Rendered whenever there's no radar to show (the generic EntryIcon). */
   fallback: JSX.Element;
-  /** Glyph side in px. Default 64. */
+  /** Glyph side in px. Default 132 (large enough for the axis labels). */
   size?: number;
 }
 
@@ -31,7 +31,7 @@ export function ModelTileGlyph({
   filePath,
   isVisible,
   fallback,
-  size = 64,
+  size = 132,
 }: Props): JSX.Element {
   const isModel = !!filePath && isSupportedModelFile(filePath);
   const { signature } = useSignature(filePath, isVisible && isModel);
@@ -46,6 +46,7 @@ export function ModelTileGlyph({
       data={data}
       variant="mini"
       size={size}
+      showLabels
       title={filePath.replace(/^.*[\\/]/, '')}
     />
   );

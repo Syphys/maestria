@@ -33,7 +33,10 @@ interface Props {
   readOnly?: boolean;
 }
 
-export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
+export function ModelHubPanel({
+  filePath,
+  readOnly,
+}: Props): JSX.Element | null {
   const [meta, setMeta] = useState<ModelMeta | undefined>();
 
   const supported = !!filePath && isSupportedModelFile(filePath);
@@ -126,7 +129,9 @@ export function ModelHubPanel({ filePath }: Props): JSX.Element | null {
             }
           />
         )}
-        {filePath && <CompetenceSection filePath={filePath} />}
+        {filePath && (
+          <CompetenceSection filePath={filePath} readOnly={readOnly} />
+        )}
       </Stack>
     </Box>
   );

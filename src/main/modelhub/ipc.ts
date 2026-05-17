@@ -15,6 +15,10 @@ import { enrichLocal, EnrichLocalOptions } from './enrichLocal';
 import { loadModelMeta, patchModelMeta } from './sidecar';
 import { loadSignature } from './routing/signatureStore';
 import {
+  runCharacterization,
+  getCurrentRun,
+} from './routing/characterizeRunner';
+import {
   enrichFolder,
   EnrichFolderOptions,
   EnrichFolderProgress,
@@ -139,6 +143,31 @@ export default function registerModelhubEvents(): void {
       }
     },
   );
+
+  ipcMain.handle(
+    MODELHUB_IPC.characterizeStart,
+    async (_event, filePath: string, skipWrite?: boolean) => {
+      try {
+        const result = await runCharacterization(filePath, {
+          skipWrite,
+          onStatus: (s) =>
+            broadcastToAllWindows(MODELHUB_IPC.characterizeProgress, {
+              // Canonical path of the run (set by the time onStatus fires)
+              // so a panel can match the event to its model.
+              filePath: getCurrentRun()?.filePath,
+              status: s,
+            }),
+        });
+        return { ok: true, result };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(MODELHUB_IPC.characterizeStatus, async () => {
+    return { ok: true, run: getCurrentRun() };
+  });
 
   ipcMain.handle(
     MODELHUB_IPC.enrichFolderStart,

@@ -11,8 +11,6 @@
 // UI/trigger, MCP tool (R8.2), queue manager (R3.5 — single run here),
 // embeddings/behavior_centroid, judge, code-exec sandbox (D5.1).
 
-import fs from 'fs';
-import path from 'path';
 import type {
   DiagnosticSuite,
   DiagnosticPrompt,
@@ -34,8 +32,13 @@ import {
   makePendingSignature,
 } from './signatureStore';
 import { ChatClient, type ChatLike } from './chat';
-
-const QUESTIONS_DIR = path.join(__dirname, 'questions');
+// Static imports so webpack inlines the question packs into the main
+// bundle. Reading them from `__dirname/questions` broke in the packaged /
+// dev app: the bundled main lives in `.erb/dll` (or the asar), where the
+// JSON files don't exist (ENOENT). The smoke worked only because ts-node
+// runs from source. Same pattern the smoke already uses for mcq-v1.json.
+import suiteV1_30 from './questions/v1-30.json';
+import mcqV1 from './questions/mcq-v1.json';
 
 /** Used when no prior signature exists (ParseAll wiring not yet hooked).
  *  Real structural is filled by R0.4 at ParseAll; behavioral is our job. */
@@ -77,10 +80,6 @@ export type CharacterizeResult = {
   errors: number;
 };
 
-function loadJson<T>(file: string): T {
-  return JSON.parse(fs.readFileSync(path.join(QUESTIONS_DIR, file), 'utf-8'));
-}
-
 /** Render an MCQ item as a single deterministic prompt. */
 function renderMcq(item: McqItem): string {
   const opts = Object.keys(item.options)
@@ -113,8 +112,8 @@ export async function characterize(
 ): Promise<CharacterizeResult> {
   const now = opts.now ?? (() => new Date().toISOString());
   const suite: DiagnosticSuite =
-    opts.suite ?? loadJson<DiagnosticSuite>('v1-30.json');
-  const mcqPack: McqPack = opts.mcqPack ?? loadJson<McqPack>('mcq-v1.json');
+    opts.suite ?? (suiteV1_30 as unknown as DiagnosticSuite);
+  const mcqPack: McqPack = opts.mcqPack ?? (mcqV1 as unknown as McqPack);
   const chat: ChatLike =
     opts.chat ??
     new ChatClient({
