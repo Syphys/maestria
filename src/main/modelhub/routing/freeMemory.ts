@@ -20,6 +20,7 @@ import { promisify } from 'util';
 
 import { detectHardwareProfile } from '../hardware';
 import { listRunning, type RunningSummary } from '../runners/launch';
+import { sumShardBytes } from '../shardFs';
 import {
   effectiveReserves,
   getRoutingConfig,
@@ -47,6 +48,7 @@ export interface FreeMemoryDeps {
   loadSignature?: typeof loadSignature;
   detectHardwareProfile?: typeof detectHardwareProfile;
   getRoutingConfig?: typeof getRoutingConfig;
+  sumShardBytes?: typeof sumShardBytes;
 }
 
 /** Live free VRAM (bytes) from nvidia-smi, or undefined when unavailable. */
@@ -69,17 +71,29 @@ async function nvidiaFreeVramBytes(
   }
 }
 
-/** Sum the persisted footprint of every model currently held by a runner. */
+/**
+ * Sum the footprint of every model currently held by a runner. Prefers
+ * the persisted signature footprint; falls back to the real on-disk
+ * shard size when it is missing/0 (signatures characterized before R0.4
+ * was wired carry a STUB structural with est_footprint_bytes: 0 — that
+ * must NOT make a resident model invisible to the VRAM accounting).
+ */
 async function residentFootprint(
   running: RunningSummary[],
   ls: typeof loadSignature,
+  ssb: typeof sumShardBytes,
 ): Promise<{ bytes: number; paths: string[] }> {
   let bytes = 0;
   const paths: string[] = [];
   for (const r of running) {
     if (r.exited || !r.filePath) continue;
     const sig = await ls(r.filePath).catch(() => undefined);
-    const fp = sig?.structural?.est_footprint_bytes;
+    let fp = sig?.structural?.est_footprint_bytes;
+    if (!(typeof fp === 'number' && fp > 0)) {
+      fp = await ssb(r.filePath)
+        .then((s) => s.totalBytes)
+        .catch(() => 0);
+    }
     if (typeof fp === 'number' && fp > 0) {
       bytes += fp;
       paths.push(r.filePath);
@@ -116,6 +130,7 @@ export async function probeFreeMemory(
   const ls = deps.loadSignature ?? loadSignature;
   const dhp = deps.detectHardwareProfile ?? detectHardwareProfile;
   const grc = deps.getRoutingConfig ?? getRoutingConfig;
+  const ssb = deps.sumShardBytes ?? sumShardBytes;
 
   const cfg: RoutingConfig = await grc().catch(() => ({}));
   const reserves = effectiveReserves(cfg);
@@ -136,7 +151,7 @@ export async function probeFreeMemory(
     const profile = await dhp().catch(() => undefined);
     const totalVram = profile?.gpu?.vramBytes;
     if (typeof totalVram === 'number' && totalVram > 0) {
-      const resident = await residentFootprint(lr(), ls);
+      const resident = await residentFootprint(lr(), ls, ssb);
       residentModels = resident.paths;
       vramSource = 'total-minus-resident';
       freeVramBytes = Math.max(

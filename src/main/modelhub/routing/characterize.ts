@@ -32,6 +32,7 @@ import {
   makePendingSignature,
 } from './signatureStore';
 import { ChatClient, type ChatLike } from './chat';
+import { sumShardBytes } from '../shardFs';
 // Static imports so webpack inlines the question packs into the main
 // bundle. Reading them from `__dirname/questions` broke in the packaged /
 // dev app: the bundled main lives in `.erb/dll` (or the asar), where the
@@ -67,6 +68,13 @@ export type CharacterizeOptions = {
   chat?: ChatLike;
   /** Defaults to the streamed R0.2 model hash. Injectable for tests. */
   computeHash?: (modelFilePath: string) => Promise<string>;
+  /**
+   * Real on-disk footprint probe (summed shard bytes). Used to backfill
+   * `structural.est_footprint_bytes` when the prior signature carries a
+   * STUB (R0.4/ParseAll not wired yet) so the persisted signature is
+   * self-sufficient. Defaults to `sumShardBytes`; injectable for tests.
+   */
+  shardBytes?: (modelFilePath: string) => Promise<number>;
   /** Clock seam (tests). */
   now?: () => string;
   onProgress?: (p: CharacterizationProgress) => void;
@@ -152,6 +160,22 @@ export async function characterize(
       suiteVersion: suite.id,
     });
 
+  // R0.4 (structural at ParseAll) is not wired yet, so a model
+  // characterized without a prior signature inherits STUB_STRUCTURAL
+  // (est_footprint_bytes: 0). That makes the router's memory-fit
+  // silently null and hides the model from VRAM accounting. Backfill
+  // the real on-disk footprint — exactly what computeStructuralSignature
+  // would use — so the persisted signature is self-sufficient and
+  // portable (D6/R7).
+  const shardBytes =
+    opts.shardBytes ??
+    (async (p: string) => (await sumShardBytes(p)).totalBytes);
+  let structural = base.structural;
+  if (!(structural.est_footprint_bytes > 0)) {
+    const bytes = await shardBytes(opts.modelFilePath).catch(() => 0);
+    if (bytes > 0) structural = { ...structural, est_footprint_bytes: bytes };
+  }
+
   const diagnostic_run: Record<string, DiagnosticRunEntry> = {};
   const scored: ScoredItem[] = [];
   let errors = 0;
@@ -227,6 +251,7 @@ export async function characterize(
   const signature: Signature = {
     ...base,
     modelHash,
+    structural,
     behavioral,
     signature_hash: computeCharacterizationHash({
       suite,

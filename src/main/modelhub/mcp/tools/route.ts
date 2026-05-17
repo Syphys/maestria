@@ -16,7 +16,7 @@
 
 import { listModelFiles } from '../../listModelFiles';
 import { listRunning } from '../../runners/launch';
-import { resolveCanonicalShardPath } from '../../shardFs';
+import { resolveCanonicalShardPath, sumShardBytes } from '../../shardFs';
 import { probeFreeMemory } from '../../routing/freeMemory';
 import { loadSignature } from '../../routing/signatureStore';
 import {
@@ -128,11 +128,33 @@ register({
 
     const files = await listModelFiles(a.directory);
     const candidates: RouteCandidate[] = await Promise.all(
-      files.map(async (f) => ({
-        id: f,
-        signature: (await loadSignature(f).catch(() => undefined)) ?? null,
-        running: runningSet.has(f),
-      })),
+      files.map(async (f) => {
+        const signature =
+          (await loadSignature(f).catch(() => undefined)) ?? null;
+        // Belt: signatures characterized before R0.4 was wired carry a
+        // STUB structural (est_footprint_bytes: 0). Probe the real
+        // on-disk shard size so memory-fit is never silently null. This
+        // is exactly the number computeStructuralSignature would use.
+        let footprintBytes: number | undefined;
+        if (
+          signature &&
+          !(
+            typeof signature.structural?.est_footprint_bytes === 'number' &&
+            signature.structural.est_footprint_bytes > 0
+          )
+        ) {
+          const bytes = await sumShardBytes(f)
+            .then((s) => s.totalBytes)
+            .catch(() => 0);
+          if (bytes > 0) footprintBytes = bytes;
+        }
+        return {
+          id: f,
+          signature,
+          footprintBytes,
+          running: runningSet.has(f),
+        };
+      }),
     );
 
     const resources = await probeFreeMemory();
