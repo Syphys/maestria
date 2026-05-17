@@ -42,7 +42,6 @@ import {
   getDesktopMode,
   getKeyBindingObject,
   isDevMode,
-  isHideProFeatures,
 } from '-/reducers/settings';
 import { CommonLocation } from '-/utils/CommonLocation';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
@@ -120,7 +119,6 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
   const currentMode = LISTING_MODE_CYCLE[listingMode];
 
   const isDesktopMode = useSelector(getDesktopMode);
-  const hideProFeatures: boolean = useSelector(isHideProFeatures);
   const progress = useSelector(getProgress);
 
   const [perspectiveMenuAnchorEl, setPerspectiveMenuAnchorEl] =
@@ -183,7 +181,10 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
     () =>
       AvailablePerspectives.map((perspective) => {
         let includePerspective = true;
-        if (hideProFeatures && !Pro && perspective.pro === true) {
+        // Maestria fork: Pro perspectives are not bundled (AGPL build).
+        // Always hide their icons/menu entries — `en attendant` a proper
+        // AGPL replacement. Revert this guard to re-enable.
+        if (perspective.pro === true && !Pro) {
           includePerspective = false;
         }
         return (
@@ -222,7 +223,10 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
     () =>
       AvailablePerspectives.map((perspective) => {
         let includePerspective = true;
-        if (hideProFeatures && !Pro && perspective.pro === true) {
+        // Maestria fork: Pro perspectives are not bundled (AGPL build).
+        // Always hide their icons/menu entries — `en attendant` a proper
+        // AGPL replacement. Revert this guard to re-enable.
+        if (perspective.pro === true && !Pro) {
           includePerspective = false;
         }
         return (
