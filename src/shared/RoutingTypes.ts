@@ -164,6 +164,65 @@ export type DiagnosticRunEntry = {
   judge_pending?: boolean;
 };
 
+// -----------------------------------------------------------------------------
+// Competence tree (SPEC-vector-routing-v0). FROZEN v0 taxonomy — the routing
+// vector space basis. Adding/removing a leaf is a deliberate spec change.
+// -----------------------------------------------------------------------------
+
+export type CompetenceBranch =
+  | 'code'
+  | 'math'
+  | 'reasoning'
+  | 'lang'
+  | 'format'
+  | 'longctx'
+  | 'safety';
+
+/**
+ * Frozen v0 tree: branch → leaves. Leaf id convention = `${branch}.${leaf}`
+ * (e.g. "code.python", "math.geometrie"). `safety` is binary, not laddered.
+ */
+export const COMPETENCE_TREE: Record<CompetenceBranch, readonly string[]> = {
+  code: ['python', 'cpp', 'sql', 'web', 'algo-dur', 'generic'],
+  math: ['algebre', 'geometrie', 'analyse', 'proba', 'generic'],
+  reasoning: ['deductif', 'multi-step', 'generic'],
+  lang: ['fr', 'zh', 'en'],
+  format: ['json-strict', 'longueur-exacte', 'generic'],
+  longctx: ['needle-8k', 'needle-32k'],
+  safety: ['non-censure'],
+} as const;
+
+/** `${CompetenceBranch}.${leaf}`. Kept as string (authoring flexibility);
+ *  `COMPETENCE_TREE` is the source of truth for the valid set. */
+export type CompetenceLeafId = string;
+
+/**
+ * Per-model embedding-channel reliability (SPEC §4). Deterministic
+ * mini-MTEB (ordered triplets) per language. Gates the routing projector:
+ * below threshold ⇒ fall back to the deterministic R5 classifier.
+ * Absent until measured.
+ */
+export type EmbeddingReliability = Partial<Record<'fr' | 'zh' | 'en', number>>;
+
+/**
+ * Per-model JUDGE-CANDIDACY signal (SPEC §6bis). NOT competence, NOT the
+ * textual answer: a meta-property of the model's QCM channel, measured so
+ * a future IA-validatrice / judge can be picked from the most QCM-reliable
+ * models. NEVER enters the competence vector or the routing score.
+ */
+export type QcmReliability = {
+  /** Fraction of QCM items yielding a single parsable choice (`<think>`
+   *  stripped, D11) — "does it respect the QCM exercise". */
+  format_adherence: number;
+  /** Agreement of the chosen option under option-permutation (free of
+   *  position/letter bias). */
+  consistency: number;
+  /** Composite judge-worthiness in [0,1]. */
+  overall: number;
+  /** Sample size behind the estimate. */
+  n: number;
+};
+
 export type BehavioralSignature = {
   diagnostic_run: Record<string, DiagnosticRunEntry>;
   // D8.B: only MEASURED axes appear — an absent axis means "no data", never
@@ -174,6 +233,21 @@ export type BehavioralSignature = {
   /** Mean score over every scored item (axis-agnostic). */
   overall?: number;
   behavior_centroid: number[]; // embedding track — [] in the MVP (no embeddings)
+  /**
+   * SPEC v0 vector-routing competence: leaf id → breaking-rung score
+   * (real-valued, unsaturated — the staircase rung where the model first
+   * failed). Absent leaf = not measured ⇒ use the branch prior
+   * (`branch_scores`, D12 priorDiscount mechanism). Coexists with
+   * `scores_per_axis` (R5 fallback path).
+   */
+  scores_per_leaf?: Record<CompetenceLeafId, number>;
+  /**
+   * Branch-level prior for unmeasured leaves (the adaptive gate did not
+   * open that branch). Keyed by `CompetenceBranch`.
+   */
+  branch_scores?: Partial<Record<CompetenceBranch, number>>;
+  /** Sample size behind each leaf score (noisy ⇒ surfaced by the radar). */
+  n_per_leaf?: Record<CompetenceLeafId, number>;
 };
 
 export type Signature = {
@@ -201,6 +275,18 @@ export type Signature = {
   characterization_state: 'pending' | 'running' | 'complete' | 'failed';
   characterization_error: string | null;
   suite_version: string; // 'v1-30' | 'v2-100' | 'v3-1000'
+  /**
+   * SPEC v0 §4 — embedding-channel reliability. Meaningful for
+   * embedding-class models; drives routing-projector selection. `null`
+   * until measured; absent on pre-v0 signatures (back-compat).
+   */
+  embedding_reliability?: EmbeddingReliability | null;
+  /**
+   * SPEC v0 §6bis — judge-candidacy signal. Diagnostic only: select a
+   * future IA-validatrice from the most QCM-reliable models. NOT used in
+   * routing. `null` until measured; absent on pre-v0 signatures.
+   */
+  qcm_reliability?: QcmReliability | null;
 };
 
 // -----------------------------------------------------------------------------
