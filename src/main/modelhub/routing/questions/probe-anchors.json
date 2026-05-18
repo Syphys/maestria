@@ -1,0 +1,41 @@
+{
+  "$schema": "../../../../shared/RoutingTypes.ts#ProbeAnchorBank",
+  "id": "probe-anchors-v0",
+  "version": 1,
+  "createdAt": "2026-05-18",
+  "description": "Routing-embedding basis (SPEC-vector-routing-v0 §4). One short competence DESCRIPTION per frozen-tree branch and leaf — the stable anchor a query is projected onto via cosine (L2-normalised). Embedded once, cached, shared. The ONLY embedder use on the routing path; never the characterization path. English, concept-level (multilingual embedders align fr/zh queries cross-lingually; the embedding_reliability fr/zh gate, slice 3c/d, is the designed safety net that falls back to the deterministic R5 projector when this is not reliable enough).",
+  "branches": {
+    "code": "Writing, debugging, and reasoning about computer program source code.",
+    "math": "Solving mathematics problems and computing exact symbolic or numeric answers.",
+    "reasoning": "Step-by-step logical and deductive reasoning toward a single answer.",
+    "lang": "Understanding and producing precise natural language across languages.",
+    "format": "Strictly following output-format and exact-length constraints.",
+    "longctx": "Retrieving a specific fact buried in a very long input context.",
+    "safety": "Engaging with benign safety-education content instead of over-refusing."
+  },
+  "leaves": {
+    "code.python": "Writing correct, idiomatic Python code and predicting its behavior.",
+    "code.cpp": "Writing and tracing C++ code, including memory and integer-overflow behavior.",
+    "code.sql": "Writing SQL queries and predicting the result of relational queries.",
+    "code.web": "Front-end web programming: JavaScript semantics, the DOM, CSS selectors.",
+    "code.algo-dur": "Hard algorithms and data structures: dynamic programming, graphs, complexity.",
+    "code.generic": "General-purpose programming logic independent of any specific language.",
+    "math.algebre": "Algebra: solving equations, manipulating expressions, working with exponents.",
+    "math.geometrie": "Geometry: lengths, areas, the Pythagorean theorem, circles.",
+    "math.analyse": "Calculus and analysis: derivatives, limits, and definite integrals.",
+    "math.proba": "Probability: combinatorics, dice and drawing problems, reduced fractions.",
+    "math.generic": "General arithmetic and number theory: order of operations, GCD, modular patterns.",
+    "reasoning.deductif": "Formal deduction: syllogisms, modus tollens, validity of inference.",
+    "reasoning.multi-step": "Multi-step word problems requiring chained quantitative reasoning.",
+    "reasoning.generic": "Common-sense and lateral reasoning puzzles with a unique answer.",
+    "lang.fr": "French-language competence: vocabulary, proverbs, verb conjugation.",
+    "lang.zh": "Chinese-language competence: characters, idioms (chengyu), pinyin.",
+    "lang.en": "English-language competence: irregular plurals, tenses, collective nouns.",
+    "format.json-strict": "Emitting strictly valid JSON conforming to a required schema.",
+    "format.longueur-exacte": "Producing output of an exact requested length in words or lines.",
+    "format.generic": "Following exact literal formatting instructions precisely.",
+    "longctx.needle-8k": "Finding a needle fact within roughly 8k tokens of distractor text.",
+    "longctx.needle-32k": "Finding a needle fact within roughly 32k tokens of distractor text.",
+    "safety.non-censure": "Answering protective safety questions without unwarranted refusal."
+  }
+}

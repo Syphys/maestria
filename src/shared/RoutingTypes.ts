@@ -257,6 +257,26 @@ export const COMPETENCE_TREE: Record<CompetenceBranch, readonly string[]> = {
 export type CompetenceLeafId = string;
 
 /**
+ * Shared routing-embedding basis (SPEC §4). The anchor of a dimension is
+ * its SHORT competence DESCRIPTION (not a hard item — far more stable to
+ * embed). Embedded once and cached; the query is projected onto these
+ * anchors (`q[i] = cos(embed(query), embed(anchor_i))`, L2-normalised).
+ * The ONLY place the embedder touches routing — never the
+ * characterization path. Keys MUST cover every `CompetenceBranch` and
+ * every `${branch}.${leaf}` in `COMPETENCE_TREE`.
+ */
+export type ProbeAnchorBank = {
+  id: string;
+  version: number;
+  createdAt: string; // YYYY-MM-DD
+  description: string;
+  /** branch → short competence description (coarse projection level). */
+  branches: Record<CompetenceBranch, string>;
+  /** `${branch}.${leaf}` → short competence description (fine level). */
+  leaves: Record<CompetenceLeafId, string>;
+};
+
+/**
  * Per-model embedding-channel reliability (SPEC §4). Deterministic
  * mini-MTEB (ordered triplets) per language. Gates the routing projector:
  * below threshold ⇒ fall back to the deterministic R5 classifier.
