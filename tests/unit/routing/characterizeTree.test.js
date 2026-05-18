@@ -1,6 +1,9 @@
 // Slice-4c orchestrator — ported from smoke-characterizeTree.ts. Dette B.
 import { describe, expect, test } from '@playwright/test';
-import { characterizeTree } from '../../../src/main/modelhub/routing/characterizeTree';
+import {
+  characterizeTree,
+  branchGateFromAxes,
+} from '../../../src/main/modelhub/routing/characterizeTree';
 import tree from '../../../src/main/modelhub/routing/questions/tree-v0.json';
 import qcm from '../../../src/main/modelhub/routing/questions/qcm-v0.json';
 
@@ -137,5 +140,69 @@ describe('characterizeTree (slice 4c)', () => {
     });
     expect(seenSkip).toBe(true);
     expect(r.written).toBe(false);
+  });
+});
+
+describe('R5-gated tree (slice 6a)', () => {
+  test('branchGateFromAxes maps R5 axes → branches', () => {
+    const g = branchGateFromAxes({
+      code: 0.5,
+      reasoning: 0.4,
+      multistep: 0.8,
+      fr: 0.2,
+      en: 0.7,
+      zh: 0.1,
+    });
+    expect(g).toEqual({ code: 0.5, reasoning: 0.8, lang: 0.7 });
+    expect(branchGateFromAxes(undefined)).toEqual({});
+    expect(branchGateFromAxes({})).toEqual({});
+  });
+
+  test('explicit branchGate: math open, code closed (+ qcm prior)', async () => {
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask: strong,
+      branchGate: { math: 0.9, code: 0.0 },
+      loadExisting: async () => undefined,
+      computeHash: async () => 'sha256:x',
+      now: () => 't',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    const sl = r.signature.behavioral.scores_per_leaf;
+    const bs = r.signature.behavioral.branch_scores;
+    expect(bs.math).toBe(0.9);
+    expect(bs.code).toBe(0);
+    expect(sl['math.generic']).toBe(3);
+    expect(sl['code.cpp']).toBeUndefined(); // code branch gated closed
+    expect(sl['code.python']).toBe(0.5); // qcm dual-purpose prior (Dyy/D12)
+  });
+
+  test('derived from existing R5 scores_per_axis, R5 preserved', async () => {
+    const existing = {
+      modelHash: 'old',
+      structural: { est_footprint_bytes: 1 },
+      behavioral: {
+        diagnostic_run: {},
+        scores_per_axis: { code: 0.9, math: 0 },
+        behavior_centroid: [],
+      },
+      characterization_state: 'complete',
+      characterization_error: null,
+      suite_version: 'v1-30',
+    };
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask: strong,
+      loadExisting: async () => existing,
+      computeHash: async () => 'sha256:y',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    const sl = r.signature.behavioral.scores_per_leaf;
+    expect(r.signature.behavioral.branch_scores.code).toBe(0.9); // gate open
+    expect(r.signature.behavioral.branch_scores.math).toBe(0); // gate closed
+    expect(sl['code.cpp']).toBe(3);
+    expect(sl['math.algebre']).toBeUndefined();
+    // R5 axis block preserved (additive, not destroyed)
+    expect(r.signature.behavioral.scores_per_axis.code).toBe(0.9);
   });
 });

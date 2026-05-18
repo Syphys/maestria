@@ -16,6 +16,7 @@ import {
   COMPETENCE_TREE,
   type BehavioralSignature,
   type CompetenceBranch,
+  type DiagnosticAxis,
   type DiagnosticPrompt,
   type Signature,
   type StructuralSignature,
@@ -48,6 +49,42 @@ export const DEFAULT_QCM_PRIOR_DISCOUNT = 0.5;
 
 type Suite = { id: string; prompts: DiagnosticPrompt[] };
 
+/**
+ * Slice 6a — map the coarse R5 `scores_per_axis` onto the tree branches
+ * so R5 decides which branches the staircase deepens (only the
+ * R5-maximal ones; SPEC §3 gate, owner ratification 2026-05-18). A
+ * branch is gated only when at least one source axis was measured;
+ * absent ⇒ omitted ⇒ characterizeBranch falls back to its self-probe
+ * for that branch (back-compat, no R5 data case).
+ */
+export function branchGateFromAxes(
+  spa: Partial<Record<DiagnosticAxis, number>> | undefined,
+): Partial<Record<CompetenceBranch, number>> {
+  if (!spa) return {};
+  const maxOf = (...axes: DiagnosticAxis[]): number | undefined => {
+    const vals = axes
+      .map((a) => spa[a])
+      .filter((v): v is number => typeof v === 'number');
+    return vals.length ? Math.max(...vals) : undefined;
+  };
+  const src: Record<CompetenceBranch, number | undefined> = {
+    code: maxOf('code'),
+    math: maxOf('math'),
+    reasoning: maxOf('reasoning', 'multistep'),
+    lang: maxOf('fr', 'en', 'zh'),
+    format: maxOf('instruction'),
+    longctx: maxOf('longctx'),
+    safety: maxOf('refusal'),
+  };
+  const out: Partial<Record<CompetenceBranch, number>> = {};
+  for (const [b, v] of Object.entries(src) as [
+    CompetenceBranch,
+    number | undefined,
+  ][])
+    if (v !== undefined) out[b] = v;
+  return out;
+}
+
 export type CharacterizeTreeOptions = {
   modelFilePath: string;
   /** Live llama-server chat seam (real ChatClient in production). */
@@ -56,6 +93,12 @@ export type CharacterizeTreeOptions = {
   thetaOpen?: number;
   qcmPriorDiscount?: number;
   seams?: StaircaseSeams;
+  /**
+   * Slice 6a — explicit per-branch R5 gate (tests / override). When
+   * absent it is derived from the existing signature's
+   * `scores_per_axis` (so a juxtaposed R5 pass auto-drives the tree).
+   */
+  branchGate?: Partial<Record<CompetenceBranch, number>>;
   /** All injectable for offline tests. */
   treeSuite?: Suite;
   qcmSuite?: Suite;
@@ -125,12 +168,19 @@ export async function characterizeTree(
   const n_per_leaf: Record<string, number> = {};
   const branchesOpened: string[] = [];
 
+  // Slice 6a: R5 (mapped) drives which branches the staircase deepens.
+  // Explicit override wins; else derive from the (R5) signature loaded
+  // above; else {} ⇒ characterizeBranch self-probes (back-compat).
+  const gateMap =
+    opts.branchGate ?? branchGateFromAxes(base.behavioral?.scores_per_axis);
+
   for (const branch of Object.keys(COMPETENCE_TREE)) {
     const itemsByLeaf = grouped[branch];
     if (!itemsByLeaf) continue;
     const bm = await characterizeBranch(branch, itemsByLeaf, opts.ask, {
       thetaOpen: opts.thetaOpen,
       seams: opts.seams,
+      branchGate: gateMap[branch as CompetenceBranch],
     });
     if (bm.branch_score !== undefined)
       branch_scores[branch as CompetenceBranch] = bm.branch_score;

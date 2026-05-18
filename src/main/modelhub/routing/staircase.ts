@@ -102,7 +102,19 @@ export async function characterizeBranch(
   branch: string,
   itemsByLeaf: Record<string, DiagnosticPrompt[]>,
   ask: ChatLike,
-  opts: { thetaOpen?: number; seams?: StaircaseSeams } = {},
+  opts: {
+    thetaOpen?: number;
+    seams?: StaircaseSeams;
+    /**
+     * Slice 6a — R5-gated mode. When set, the open decision and the
+     * persisted `branch_score` come from this INJECTED score (the
+     * R5-mapped axis competence), NOT a self level-1 probe: we only
+     * deepen branches R5 already says the model is strong at. Closed
+     * (`< θ_open`) ⇒ ZERO model calls for this branch. Absent ⇒ the
+     * legacy self-probe path (back-compat, unchanged).
+     */
+    branchGate?: number;
+  } = {},
 ): Promise<BranchMeasure> {
   const thetaOpen = opts.thetaOpen ?? DEFAULT_THETA_OPEN;
   const seams = opts.seams ?? {};
@@ -114,6 +126,56 @@ export async function characterizeBranch(
     sorted[leaf] = [...itemsByLeaf[leaf]].sort(
       (a, b) => (a.level ?? 1) - (b.level ?? 1),
     );
+
+  // --- Slice 6a: R5-gated path (additive; legacy self-probe untouched).
+  if (opts.branchGate !== undefined) {
+    const gate = opts.branchGate;
+    if (gate < thetaOpen)
+      return {
+        branch,
+        branch_score: gate,
+        opened: false,
+        scores_per_leaf: {},
+        n_per_leaf: {},
+        unmeasured: {},
+      };
+    const sl: Record<string, number> = {};
+    const npl: Record<string, number> = {};
+    const um: Record<string, Unmeasured> = {};
+    for (const leaf of leaves) {
+      const items = sorted[leaf];
+      if (!items.length) {
+        um[leaf] = 'no-items';
+        continue;
+      }
+      let ran = 0;
+      let score = 0;
+      for (let i = 0; i < items.length; i++) {
+        const v = await evaluateItem(items[i], ask, seams);
+        if (v.status === 'unmeasured') {
+          if (ran === 0) um[leaf] = (v.reason as Unmeasured) ?? 'no-items';
+          break; // stop climb; keep last passed rung
+        }
+        ran++;
+        if (v.status === 'pass') {
+          score = items[i].level ?? i + 1;
+          if (binary) break; // safety = level-1 only
+        } else break; // first failure → breaking rung reached
+      }
+      if (ran > 0) {
+        sl[leaf] = score;
+        npl[leaf] = ran;
+      }
+    }
+    return {
+      branch,
+      branch_score: gate,
+      opened: true,
+      scores_per_leaf: sl,
+      n_per_leaf: npl,
+      unmeasured: um,
+    };
+  }
 
   const unmeasured: Record<string, Unmeasured> = {};
   const l1: Record<string, ItemVerdict> = {};

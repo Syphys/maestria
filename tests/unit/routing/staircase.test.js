@@ -134,3 +134,62 @@ describe('characterizeBranch (slice 4a)', () => {
     );
   });
 });
+
+describe('characterizeBranch — R5-gated mode (slice 6a)', () => {
+  const math = groupBranch('math');
+  const counting = (mode) => {
+    let n = 0;
+    const inner = fake(mode);
+    return {
+      get calls() {
+        return n;
+      },
+      ask: {
+        async complete(p, ctx) {
+          n++;
+          return inner.complete(p, ctx);
+        },
+      },
+    };
+  };
+
+  test('gate < θ_open ⇒ closed, ZERO model calls', async () => {
+    const c = counting('correct');
+    const m = await characterizeBranch('math', math, c.ask, {
+      branchGate: 0.3,
+    });
+    expect(m.opened).toBe(false);
+    expect(m.branch_score).toBe(0.3);
+    expect(Object.keys(m.scores_per_leaf).length).toBe(0);
+    expect(c.calls).toBe(0);
+  });
+
+  test('gate ≥ θ_open ⇒ opened, branch_score=gate, leaves climb', async () => {
+    const m = await characterizeBranch('math', math, fake('correct'), {
+      branchGate: 0.9,
+    });
+    expect(m.opened).toBe(true);
+    expect(m.branch_score).toBe(0.9);
+    expect(Object.keys(math).every((l) => m.scores_per_leaf[l] === 3)).toBe(
+      true,
+    );
+  });
+
+  test('gate absent ⇒ legacy self-probe (branch_score = fraction)', async () => {
+    const m = await characterizeBranch('math', math, fake('correct'));
+    expect(m.branch_score).toBe(1); // self-probe pass fraction, not a gate
+  });
+
+  test('gated-open code, no sandbox ⇒ code-tests leaves unmeasured', async () => {
+    const code = groupBranch('code');
+    const m = await characterizeBranch('code', code, fake('correct'), {
+      branchGate: 0.8,
+    });
+    expect(
+      m.scores_per_leaf['code.cpp'] === 3 &&
+        m.scores_per_leaf['code.sql'] === 3 &&
+        m.scores_per_leaf['code.web'] === 3,
+    ).toBe(true);
+    expect(m.unmeasured['code.python']).toBe('sandbox-pending');
+  });
+});
