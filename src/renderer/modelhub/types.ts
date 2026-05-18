@@ -573,6 +573,17 @@ export interface RoutingConfig {
   vramReserveBytes?: number;
   /** Bytes held back from probed free RAM. Blank ⇒ 2 GiB default. */
   ramReserveBytes?: number;
+  /** Routing embedder base URL. Set ⇒ models.route tries the vector
+   *  path (gated); blank ⇒ R5 deterministic only. */
+  routingEmbedderBaseUrl?: string;
+  /** Model id sent to the routing embedder (optional). */
+  routingEmbedderModel?: string;
+  /** θ_q — branch→leaf descent confidence (0..1). Blank ⇒ 0.5. */
+  thetaQ?: number;
+  /** θ_open — characterization branch gate (0..1). Blank ⇒ 0.6. */
+  thetaOpen?: number;
+  /** Embedding-reliability gate threshold (0..1). Blank ⇒ 0.7. */
+  embeddingReliabilityThreshold?: number;
 }
 
 /** Snapshot of the MCP server state for the renderer. */

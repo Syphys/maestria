@@ -79,26 +79,58 @@ function SettingsAI(_props: Props) {
   const [rcDraft, setRcDraft] = React.useState<{
     vramGb: string;
     ramGb: string;
-  }>({ vramGb: '', ramGb: '' });
+    embUrl: string;
+    embModel: string;
+    thetaQ: string;
+    thetaOpen: string;
+    relThr: string;
+  }>({
+    vramGb: '',
+    ramGb: '',
+    embUrl: '',
+    embModel: '',
+    thetaQ: '',
+    thetaOpen: '',
+    relThr: '',
+  });
   // Sync the draft from the persisted config every time it lands. Blank
   // means "use the documented default" — the placeholder shows it.
   React.useEffect(() => {
     const gb = (b: number | undefined) =>
       typeof b === 'number' ? String(Number((b / 1024 ** 3).toFixed(2))) : '';
+    const u = (n: number | undefined) =>
+      typeof n === 'number' ? String(n) : '';
     setRcDraft({
       vramGb: gb(rc.config.vramReserveBytes),
       ramGb: gb(rc.config.ramReserveBytes),
+      embUrl: rc.config.routingEmbedderBaseUrl ?? '',
+      embModel: rc.config.routingEmbedderModel ?? '',
+      thetaQ: u(rc.config.thetaQ),
+      thetaOpen: u(rc.config.thetaOpen),
+      relThr: u(rc.config.embeddingReliabilityThreshold),
     });
   }, [rc.config]);
 
   const saveRoutingDraft = async () => {
     const v = parseFloat(rcDraft.vramGb);
     const r = parseFloat(rcDraft.ramGb);
+    // 0..1 knob: keep only when strictly in range, else "use default".
+    const unit = (s: string): number | undefined => {
+      const n = parseFloat(s);
+      return Number.isFinite(n) && n > 0 && n <= 1 ? n : undefined;
+    };
+    const url = rcDraft.embUrl.trim();
+    const model = rcDraft.embModel.trim();
     await rc.save({
       vramReserveBytes:
         Number.isFinite(v) && v > 0 ? Math.round(v * 1024 ** 3) : undefined,
       ramReserveBytes:
         Number.isFinite(r) && r > 0 ? Math.round(r * 1024 ** 3) : undefined,
+      routingEmbedderBaseUrl: url || undefined,
+      routingEmbedderModel: model || undefined,
+      thetaQ: unit(rcDraft.thetaQ),
+      thetaOpen: unit(rcDraft.thetaOpen),
+      embeddingReliabilityThreshold: unit(rcDraft.relThr),
     });
   };
 
@@ -389,6 +421,58 @@ function SettingsAI(_props: Props) {
                 value={rcDraft.ramGb}
                 updateValue={(v) => setRcDraft((d) => ({ ...d, ramGb: v }))}
                 retrieveValue={() => rcDraft.ramGb}
+              />
+            </Box>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5 }}
+            >
+              {t('core:mhSettingsRoutingVectorHint')}
+            </Typography>
+            <TsTextField
+              label={t('core:mhSettingsRoutingEmbedderUrl')}
+              placeholder="http://127.0.0.1:8080"
+              value={rcDraft.embUrl}
+              updateValue={(v) => setRcDraft((d) => ({ ...d, embUrl: v }))}
+              retrieveValue={() => rcDraft.embUrl}
+            />
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 1,
+                mt: 1,
+                mb: 1,
+              }}
+            >
+              <TsTextField
+                label={t('core:mhSettingsRoutingEmbedderModel')}
+                placeholder="bge-m3"
+                value={rcDraft.embModel}
+                updateValue={(v) => setRcDraft((d) => ({ ...d, embModel: v }))}
+                retrieveValue={() => rcDraft.embModel}
+              />
+              <TsTextField
+                label={t('core:mhSettingsRoutingRelThreshold')}
+                placeholder="0.7"
+                value={rcDraft.relThr}
+                updateValue={(v) => setRcDraft((d) => ({ ...d, relThr: v }))}
+                retrieveValue={() => rcDraft.relThr}
+              />
+              <TsTextField
+                label={t('core:mhSettingsRoutingThetaQ')}
+                placeholder="0.5"
+                value={rcDraft.thetaQ}
+                updateValue={(v) => setRcDraft((d) => ({ ...d, thetaQ: v }))}
+                retrieveValue={() => rcDraft.thetaQ}
+              />
+              <TsTextField
+                label={t('core:mhSettingsRoutingThetaOpen')}
+                placeholder="0.6"
+                value={rcDraft.thetaOpen}
+                updateValue={(v) => setRcDraft((d) => ({ ...d, thetaOpen: v }))}
+                retrieveValue={() => rcDraft.thetaOpen}
               />
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

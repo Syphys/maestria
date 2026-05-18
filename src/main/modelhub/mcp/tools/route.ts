@@ -19,11 +19,9 @@ import { listRunning } from '../../runners/launch';
 import { resolveCanonicalShardPath, sumShardBytes } from '../../shardFs';
 import { probeFreeMemory } from '../../routing/freeMemory';
 import { loadSignature } from '../../routing/signatureStore';
-import {
-  routeQuery,
-  type RouteCandidate,
-  type RouteWeights,
-} from '../../routing/router';
+import { type RouteCandidate, type RouteWeights } from '../../routing/router';
+import { decideRoute } from '../../routing/routeDecision';
+import { getRoutingConfig, effectiveRoutingParams } from '../../routingConfig';
 import { register } from '../registry';
 
 function coerceWeights(value: unknown): RouteWeights | undefined {
@@ -46,17 +44,20 @@ function coerceWeights(value: unknown): RouteWeights | undefined {
 register({
   name: 'models.route',
   description:
-    'Pick the best local model for a query. Classifies the query into ' +
-    'competence axes (code / math / reasoning / factual / language / …), ' +
-    "matches them against each model's measured behavioral signature, " +
-    'and ranks by competence + live memory-fit + a hot (already-running) ' +
-    'bonus. Only models with a COMPLETE characterization signature are ' +
-    'eligible; uncharacterized / quarantined ones are returned too (for ' +
-    'transparency) marked `eligible:false` and ranked last. Returns the ' +
-    'derived `axisWeights`, the probed `resources` (free VRAM/RAM net of ' +
-    'resident models, minus the configured reserve), `best` (top ' +
-    'eligible, or null), and the `ranked` list. Advice only — does NOT ' +
-    'launch; follow up with `models.run` on `best.id`.',
+    'Pick the best local model for a query. When a routing embedder is ' +
+    'configured (Settings ▸ AI ▸ Routing) and its measured embedding ' +
+    'reliability passes the gate, the query is projected onto the ' +
+    'competence tree (`routedBy:"vector"`); otherwise it falls back to ' +
+    'the deterministic axis classifier (`routedBy:"r5"`) — the ' +
+    '`gateReason` always states which and why. Either way it ranks by ' +
+    'competence + live memory-fit + a hot (already-running) bonus. Only ' +
+    'models with a COMPLETE characterization signature are eligible; ' +
+    'uncharacterized / quarantined ones are returned too (transparency) ' +
+    'marked `eligible:false` and ranked last. Returns `routedBy`, ' +
+    '`gateReason`, `embeddingReliability`, `level` (vector: per-branch ' +
+    'comparison granularity) or `axisWeights` (r5), the probed ' +
+    '`resources`, `best` (top eligible, or null) and `ranked`. Advice ' +
+    'only — does NOT launch; follow up with `models.run` on `best.id`.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -158,37 +159,73 @@ register({
     );
 
     const resources = await probeFreeMemory();
-    const { axisWeights, ranked, best } = routeQuery(
-      a.query,
+    const params = effectiveRoutingParams(await getRoutingConfig());
+    const decision = await decideRoute({
+      query: a.query,
       candidates,
       resources,
       weights,
-    );
-
-    const trim = (r: (typeof ranked)[number]) => ({
-      id: r.id,
-      eligible: r.eligible,
-      ineligibleReason: r.ineligibleReason,
-      score: r.eligible ? Number(r.score.toFixed(4)) : null,
-      competenceMatch: Number(r.competenceMatch.toFixed(4)),
-      fit: r.fit === null ? null : Number(r.fit.toFixed(4)),
-      hot: r.hot,
-      axes: r.axes.map((h) => ({
-        axis: h.axis,
-        weight: h.weight,
-        modelScore: h.modelScore,
-        usedPrior: h.usedPrior,
-      })),
+      embedder: params.embedder,
+      params: {
+        thetaQ: params.thetaQ,
+        embeddingReliabilityThreshold: params.embeddingReliabilityThreshold,
+      },
     });
+    const { routedBy, gateReason, reliability, level } = decision;
+    const ranked = decision.ranked as any[];
+    const best = decision.best as any;
 
-    // Keep `best` even if the cap would drop it (it is always ranked[0]
-    // when present, but be defensive if weights ever invert the order).
+    const num = (x: number | null | undefined) =>
+      typeof x === 'number' ? Number(x.toFixed(4)) : null;
+    const trim = (r: any) =>
+      routedBy === 'vector'
+        ? {
+            id: r.id,
+            eligible: r.eligible,
+            ineligibleReason: r.ineligibleReason,
+            score: r.eligible ? num(r.score) : null,
+            competence: num(r.competence),
+            fit: num(r.fit),
+            hot: r.hot,
+            // only the dims the query actually projects onto (q > 0)
+            hits: (r.hits as any[])
+              .filter((h) => h.q > 0)
+              .map((h) => ({
+                dim: h.dim,
+                level: h.level,
+                q: num(h.q),
+                v: num(h.v),
+                usedPrior: h.usedPrior,
+              })),
+          }
+        : {
+            id: r.id,
+            eligible: r.eligible,
+            ineligibleReason: r.ineligibleReason,
+            score: r.eligible ? num(r.score) : null,
+            competenceMatch: num(r.competenceMatch),
+            fit: num(r.fit),
+            hot: r.hot,
+            axes: r.axes.map((h: any) => ({
+              axis: h.axis,
+              weight: h.weight,
+              modelScore: h.modelScore,
+              usedPrior: h.usedPrior,
+            })),
+          };
+
+    // Keep `best` even if the cap would drop it (defensive — it is
+    // normally ranked[0] when present).
     const head = ranked.slice(0, limit);
     if (best && !head.some((r) => r.id === best.id)) head.push(best);
 
     return {
       query: a.query,
-      axisWeights,
+      routedBy,
+      gateReason,
+      embeddingReliability: reliability ?? null,
+      level: level ?? null,
+      axisWeights: decision.axisWeights ?? null,
       resources: {
         freeVramBytes: resources.freeVramBytes,
         freeRamBytes: resources.freeRamBytes,

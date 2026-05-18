@@ -27,11 +27,33 @@ export const DEFAULT_VRAM_RESERVE_BYTES = 1 * 1024 ** 3; // 1 GiB
 /** Held back from free RAM by default — generous, RAM spill is the slow path. */
 export const DEFAULT_RAM_RESERVE_BYTES = 2 * 1024 ** 3; // 2 GiB
 
+/** Descend to leaf granularity when a leaf projects ≥ this (SPEC §5). */
+export const DEFAULT_THETA_Q = 0.5;
+/** Open a branch's leaves only if its level-1 probe ≥ this (SPEC §3). */
+export const DEFAULT_THETA_OPEN = 0.6;
+/** Min per-language embedding reliability to trust the projector (§4). */
+export const DEFAULT_EMBEDDING_RELIABILITY_THRESHOLD = 0.7;
+
 export interface RoutingConfig {
   /** Bytes held back from probed free VRAM before fit scoring. */
   vramReserveBytes?: number;
   /** Bytes held back from probed free RAM before fit scoring. */
   ramReserveBytes?: number;
+  /**
+   * SPEC v0 vector routing. When `routingEmbedderBaseUrl` is set,
+   * `models.route` projects the query onto the probe anchors and ranks by
+   * the competence tree; on ANY failure it silently falls back to the R5
+   * deterministic classifier. Empty ⇒ R5 only (back-compat).
+   */
+  routingEmbedderBaseUrl?: string;
+  /** Model id sent to the embedder (local llama-server ignores it). */
+  routingEmbedderModel?: string;
+  /** θ_q — branch→leaf descent confidence (0..1). Blank ⇒ 0.5. */
+  thetaQ?: number;
+  /** θ_open — characterization branch gate (0..1). Blank ⇒ 0.6. */
+  thetaOpen?: number;
+  /** Embedding-reliability gate threshold (0..1). Blank ⇒ 0.7. */
+  embeddingReliabilityThreshold?: number;
 }
 
 interface RoutingFile {
@@ -62,6 +84,13 @@ async function writeFile(data: RoutingFile): Promise<void> {
   await fs.writeFile(fp, JSON.stringify(data, null, 2), 'utf8');
 }
 
+/** Keep a 0..1 knob only when it is a finite number strictly in range. */
+function unit(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 1
+    ? v
+    : undefined;
+}
+
 function sanitize(input: RoutingConfig): RoutingConfig {
   const out: RoutingConfig = {};
   if (
@@ -73,6 +102,16 @@ function sanitize(input: RoutingConfig): RoutingConfig {
   if (typeof input.ramReserveBytes === 'number' && input.ramReserveBytes > 0) {
     out.ramReserveBytes = Math.floor(input.ramReserveBytes);
   }
+  const url = input.routingEmbedderBaseUrl?.trim();
+  if (url) out.routingEmbedderBaseUrl = url;
+  const model = input.routingEmbedderModel?.trim();
+  if (model) out.routingEmbedderModel = model;
+  const tq = unit(input.thetaQ);
+  if (tq !== undefined) out.thetaQ = tq;
+  const to = unit(input.thetaOpen);
+  if (to !== undefined) out.thetaOpen = to;
+  const er = unit(input.embeddingReliabilityThreshold);
+  if (er !== undefined) out.embeddingReliabilityThreshold = er;
   return out;
 }
 
@@ -99,5 +138,32 @@ export function effectiveReserves(cfg: RoutingConfig): {
   return {
     vramReserveBytes: cfg.vramReserveBytes ?? DEFAULT_VRAM_RESERVE_BYTES,
     ramReserveBytes: cfg.ramReserveBytes ?? DEFAULT_RAM_RESERVE_BYTES,
+  };
+}
+
+/**
+ * Vector-routing knobs the router/characterizer actually apply: the user
+ * value when set, the documented default otherwise. `embedder` is
+ * undefined when no routing embedder is configured ⇒ `models.route`
+ * stays on the R5 deterministic path.
+ */
+export function effectiveRoutingParams(cfg: RoutingConfig): {
+  thetaQ: number;
+  thetaOpen: number;
+  embeddingReliabilityThreshold: number;
+  embedder?: { baseUrl: string; model?: string };
+} {
+  return {
+    thetaQ: cfg.thetaQ ?? DEFAULT_THETA_Q,
+    thetaOpen: cfg.thetaOpen ?? DEFAULT_THETA_OPEN,
+    embeddingReliabilityThreshold:
+      cfg.embeddingReliabilityThreshold ??
+      DEFAULT_EMBEDDING_RELIABILITY_THRESHOLD,
+    embedder: cfg.routingEmbedderBaseUrl
+      ? {
+          baseUrl: cfg.routingEmbedderBaseUrl,
+          model: cfg.routingEmbedderModel,
+        }
+      : undefined,
   };
 }
