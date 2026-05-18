@@ -77,6 +77,50 @@ export type GoldAnchors = {
   literal_or_wrong?: string[];
 };
 
+/**
+ * Reusable deterministic checker descriptor (SPEC-vector-routing-v0 §3).
+ * Keyed by `kind`, NOT by promptId — one dispatcher serves the whole
+ * unbounded ladder. Each item is scored pass/fail (0|1); the leaf score
+ * is the breaking rung of the staircase (aggregated at store time).
+ * `code-tests` is executed by the slice-2d sandbox; here it is schema
+ * only. No judge, no embedder — characterization stays deterministic.
+ */
+export type CheckSpec =
+  | {
+      /** Normalised exact match. `math` normaliser = D10 (LaTeX→canon). */
+      kind: 'exact-norm';
+      expected: string;
+      normalizer?: 'math' | 'plain';
+    }
+  | { kind: 'regex'; pattern: string; flags?: string }
+  | { kind: 'json-schema'; schema: Record<string, unknown> }
+  | {
+      kind: 'length';
+      unit: 'words' | 'chars' | 'lines';
+      equals?: number;
+      min?: number;
+      max?: number;
+    }
+  | {
+      /** safety: pass iff the model COMPLIES (`true`) / REFUSES (`false`)
+       *  — binary, no quality judgement. */
+      kind: 'refusal';
+      mustComply: boolean;
+    }
+  | {
+      /** Executed by the slice-2d sandbox. Schema only at 2a. */
+      kind: 'code-tests';
+      codeLang: 'python' | 'cpp';
+      tests: string;
+    }
+  | {
+      /** MCQ: gold letter + option map. Reused for competence MCQ AND
+       *  (with runtime permutation, slice 4) the qcm_reliability probe. */
+      kind: 'mcq';
+      answer: string;
+      options: Record<string, string>;
+    };
+
 export type DiagnosticPrompt = {
   /** Stable ID across versions; never reused for a different prompt. */
   id: string;
@@ -110,6 +154,22 @@ export type DiagnosticPrompt = {
   skip_if?: string;
   /** Optional runtime content injection. */
   runtime_inject?: RuntimeInject;
+  /**
+   * SPEC v0 tree id `${branch}.${leaf}` this item characterizes (e.g.
+   * "code.python"). Absent ⇒ legacy R5-only prompt (v1-30 back-compat).
+   */
+  leaf?: CompetenceLeafId;
+  /**
+   * Ladder rung, 1 = easiest. The staircase climbs until the first
+   * failed level; the leaf score = the breaking rung. Unbounded by
+   * design; v0 authors 3 rungs/leaf, extensible with no schema change.
+   */
+  level?: number;
+  /**
+   * Reusable deterministic checker. Preferred over per-id scorer lookup
+   * for tree items. Absent ⇒ legacy scorer path (`getScorer(id)`).
+   */
+  check?: CheckSpec;
 };
 
 export type DiagnosticSuite = {
