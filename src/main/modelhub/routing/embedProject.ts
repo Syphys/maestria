@@ -99,6 +99,53 @@ export async function projectQuery(
   return { branches, leaves };
 }
 
+/** Stable anchor order + the flat text list (for cache-once embedding). */
+export function anchorOrder(bank: ProbeAnchorBank): {
+  branchIds: string[];
+  leafIds: string[];
+  texts: string[];
+} {
+  const branchIds = Object.keys(bank.branches);
+  const leafIds = Object.keys(bank.leaves);
+  return {
+    branchIds,
+    leafIds,
+    texts: [
+      ...branchIds.map((b) => bank.branches[b]),
+      ...leafIds.map((l) => bank.leaves[l]),
+    ],
+  };
+}
+
+/**
+ * Project a pre-embedded query against PRE-EMBEDDED anchors (slice 5b
+ * hot path: anchors are embedded once per embedder and cached, only the
+ * 1-vector query is embedded per route). `anchorVecs` must be in
+ * `anchorOrder` order: branches then leaves.
+ */
+export function projectFromVectors(
+  queryVec: Float32Array,
+  anchorVecs: Float32Array[],
+  branchIds: string[],
+  leafIds: string[],
+): QueryProjection {
+  if (anchorVecs.length !== branchIds.length + leafIds.length)
+    throw new Error(
+      `projectFromVectors: ${anchorVecs.length} anchors, expected ${
+        branchIds.length + leafIds.length
+      }`,
+    );
+  const branches: Record<string, number> = {};
+  const leaves: Record<string, number> = {};
+  branchIds.forEach((b, i) => {
+    branches[b] = cosine(queryVec, anchorVecs[i]);
+  });
+  leafIds.forEach((l, i) => {
+    leaves[l] = cosine(queryVec, anchorVecs[branchIds.length + i]);
+  });
+  return { branches, leaves };
+}
+
 // --- embedding reliability (mini-MTEB) --------------------------------------
 
 /**
