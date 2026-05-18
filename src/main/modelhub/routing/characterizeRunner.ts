@@ -16,6 +16,8 @@ import { launchModelByPath } from '../launchModel';
 import { readModelHeader } from '../parseHeader';
 import { resolveCanonicalShardPath } from '../shardFs';
 import { characterize, type CharacterizeResult } from './characterize';
+import { characterizeTree } from './characterizeTree';
+import { ChatClient } from './chat';
 import type { CharacterizationProgress } from '../../../shared/RoutingTypes';
 
 /**
@@ -58,6 +60,8 @@ export interface RunCharacterizationDeps {
   launch?: LaunchLike;
   stop?: (pid: number) => void;
   characterizeFn?: typeof characterize;
+  /** Slice 6a-2 — tree-v0 vector pass chained after R5 (test seam). */
+  characterizeTreeFn?: typeof characterizeTree;
   waitReady?: (url: string) => Promise<void>;
   resolveCanonical?: (filePath: string) => Promise<string>;
   /** Resolve a model's architecture (deny-list pre-filter). */
@@ -228,8 +232,40 @@ export async function runCharacterization(
       onProgress: (p) => status({ stage: 'running', progress: p }),
     });
 
-    status({ stage: 'done', result });
-    return result;
+    // Slice 6a-2 — chain the tree-v0 vector pass on the SAME, still-up
+    // server. It builds ADDITIVELY on the R5 signature we just computed
+    // (injected via `loadExisting` so it works even when `skipWrite`
+    // suppressed the on-disk write) and is R5-gated: only R5-maximal
+    // branches deepen, so the extra model calls stay bounded (Dββ). A
+    // tree failure is ISOLATED — R5 is a valid result on its own, so we
+    // keep it and only log; the tree must never sink the whole run.
+    // Covers both the single-model and the bulk path (characterizeAll
+    // delegates here). Fine-grained tree progress is deferred to 6c.
+    const characterizeTreeFn = d.characterizeTreeFn ?? characterizeTree;
+    let finalResult = result;
+    try {
+      const treeRes = await characterizeTreeFn({
+        modelFilePath: canonical,
+        ask: new ChatClient({ baseUrl }),
+        skipWrite: opts.skipWrite,
+        loadExisting: async () => result.signature,
+        computeHash: async () => result.signature.modelHash,
+      });
+      finalResult = {
+        ...result,
+        signature: treeRes.signature,
+        written: treeRes.written,
+        sidecarPath: treeRes.sidecarPath,
+      };
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `tree characterization failed (R5 kept): ${(e as Error).message}`,
+      );
+    }
+
+    status({ stage: 'done', result: finalResult });
+    return finalResult;
   } catch (e) {
     status({ stage: 'error', error: (e as Error).message });
     throw e;
