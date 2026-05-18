@@ -277,6 +277,32 @@ export type ProbeAnchorBank = {
 };
 
 /**
+ * One mini-MTEB ordered triplet (SPEC §4). The embedder is reliable on
+ * this item iff `cos(emb(anchor), emb(positive)) > cos(emb(anchor),
+ * emb(negative))`. `positive` is a meaning-preserving paraphrase;
+ * `negative` is an unrelated sentence of similar surface length so the
+ * test probes semantics, not length.
+ */
+export type EmbeddingTriplet = {
+  anchor: string;
+  positive: string;
+  negative: string;
+};
+
+/**
+ * Bank of ordered triplets per language, used to MEASURE the routing
+ * embedder (selected by score, not reputation — SPEC §4). Not tied to
+ * the competence tree: this characterizes the embedder model class.
+ */
+export type EmbeddingTripletBank = {
+  id: string;
+  version: number;
+  createdAt: string; // YYYY-MM-DD
+  description: string;
+  triplets: Record<'fr' | 'zh' | 'en', EmbeddingTriplet[]>;
+};
+
+/**
  * Per-model embedding-channel reliability (SPEC §4). Deterministic
  * mini-MTEB (ordered triplets) per language. Gates the routing projector:
  * below threshold ⇒ fall back to the deterministic R5 classifier.

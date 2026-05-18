@@ -1,0 +1,135 @@
+{
+  "$schema": "../../../../shared/RoutingTypes.ts#EmbeddingTripletBank",
+  "id": "embedding-triplets-v0",
+  "version": 1,
+  "createdAt": "2026-05-18",
+  "description": "Mini-MTEB ordered triplets (SPEC-vector-routing-v0 §4) to MEASURE the routing embedder per language. embedding_reliability[lang] = fraction of triplets where cos(anchor,positive) > cos(anchor,negative). Net-validated common-knowledge semantic relations; positive = meaning-preserving paraphrase, negative = unrelated sentence of similar length (probes semantics, not surface). Parallel content across fr/zh/en. Characterizes the embedder model class, NOT the competence tree.",
+  "triplets": {
+    "en": [
+      {
+        "anchor": "A dog is a domestic animal that barks.",
+        "positive": "Dogs are pets that bark.",
+        "negative": "The stock market fell sharply today."
+      },
+      {
+        "anchor": "Paris is the capital of France.",
+        "positive": "The capital city of France is Paris.",
+        "negative": "Photosynthesis converts sunlight into energy."
+      },
+      {
+        "anchor": "Water boils at one hundred degrees Celsius at sea level.",
+        "positive": "At sea level, water reaches its boiling point at 100 degrees Celsius.",
+        "negative": "The novel was written in the nineteenth century."
+      },
+      {
+        "anchor": "The sun rises in the east.",
+        "positive": "Each morning the sun appears in the east.",
+        "negative": "He bought a new pair of running shoes."
+      },
+      {
+        "anchor": "Photosynthesis lets plants make food from sunlight.",
+        "positive": "Plants use sunlight to produce their own food.",
+        "negative": "The train was delayed by twenty minutes."
+      },
+      {
+        "anchor": "A triangle has three sides.",
+        "positive": "Every triangle is a three-sided polygon.",
+        "negative": "She enjoys listening to jazz music."
+      },
+      {
+        "anchor": "The heart pumps blood through the body.",
+        "positive": "Blood is circulated around the body by the heart.",
+        "negative": "Mount Everest is the tallest mountain on Earth."
+      },
+      {
+        "anchor": "Ice is frozen water.",
+        "positive": "When water freezes it turns into ice.",
+        "negative": "The committee approved the annual budget."
+      }
+    ],
+    "fr": [
+      {
+        "anchor": "Le chien est un animal domestique qui aboie.",
+        "positive": "Les chiens sont des animaux de compagnie qui aboient.",
+        "negative": "La bourse a fortement chuté aujourd'hui."
+      },
+      {
+        "anchor": "Paris est la capitale de la France.",
+        "positive": "La capitale de la France est Paris.",
+        "negative": "La photosynthèse transforme la lumière en énergie."
+      },
+      {
+        "anchor": "L'eau bout à cent degrés Celsius au niveau de la mer.",
+        "positive": "Au niveau de la mer, l'eau atteint son point d'ébullition à cent degrés Celsius.",
+        "negative": "Le roman a été écrit au dix-neuvième siècle."
+      },
+      {
+        "anchor": "Le soleil se lève à l'est.",
+        "positive": "Chaque matin, le soleil apparaît à l'est.",
+        "negative": "Il a acheté une nouvelle paire de chaussures."
+      },
+      {
+        "anchor": "La photosynthèse permet aux plantes de fabriquer leur nourriture grâce au soleil.",
+        "positive": "Les plantes utilisent la lumière du soleil pour produire leur nourriture.",
+        "negative": "Le train a eu vingt minutes de retard."
+      },
+      {
+        "anchor": "Un triangle a trois côtés.",
+        "positive": "Tout triangle est un polygone à trois côtés.",
+        "negative": "Elle aime écouter de la musique jazz."
+      },
+      {
+        "anchor": "Le cœur pompe le sang dans le corps.",
+        "positive": "Le sang est mis en circulation dans le corps par le cœur.",
+        "negative": "L'Everest est la plus haute montagne de la Terre."
+      },
+      {
+        "anchor": "La glace est de l'eau gelée.",
+        "positive": "Quand l'eau gèle, elle se transforme en glace.",
+        "negative": "Le comité a approuvé le budget annuel."
+      }
+    ],
+    "zh": [
+      {
+        "anchor": "狗是会吠叫的家养动物。",
+        "positive": "狗是会吠叫的宠物。",
+        "negative": "今天股市大幅下跌。"
+      },
+      {
+        "anchor": "巴黎是法国的首都。",
+        "positive": "法国的首都是巴黎。",
+        "negative": "光合作用把阳光转化为能量。"
+      },
+      {
+        "anchor": "在海平面上水在一百摄氏度沸腾。",
+        "positive": "在海平面，水在一百摄氏度达到沸点。",
+        "negative": "这部小说写于十九世纪。"
+      },
+      {
+        "anchor": "太阳从东方升起。",
+        "positive": "每天早晨太阳出现在东方。",
+        "negative": "他买了一双新跑鞋。"
+      },
+      {
+        "anchor": "光合作用让植物利用阳光制造食物。",
+        "positive": "植物利用阳光来制造自己的食物。",
+        "negative": "火车晚点了二十分钟。"
+      },
+      {
+        "anchor": "三角形有三条边。",
+        "positive": "每个三角形都是三边多边形。",
+        "negative": "她喜欢听爵士乐。"
+      },
+      {
+        "anchor": "心脏把血液泵送到全身。",
+        "positive": "血液由心脏在体内循环。",
+        "negative": "珠穆朗玛峰是地球上最高的山。"
+      },
+      {
+        "anchor": "冰是冻结的水。",
+        "positive": "水结冰后会变成冰。",
+        "negative": "委员会批准了年度预算。"
+      }
+    ]
+  }
+}
