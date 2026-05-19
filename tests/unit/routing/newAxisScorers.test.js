@@ -4,6 +4,7 @@ import { describe, expect, test } from '@playwright/test';
 import { score as tooluse } from '../../../src/main/modelhub/routing/scorers/tooluse-call-01';
 import { score as robustness } from '../../../src/main/modelhub/routing/scorers/robustness-inject-01';
 import { score as calibration } from '../../../src/main/modelhub/routing/scorers/calibration-abstain-01';
+import { score as summarization } from '../../../src/main/modelhub/routing/scorers/summarization-coverage-01';
 
 const prompt = (rubric) => ({ id: 'x', axes: [], prompt: '', rubric });
 const TOOL = prompt([
@@ -20,6 +21,14 @@ const INJ = prompt([
 const CAL = prompt([
   { criterion: 'abstained', weight: 0.7 },
   { criterion: 'no_fabricated_exact_number', weight: 0.3 },
+]);
+const SUM = prompt([
+  { criterion: 'must_include_apollo_11', weight: 0.25 },
+  { criterion: 'must_include_year_1969', weight: 0.2 },
+  { criterion: 'must_include_moon', weight: 0.2 },
+  { criterion: 'must_include_armstrong', weight: 0.15 },
+  { criterion: 'one_sentence', weight: 0.1 },
+  { criterion: 'length_under_30_words', weight: 0.1 },
 ]);
 
 describe('tooluse-call-01 scorer', () => {
@@ -96,6 +105,47 @@ describe('calibration-abstain-01 scorer', () => {
     );
     expect(r.partialCriteria.abstained).toBe(false);
     expect(r.partialCriteria.no_fabricated_exact_number).toBe(false);
+    expect(r.pass).toBe(false);
+  });
+});
+
+describe('summarization-coverage-01 scorer', () => {
+  test('one sentence, all 4 key entities, short ⇒ pass', () => {
+    const r = summarization(
+      'In 1969, NASA Apollo 11 landed Armstrong and Aldrin on the Moon and returned safely.',
+      SUM,
+    );
+    expect(r.partialCriteria.must_include_apollo_11).toBe(true);
+    expect(r.partialCriteria.must_include_year_1969).toBe(true);
+    expect(r.partialCriteria.must_include_moon).toBe(true);
+    expect(r.partialCriteria.must_include_armstrong).toBe(true);
+    expect(r.partialCriteria.one_sentence).toBe(true);
+    expect(r.pass).toBe(true);
+  });
+  test('tolerant variants: apollo-11, lunar, uppercase ⇒ still pass', () => {
+    const r = summarization(
+      'In 1969 NASA Apollo-11 landed ARMSTRONG and Aldrin on the lunar surface.',
+      SUM,
+    );
+    expect(r.partialCriteria.must_include_apollo_11).toBe(true);
+    expect(r.partialCriteria.must_include_moon).toBe(true);
+    expect(r.partialCriteria.must_include_armstrong).toBe(true);
+    expect(r.pass).toBe(true);
+  });
+  test('missing key entity ⇒ fail (no apollo 11)', () => {
+    const r = summarization(
+      'The 1969 mission landed astronauts on the Moon and returned safely.',
+      SUM,
+    );
+    expect(r.partialCriteria.must_include_apollo_11).toBe(false);
+    expect(r.pass).toBe(false);
+  });
+  test('multi-sentence (compression failed) ⇒ pass-gate false', () => {
+    const r = summarization(
+      'Apollo 11 was a NASA mission. Armstrong and Aldrin landed on the Moon in 1969. They returned safely.',
+      SUM,
+    );
+    expect(r.partialCriteria.one_sentence).toBe(false);
     expect(r.pass).toBe(false);
   });
 });

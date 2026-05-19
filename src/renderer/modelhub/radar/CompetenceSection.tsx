@@ -119,6 +119,7 @@ export function CompetenceSection({
       'instruction',
       'tooluse',
       'factual',
+      'summarization',
       'longctx',
       'lang',
       'creative',

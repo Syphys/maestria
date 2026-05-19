@@ -25,7 +25,10 @@ export type DiagnosticAxis =
   // slice 6e — deterministic gap-filling axes (no judge, D3):
   | 'tooluse' // function/tool-call emission (critical for MCP/agents)
   | 'robustness' // prompt-injection / adversarial resistance
-  | 'calibration'; // honest abstention ("I don't know") vs hallucination
+  | 'calibration' // honest abstention ("I don't know") vs hallucination
+  // slice 6f — deterministic via curated-source coverage, no embedder
+  // on the characterization path (SPEC §4) and no judge (D3):
+  | 'summarization';
 
 export type RubricCriterion = {
   /** Stable, snake_case key the judge LLM will see in its scoring rubric. */

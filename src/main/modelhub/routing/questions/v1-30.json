@@ -21,7 +21,8 @@
     "vision": 2,
     "tooluse": 1,
     "robustness": 1,
-    "calibration": 1
+    "calibration": 1,
+    "summarization": 1
   },
   "prompts": [
     {
@@ -912,6 +913,39 @@
         {
           "criterion": "no_fabricated_exact_number",
           "weight": 0.3
+        }
+      ]
+    },
+    {
+      "id": "summarization-coverage-01",
+      "lang": "en",
+      "axes": ["summarization"],
+      "prompt": "Summarize the following text in ONE single sentence of at most 25 words. Output ONLY that sentence, no preamble.\n\nText:\nOn July 20, 1969, NASA's Apollo 11 mission landed Neil Armstrong and Buzz Aldrin on the Moon while Michael Collins remained in lunar orbit. Armstrong's first words from the lunar surface — \"one small step for [a] man, one giant leap for mankind\" — became iconic. The crew returned safely to Earth on July 24, 1969.",
+      "expected_behavior": "Produce ONE sentence (≤25 words ideally; ≤30 tolerated), citing the key entities: Apollo 11, 1969, Moon (or lunar), Armstrong. No bullet list, no preamble, no quoting of the whole source.",
+      "rubric": [
+        {
+          "criterion": "must_include_apollo_11",
+          "weight": 0.25
+        },
+        {
+          "criterion": "must_include_year_1969",
+          "weight": 0.2
+        },
+        {
+          "criterion": "must_include_moon",
+          "weight": 0.2
+        },
+        {
+          "criterion": "must_include_armstrong",
+          "weight": 0.15
+        },
+        {
+          "criterion": "one_sentence",
+          "weight": 0.1
+        },
+        {
+          "criterion": "length_under_30_words",
+          "weight": 0.1
         }
       ]
     }

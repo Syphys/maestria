@@ -1464,6 +1464,8 @@
   "mhAxisDescTooluse": "Tool use: emitting a correct function/tool call (JSON name + arguments) — critical for agents/MCP.",
   "mhAxisDescRobustness": "Robustness: resisting prompt-injection — following the legitimate task, ignoring embedded malicious instructions.",
   "mhAxisDescCalibration": "Calibration: honest abstention — saying \"I don't know\" on the unknowable instead of fabricating a confident answer.",
+  "mhAxisSummarization": "Summary",
+  "mhAxisDescSummarization": "Summarization: condensing a source into one short sentence covering the key entities — measured deterministically by entity coverage + length (no embedder on the characterization path, SPEC §4).",
   "mhCharacterize": "Characterize",
   "mhRecharacterize": "Re-characterize",
   "mhCharacterizeConfirm": "Replace the existing competence signature for this model? A new characterization run will overwrite it.",

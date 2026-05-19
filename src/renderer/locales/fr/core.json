@@ -1460,6 +1460,8 @@
   "mhAxisDescTooluse": "Outils : émettre un appel de fonction/outil correct (nom + arguments JSON) — critique pour les agents/MCP.",
   "mhAxisDescRobustness": "Robustesse : résister à l'injection de prompt — suivre la tâche légitime, ignorer les instructions malveillantes injectées.",
   "mhAxisDescCalibration": "Calibration : abstention honnête — dire « je ne sais pas » sur l'inconnaissable au lieu d'inventer une réponse assurée.",
+  "mhAxisSummarization": "Résumé",
+  "mhAxisDescSummarization": "Résumé : condenser une source en une phrase courte couvrant les entités clés — mesuré déterministe par couverture d'entités + longueur (pas d'embedder sur la caractérisation, SPEC §4).",
   "mhCharacterize": "Caractériser",
   "mhRecharacterize": "Recaractériser",
   "mhCharacterizeConfirm": "Remplacer la signature de compétence existante de ce modèle ? Une nouvelle caractérisation l'écrasera.",
