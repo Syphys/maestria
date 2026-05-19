@@ -20,6 +20,9 @@ import { score as factualScience01 } from './factual-science-01';
 import { score as longctxExtract01 } from './longctx-extract-01';
 import { score as instructionFormat01 } from './instruction-format-01';
 import { score as metaClassify01 } from './meta-classify-01';
+import { score as tooluseCall01 } from './tooluse-call-01';
+import { score as robustnessInject01 } from './robustness-inject-01';
+import { score as calibrationAbstain01 } from './calibration-abstain-01';
 
 export const DETERMINISTIC_SCORERS: Record<string, DeterministicScorer> = {
   'math-algebra-01': mathAlgebra01,
@@ -32,6 +35,9 @@ export const DETERMINISTIC_SCORERS: Record<string, DeterministicScorer> = {
   'longctx-extract-01': longctxExtract01,
   'instruction-format-01': instructionFormat01,
   'meta-classify-01': metaClassify01,
+  'tooluse-call-01': tooluseCall01,
+  'robustness-inject-01': robustnessInject01,
+  'calibration-abstain-01': calibrationAbstain01,
 };
 
 export function getScorer(promptId: string): DeterministicScorer | null {

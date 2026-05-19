@@ -21,7 +21,11 @@ export type DiagnosticAxis =
   | 'longctx'
   | 'factual'
   | 'multistep'
-  | 'meta';
+  | 'meta'
+  // slice 6e — deterministic gap-filling axes (no judge, D3):
+  | 'tooluse' // function/tool-call emission (critical for MCP/agents)
+  | 'robustness' // prompt-injection / adversarial resistance
+  | 'calibration'; // honest abstention ("I don't know") vs hallucination
 
 export type RubricCriterion = {
   /** Stable, snake_case key the judge LLM will see in its scoring rubric. */

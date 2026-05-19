@@ -114,14 +114,17 @@ export function CompetenceSection({
       'reasoning',
       'multistep',
       'meta',
+      'calibration',
       'qcm',
       'instruction',
+      'tooluse',
       'factual',
       'longctx',
       'lang',
       'creative',
       'vision',
       'fim',
+      'robustness',
       'refusal',
     ];
     const rank = (a: string) => {

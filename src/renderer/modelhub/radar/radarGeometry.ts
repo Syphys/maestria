@@ -88,6 +88,9 @@ export const AXIS_I18N: Record<string, string> = {
   fim: 'core:mhAxisFim',
   refusal: 'core:mhAxisRefusal',
   qcm: 'core:mhAxisQcm',
+  tooluse: 'core:mhAxisTooluse',
+  robustness: 'core:mhAxisRobustness',
+  calibration: 'core:mhAxisCalibration',
 };
 
 /** Axis / branch key → i18n key for the human-readable DEFINITION shown
@@ -107,6 +110,9 @@ export const AXIS_DESC_I18N: Record<string, string> = {
   fim: 'core:mhAxisDescFim',
   refusal: 'core:mhAxisDescRefusal',
   qcm: 'core:mhAxisDescQcm',
+  tooluse: 'core:mhAxisDescTooluse',
+  robustness: 'core:mhAxisDescRobustness',
+  calibration: 'core:mhAxisDescCalibration',
 };
 
 const TWO_DECIMAL_EPS = 1e-9;
