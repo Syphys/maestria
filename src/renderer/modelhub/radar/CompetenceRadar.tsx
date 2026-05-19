@@ -15,9 +15,12 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme, alpha } from '@mui/material';
 import type { DiagnosticAxis } from '../../../shared/RoutingTypes';
 import {
+  AXIS_I18N,
+  AXIS_DESC_I18N,
   buildRadarGeometry,
   toPointsAttr,
   type RadarAxisDatum,
@@ -52,6 +55,15 @@ export function CompetenceRadar({
   showLabels,
 }: CompetenceRadarProps): JSX.Element | null {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const axisLabel = (k: string): string => {
+    const key = AXIS_I18N[k];
+    return key ? t(key) : k;
+  };
+  const axisDesc = (k: string): string => {
+    const key = AXIS_DESC_I18N[k];
+    return key ? t(key) : '';
+  };
   const [hovered, setHovered] = useState<DiagnosticAxis | null>(null);
 
   const mini = variant === 'mini';
@@ -77,7 +89,7 @@ export function CompetenceRadar({
   const accLabel =
     title ??
     `Competence radar: ${data
-      .map((d) => `${d.axis} ${pct(d.score)}`)
+      .map((d) => `${axisLabel(d.axis)} ${pct(d.score)}`)
       .join(', ')}`;
 
   return (
@@ -144,13 +156,16 @@ export function CompetenceRadar({
             role={interactive ? 'button' : undefined}
             aria-label={
               interactive
-                ? `${a.axis}: ${pct(a.score)}${
+                ? `${axisLabel(a.axis)}: ${pct(a.score)}${
                     a.n != null ? `, ${a.n} items` : ''
                   }`
                 : undefined
             }
             style={{ cursor: interactive ? 'pointer' : 'default' }}
           >
+            <title>
+              {axisLabel(a.axis)} — {axisDesc(a.axis)}
+            </title>
             <circle
               cx={a.valuePoint.x}
               cy={a.valuePoint.y}
@@ -167,7 +182,7 @@ export function CompetenceRadar({
                 dominantBaseline="middle"
                 fill={isHot ? hoverColor : labelColor}
               >
-                {a.axis}
+                {axisLabel(a.axis)}
               </text>
             )}
             {/* %·n sub-label only in the full detail view (tile stays clean) */}

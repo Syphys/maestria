@@ -44,7 +44,12 @@ import {
   type CharacterizeRunStatus,
 } from '../useCharacterize';
 import { CompetenceRadar } from './CompetenceRadar';
-import { axisDataFromSignature } from './radarGeometry';
+import {
+  AXIS_I18N,
+  AXIS_DESC_I18N,
+  axisDataFromSignature,
+  type RadarAxisDatum,
+} from './radarGeometry';
 
 interface Props {
   filePath: string;
@@ -73,7 +78,58 @@ export function CompetenceSection({
   const [snack, setSnack] = useState<string | null>(null);
 
   const beh = signature?.behavioral ?? null;
-  const data = useMemo(() => axisDataFromSignature(beh), [beh]);
+  const qcm = signature?.qcm_reliability ?? null;
+  // R5 radar presentation (user 2026-05-19). PURE presentation — the
+  // routing vector / scores_per_axis are never touched here:
+  //  - fr/en/zh collapsed into ONE `lang` axis (mean of measured langs);
+  //  - a `qcm` axis = qcm_reliability.overall (aptitude to answer an
+  //    MCQ). Display-only, NEVER enters routing (SPEC §6bis);
+  //  - semantic order (math between code & reasoning), unknown last.
+  const data = useMemo(() => {
+    const rows = axisDataFromSignature(beh);
+    const isLang = (a: string) => a === 'fr' || a === 'en' || a === 'zh';
+    const out: RadarAxisDatum[] = rows.filter((r) => !isLang(r.axis));
+    const subs = rows.filter((r) => isLang(r.axis));
+    if (subs.length > 0) {
+      const mean = subs.reduce((s, r) => s + r.score, 0) / subs.length;
+      const n = subs.reduce((s, r) => s + (r.n ?? 0), 0) || undefined;
+      // 'lang'/'qcm' are presentation-only axes, not routing
+      // DiagnosticAxis; the radar uses `axis` only as a label/key.
+      out.push({
+        axis: 'lang' as unknown as RadarAxisDatum['axis'],
+        score: mean,
+        n,
+      });
+    }
+    if (qcm && Number.isFinite(qcm.overall)) {
+      out.push({
+        axis: 'qcm' as unknown as RadarAxisDatum['axis'],
+        score: qcm.overall,
+        n: qcm.n,
+      });
+    }
+    const ORDER = [
+      'code',
+      'math',
+      'reasoning',
+      'multistep',
+      'meta',
+      'qcm',
+      'instruction',
+      'factual',
+      'longctx',
+      'lang',
+      'creative',
+      'vision',
+      'fim',
+      'refusal',
+    ];
+    const rank = (a: string) => {
+      const i = ORDER.indexOf(a);
+      return i === -1 ? ORDER.length : i;
+    };
+    return out.sort((a, b) => rank(String(a.axis)) - rank(String(b.axis)));
+  }, [beh, qcm]);
 
   const vectorText = useMemo(() => {
     if (!beh) return '';
@@ -94,10 +150,10 @@ export function CompetenceSection({
     );
   }, [beh, axis]);
 
-  const copy = async (text: string) => {
+  const copy = async (text: string, msg?: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setSnack(t('core:mhCompetenceVectorCopied'));
+      setSnack(msg ?? t('core:mhCompetenceVectorCopied'));
     } catch {
       /* clipboard blocked — the text is still selectable inline */
     }
@@ -223,7 +279,7 @@ export function CompetenceSection({
     const head = `${id}  ${e.pass ? '[' + t('core:mhCompetencePass') + ']' : '[' + t('core:mhCompetenceFail') + ']'}  score=${(e.score ?? 0).toFixed(2)}`;
     const detail = e.detail ? `\n  ${e.detail}` : '';
     const err = e.error ? `\n  ! ${e.error}` : '';
-    const resp = e.response ? `\n  → ${e.response.slice(0, 400)}` : '';
+    const resp = e.response ? `\n  → ${e.response.trim()}` : '';
     return head + detail + err + resp;
   };
 
@@ -322,7 +378,7 @@ export function CompetenceSection({
             <Typography variant="subtitle2">
               {axis &&
                 t('core:mhCompetenceAxisDetail', {
-                  axis,
+                  axis: AXIS_I18N[axis] ? t(AXIS_I18N[axis]) : axis,
                   n: axisEntries.length,
                 })}
             </Typography>
@@ -344,24 +400,42 @@ export function CompetenceSection({
               </ButtonBase>
             </Stack>
           </Stack>
-          <Box
-            component="pre"
-            sx={{
-              m: 0,
-              p: 1,
-              maxHeight: 260,
-              overflow: 'auto',
-              fontFamily: 'monospace',
-              fontSize: '0.72rem',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              userSelect: 'text',
-              bgcolor: 'action.hover',
-              borderRadius: 1,
-            }}
-          >
-            {drillText}
-          </Box>
+
+          {/* What this competence means (also on hover via SVG title). */}
+          {axis && AXIS_DESC_I18N[axis] && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 1, userSelect: 'text' }}
+            >
+              {t(AXIS_DESC_I18N[axis])}
+            </Typography>
+          )}
+
+          {drillText && (
+            <Box
+              component="pre"
+              sx={{
+                m: 0,
+                p: 1,
+                maxHeight: 320,
+                overflow: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '0.78rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                userSelect: 'text',
+                color: 'text.primary',
+                bgcolor: 'action.hover',
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
+              {drillText}
+            </Box>
+          )}
         </Box>
       </Collapse>
 

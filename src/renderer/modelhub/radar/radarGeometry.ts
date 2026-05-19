@@ -68,6 +68,47 @@ export type RadarOptions = {
 /** A radar needs at least this many spokes to be a polygon (not a line). */
 export const MIN_RADAR_AXES = 3;
 
+/**
+ * Axis / branch key → i18n key (single source of truth, used by the R5
+ * radar and the per-axis drill-down). `lang` is the presentation-only
+ * merged language axis. Pure constant — translation happens in the view.
+ */
+export const AXIS_I18N: Record<string, string> = {
+  code: 'core:mhAxisCode',
+  math: 'core:mhAxisMath',
+  reasoning: 'core:mhAxisReasoning',
+  multistep: 'core:mhAxisMultistep',
+  meta: 'core:mhAxisMeta',
+  instruction: 'core:mhAxisInstruction',
+  factual: 'core:mhAxisFactual',
+  longctx: 'core:mhAxisLongctx',
+  lang: 'core:mhAxisLang',
+  creative: 'core:mhAxisCreative',
+  vision: 'core:mhAxisVision',
+  fim: 'core:mhAxisFim',
+  refusal: 'core:mhAxisRefusal',
+  qcm: 'core:mhAxisQcm',
+};
+
+/** Axis / branch key → i18n key for the human-readable DEFINITION shown
+ *  on hover (SVG title) and at the top of the click drill-down. */
+export const AXIS_DESC_I18N: Record<string, string> = {
+  code: 'core:mhAxisDescCode',
+  math: 'core:mhAxisDescMath',
+  reasoning: 'core:mhAxisDescReasoning',
+  multistep: 'core:mhAxisDescMultistep',
+  meta: 'core:mhAxisDescMeta',
+  instruction: 'core:mhAxisDescInstruction',
+  factual: 'core:mhAxisDescFactual',
+  longctx: 'core:mhAxisDescLongctx',
+  lang: 'core:mhAxisDescLang',
+  creative: 'core:mhAxisDescCreative',
+  vision: 'core:mhAxisDescVision',
+  fim: 'core:mhAxisDescFim',
+  refusal: 'core:mhAxisDescRefusal',
+  qcm: 'core:mhAxisDescQcm',
+};
+
 const TWO_DECIMAL_EPS = 1e-9;
 
 /** Round to 3 decimals — compact, stable SVG output + deterministic tests. */
