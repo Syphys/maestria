@@ -22,6 +22,7 @@ import {
 import { memoryFitScore } from './structural';
 import type { QueryProjection } from './embedProject';
 import type { RouteCandidate, RouteResources, RouteWeights } from './router';
+import { ROUTING_DEFAULTS, eligibility, normaliseScore } from './routingCommon';
 
 /** Descend to leaf granularity when a leaf projects at least this well. */
 export const DEFAULT_THETA_Q = 0.5;
@@ -35,7 +36,6 @@ export const DEFAULT_THETA_Q = 0.5;
  * sidecars. `Math.min(1, raw/maxRung)` clamps either way.
  */
 export const DEFAULT_MAX_RUNG = 1;
-const DEFAULTS = { competence: 1.0, fit: 0.5, hot: 0.1, priorDiscount: 0.5 };
 
 export interface VectorRouteHit {
   /** Dimension id: a branch name or a `${branch}.${leaf}` id. */
@@ -66,16 +66,6 @@ export interface RouteByVectorsResult {
   level: Record<string, 'branch' | 'leaf'>;
 }
 
-/** D9 gate: only a COMPLETE behavioral signature can route. */
-function eligibility(sig?: Signature | null): string | null {
-  if (!sig) return 'not characterized';
-  if (sig.characterization_state === 'failed') return 'quarantined (failed)';
-  if (sig.characterization_state !== 'complete')
-    return `not complete (${sig.characterization_state})`;
-  if (!sig.behavioral) return 'no behavioral block';
-  return null;
-}
-
 const pos = (x: number | undefined) => (typeof x === 'number' && x > 0 ? x : 0);
 
 /**
@@ -89,7 +79,7 @@ export function routeByVectors(
   weights: RouteWeights = {},
   opts: { thetaQ?: number; maxRung?: number } = {},
 ): RouteByVectorsResult {
-  const w = { ...DEFAULTS, ...weights };
+  const w = { ...ROUTING_DEFAULTS, ...weights };
   const thetaQ = opts.thetaQ ?? DEFAULT_THETA_Q;
   const maxRung = opts.maxRung ?? DEFAULT_MAX_RUNG;
 
@@ -140,23 +130,23 @@ export function routeByVectors(
       if (d.level === 'leaf') {
         const raw = beh?.scores_per_leaf?.[d.dim];
         if (typeof raw === 'number') {
-          v = Math.min(1, raw / maxRung);
+          v = normaliseScore(raw, maxRung);
         } else {
           const bp = beh?.branch_scores?.[d.branch as CompetenceBranch];
           if (typeof bp === 'number') {
-            v = Math.min(1, bp) * w.priorDiscount; // D12: branch prior
+            v = normaliseScore(bp, 1) * w.priorDiscount; // D12: branch prior
             usedPrior = true;
           }
         }
       } else {
         const bp = beh?.branch_scores?.[d.branch as CompetenceBranch];
         if (typeof bp === 'number') {
-          v = Math.min(1, bp);
+          v = normaliseScore(bp, 1);
         } else if (beh?.scores_per_leaf) {
           // mean of this branch's measured leaves as a coarse prior
           const ms = Object.entries(beh.scores_per_leaf)
             .filter(([k]) => k.startsWith(d.branch + '.'))
-            .map(([, s]) => Math.min(1, s / maxRung));
+            .map(([, s]) => normaliseScore(s, maxRung));
           if (ms.length) {
             v = ms.reduce((a, x) => a + x, 0) / ms.length;
             usedPrior = true;

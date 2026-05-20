@@ -11,6 +11,7 @@
 import type { DiagnosticAxis, Signature } from '../../../shared/RoutingTypes';
 import { memoryFitScore } from './structural';
 import { classifyQuery, type AxisWeights } from './classifyQuery';
+import { ROUTING_DEFAULTS, eligibility } from './routingCommon';
 
 export interface RouteCandidate {
   /** Stable id (model file path or label). */
@@ -63,19 +64,6 @@ export interface RouteResult {
   axes: RouteAxisHit[];
 }
 
-const DEFAULTS = { competence: 1.0, fit: 0.5, hot: 0.1, priorDiscount: 0.5 };
-
-/** D9 gate: only a model with a COMPLETE behavioral signature can route. */
-function eligibility(sig?: Signature | null): string | null {
-  if (!sig) return 'not characterized';
-  if (sig.characterization_state === 'failed') return 'quarantined (failed)';
-  if (sig.characterization_state !== 'complete') {
-    return `not complete (${sig.characterization_state})`;
-  }
-  if (!sig.behavioral) return 'no behavioral block';
-  return null;
-}
-
 /**
  * Rank candidates for a query's axis-weight profile. Eligible models are
  * sorted best-first; ineligible ones are kept (for transparency) with
@@ -87,7 +75,7 @@ export function rankModels(
   resources: RouteResources = {},
   weights: RouteWeights = {},
 ): RouteResult[] {
-  const w = { ...DEFAULTS, ...weights };
+  const w = { ...ROUTING_DEFAULTS, ...weights };
   const entries = Object.entries(axisWeights) as [DiagnosticAxis, number][];
   const wSum = entries.reduce((a, [, v]) => a + v, 0) || 1;
 
