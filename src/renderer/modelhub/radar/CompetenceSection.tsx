@@ -15,7 +15,7 @@
  * invalidated and the radar appears without a reload.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -76,6 +76,18 @@ export function CompetenceSection({
   );
   const [axis, setAxis] = useState<DiagnosticAxis | null>(null);
   const [snack, setSnack] = useState<string | null>(null);
+  // Slice 7d — surface the missing free-gen probe ONCE per signature load.
+  // The probe is opt-in (Settings ▸ AI ▸ Routing must have an embedder
+  // URL set). Without it, characterization works but `topic_coverage_*`
+  // is absent — silently. We point the user at the setting so they know
+  // why one signal is missing, instead of leaving it as a mystery.
+  useEffect(() => {
+    if (!signature?.behavioral) return;
+    if (signature.characterization_state !== 'complete') return;
+    if (signature.behavioral.topic_coverage_per_leaf) return;
+    setSnack(t('core:mhFreegenAbsentNotice'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature?.characterized_at]);
 
   const beh = signature?.behavioral ?? null;
   const qcm = signature?.qcm_reliability ?? null;

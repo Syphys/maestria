@@ -1468,6 +1468,7 @@
   "mhAxisDescSummarization": "Summarization: condensing a source into one short sentence covering the key entities — measured deterministically by entity coverage + length (no embedder on the characterization path, SPEC §4).",
   "mhAxisInformatics": "Informatics",
   "mhAxisDescInformatics": "Informatics (broader than programming): computer networks, operating systems, security, hardware architecture, complexity theory. 5 leaves × 3 levels, short exact-norm items.",
+  "mhFreegenAbsentNotice": "Free-gen probe not run: configure an embedder under Settings ▸ AI ▸ Routing (recommended: Qwen3-Embedding-0.6B-Q8_0.gguf served via `llama-server --embedding`). Without it, topic coverage (topic_coverage_per_leaf) stays absent — deterministic characterization still works normally.",
   "mhCharacterize": "Characterize",
   "mhRecharacterize": "Re-characterize",
   "mhCharacterizeConfirm": "Replace the existing competence signature for this model? A new characterization run will overwrite it.",

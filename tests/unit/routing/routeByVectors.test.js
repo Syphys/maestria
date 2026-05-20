@@ -111,3 +111,67 @@ describe('routeByVectors (slice 5a §5)', () => {
     );
   });
 });
+
+describe('routeByVectors (slice 7d) — topic_coverage blending', () => {
+  test('no topic_coverage ⇒ result identical to scores-only (back-compat)', () => {
+    const candidates = [
+      { id: 'A', signature: sig({ scores_per_leaf: { 'code.python': 1 } }) },
+    ];
+    const base = routeByVectors(projection({ 'code.python': 0.9 }), candidates);
+    const blended = routeByVectors(
+      projection({ 'code.python': 0.9 }),
+      candidates,
+      {},
+      {},
+      { topicCoverageWeight: 0.3 },
+    );
+    expect(near(base.ranked[0].competence, blended.ranked[0].competence)).toBe(
+      true,
+    );
+  });
+
+  test('blend α=0.7 / β=0.3: scores=1 + topic=0 ⇒ 0.7, scores=0 + topic=1 ⇒ 0.3', () => {
+    const strong = sig({
+      scores_per_leaf: { 'code.python': 1 },
+      topic_coverage_per_leaf: { 'code.python': 0 },
+    });
+    const talker = sig({
+      scores_per_leaf: { 'code.python': 0 },
+      topic_coverage_per_leaf: { 'code.python': 1 },
+    });
+    const r = routeByVectors(projection({ 'code.python': 0.9 }), [
+      { id: 'strong', signature: strong },
+      { id: 'talker', signature: talker },
+    ]);
+    expect(near(r.ranked[0].competence, 0.7)).toBe(true);
+    expect(near(r.ranked[1].competence, 0.3)).toBe(true);
+    expect(r.best?.id).toBe('strong'); // deterministic wins over talker
+  });
+
+  test('β=0 ⇒ topic_coverage IGNORED at routing time', () => {
+    const talker = sig({
+      scores_per_leaf: { 'code.python': 0 },
+      topic_coverage_per_leaf: { 'code.python': 1 },
+    });
+    const r = routeByVectors(
+      projection({ 'code.python': 0.9 }),
+      [{ id: 'talker', signature: talker }],
+      {},
+      {},
+      { topicCoverageWeight: 0 },
+    );
+    expect(near(r.ranked[0].competence, 0)).toBe(true); // pure scores-only
+  });
+
+  test('negative cosine clamps to 0 (no anti-routing)', () => {
+    const m = sig({
+      scores_per_leaf: { 'code.python': 0.5 },
+      topic_coverage_per_leaf: { 'code.python': -0.4 },
+    });
+    const r = routeByVectors(projection({ 'code.python': 0.9 }), [
+      { id: 'm', signature: m },
+    ]);
+    // α·0.5 + β·max(0,-0.4) = 0.7·0.5 + 0.3·0 = 0.35
+    expect(near(r.ranked[0].competence, 0.35)).toBe(true);
+  });
+});

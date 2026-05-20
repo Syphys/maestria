@@ -27,6 +27,15 @@ import { ROUTING_DEFAULTS, eligibility, normaliseScore } from './routingCommon';
 /** Descend to leaf granularity when a leaf projects at least this well. */
 export const DEFAULT_THETA_Q = 0.5;
 /**
+ * Slice 7d — How much weight the free-gen `topic_coverage_per_leaf`
+ * pulls in the dot-product, relative to the deterministic
+ * `scores_per_leaf`. Default `β = 0.3` keeps deterministic dominant
+ * (α = 1 − β = 0.7) per Decision DCC constraint 3 (« additional
+ * evidence, never replacement »). Set to 0 to ignore the probe at
+ * routing time even when persisted; pass via `opts.topicCoverageWeight`.
+ */
+export const DEFAULT_TOPIC_COVERAGE_WEIGHT = 0.3;
+/**
  * Divisor applied to `scores_per_leaf` to bring it into [0,1] for the
  * competence dot-product. With `scoring_scheme === 'beta-laplace-v1'`
  * (étape 1) leaf scores are already smoothed Beta posterior means
@@ -77,11 +86,21 @@ export function routeByVectors(
   candidates: RouteCandidate[],
   resources: RouteResources = {},
   weights: RouteWeights = {},
-  opts: { thetaQ?: number; maxRung?: number } = {},
+  opts: {
+    thetaQ?: number;
+    maxRung?: number;
+    /** Slice 7d — see DEFAULT_TOPIC_COVERAGE_WEIGHT. */
+    topicCoverageWeight?: number;
+  } = {},
 ): RouteByVectorsResult {
   const w = { ...ROUTING_DEFAULTS, ...weights };
   const thetaQ = opts.thetaQ ?? DEFAULT_THETA_Q;
   const maxRung = opts.maxRung ?? DEFAULT_MAX_RUNG;
+  const beta = Math.max(
+    0,
+    Math.min(1, opts.topicCoverageWeight ?? DEFAULT_TOPIC_COVERAGE_WEIGHT),
+  );
+  const alpha = 1 - beta;
 
   // 1. Adaptive level per branch + build the weighted dimension list.
   const level: Record<string, 'branch' | 'leaf'> = {};
@@ -153,7 +172,20 @@ export function routeByVectors(
           }
         }
       }
-      return { dim: d.dim, level: d.level, q: d.q, v, usedPrior };
+      // Slice 7d — blend topic_coverage on top of deterministic v.
+      // tc lives in [-1, 1] (cosine); we clamp negatives to 0 since a
+      // negative cosine on an axis means « the model talks AWAY from
+      // this topic », not « it talks against it » — neutral, not
+      // anti-routing. When tc is absent (probe not run / no embedder
+      // configured), beta·tc=0 and v stays the deterministic value.
+      const tc =
+        d.level === 'leaf'
+          ? beh?.topic_coverage_per_leaf?.[d.dim]
+          : beh?.topic_coverage_per_branch?.[d.branch as CompetenceBranch];
+      const tcClamped = typeof tc === 'number' && tc > 0 ? Math.min(1, tc) : 0;
+      const vBlended =
+        beta > 0 && typeof tc === 'number' ? alpha * v + beta * tcClamped : v;
+      return { dim: d.dim, level: d.level, q: d.q, v: vBlended, usedPrior };
     });
 
     const competence = hits.reduce((a, h) => a + h.q * h.v, 0) / wSum;
