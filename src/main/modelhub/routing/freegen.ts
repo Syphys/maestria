@@ -28,32 +28,36 @@ import type { ProbeAnchorBank } from '../../../shared/RoutingTypes';
 import { anchorOrder, projectFromVectors } from './embedProject';
 
 /**
- * The two-step probe. We ask for a LIST of topics first (model has
- * agency, won't talk about something it doesn't know), then for a
- * deep-dive on its FIRST choice. The first-step list isn't used for
- * embedding (too short, gameable to one-line lies) — the second-step
- * essay is what we embed. The user explicitly asked for « le plus
- * possible librement » — that's the second step's role. The list step
- * is a focusing prime, not a measurement.
+ * Topic-neutral, open-ended seed prompt (per the « What LLMs Think
+ * When You Don't Tell Them What to Think About » 2024 line of work,
+ * arxiv 2602.01689). The earlier 2-step design — « first list 5
+ * topics, then deep-dive on one » — was demonstrably worse: Step 1
+ * introduced self-assessment bias (the model lists what RLHF tells it
+ * to claim it knows, not what it actually knows), and Step 2 forced
+ * commitment to that potentially-fabricated list. The simpler open
+ * prompt lets the model's training distribution emerge directly: a
+ * code-LLM naturally surfaces type-system / algorithm vocabulary, a
+ * med-LLM surfaces cardio / pharmacology, a tiny model writes vague
+ * generic text and its embedding centres on lang.* — exactly the
+ * signal we want.
  *
- * Why ONE 400-word essay, not several 150-word ones: at <200 words,
- * a model has been observed to mirror the prompt's wording rather
- * than emit its own distribution; longer free-gen drifts INTO the
- * model's training neighbourhood. The 8k context Nomic-style embedder
- * handles 400 words comfortably.
+ * Length: 600-800 words (~900-1100 tokens, fits the default
+ * max_tokens=1024 ChatClient cap with margin). User asked for closer
+ * to 1000, but the chat client caps responses; aiming for 600-800
+ * keeps the model from being truncated mid-thought (which would skew
+ * the embedding toward the lang.* generic-prose direction).
+ *
+ * The ONLY constraint is « no meta-discourse » — without it, ~70% of
+ * RLHF-tuned models burn 50-100 words on « As an AI, I find many
+ * topics fascinating… » before any real content, which clusters them
+ * all in the same useless region of embedding space.
  */
 export const FREEGEN_PROMPT = [
-  'Step 1 — In ONE line, list 5 topics or domains you know in depth, technical enough that you could write at expert level about them. Use precise terms, not vague labels (e.g. "ribosomal RNA transcription" not "biology"). Format: comma-separated, one line, no numbering.',
+  'Talk to me about whatever fascinates you most. Write 600-800 words.',
   '',
-  'Step 2 — Now PICK the topic from your list that you find most fascinating, the one where you have the most precise vocabulary and concrete examples ready. Write 300-400 words on it as if you were composing the opening of a technical blog post for an expert reader.',
+  'Go directly into the topic — no introduction, no meta-discourse, no "as an AI…" caveats, no disclaimers about your nature or limitations. Just the content.',
   '',
-  'Constraints for Step 2:',
-  "- Go directly into content — no introduction, no meta-discourse ('In this post we will…').",
-  '- Use specialised vocabulary and concrete examples natural to the topic.',
-  "- Don't apologise, don't disclaim — assume the reader knows the field and wants depth.",
-  '- Write in whichever language feels most natural for the topic.',
-  '',
-  'Output BOTH steps as plain text, separated by a blank line. No markdown headers, no bullet points.',
+  'Use specialised vocabulary natural to your chosen topic and write in whichever language feels most fitting.',
 ].join('\n');
 
 /** What we get back from `runFreeGenProbe`. */
