@@ -42,7 +42,18 @@ function ipc(): IpcLite | undefined {
 export interface UseCharacterizeAllState {
   running: boolean;
   progress?: CharacterizeAllProgress;
-  start: (rootDir: string, skipWrite?: boolean) => Promise<void>;
+  /**
+   * Start a bulk run. `force` (slice 6b) ⇒ `skipExisting = false`, i.e.
+   * re-characterize every model, including `complete` AND `failed`
+   * (useful after a scoring-scheme bump or a llama-server update that
+   * unblocks a previously-quarantined architecture). Default false
+   * keeps the original resumable behaviour.
+   */
+  start: (
+    rootDir: string,
+    skipWrite?: boolean,
+    force?: boolean,
+  ) => Promise<void>;
   cancel: () => void;
 }
 
@@ -68,7 +79,11 @@ export function useCharacterizeAll(): UseCharacterizeAllState {
   }, []);
 
   const start = useCallback(
-    async (rootDir: string, skipWrite?: boolean): Promise<void> => {
+    async (
+      rootDir: string,
+      skipWrite?: boolean,
+      force?: boolean,
+    ): Promise<void> => {
       const i = ipc();
       if (!i?.invoke || running) return;
       setRunning(true);
@@ -77,7 +92,9 @@ export function useCharacterizeAll(): UseCharacterizeAllState {
           MODELHUB_IPC.characterizeAllStart,
           rootDir,
           skipWrite,
-          true, // skipExisting — resumable batch (Slice-5 default)
+          // Slice 6b: `force` ⇒ skipExisting=false (re-do complete + failed);
+          // default keeps the resumable Slice-5 behaviour.
+          !force,
         )) as StartResult;
         if (!res.ok && aliveRef.current) {
           setProgress((prev) =>

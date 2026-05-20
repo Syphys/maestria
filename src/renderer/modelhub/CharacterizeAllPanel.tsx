@@ -10,10 +10,13 @@
  * trigger.
  */
 
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
+  Checkbox,
+  FormControlLabel,
   IconButton,
   LinearProgress,
   Stack,
@@ -30,6 +33,10 @@ function CharacterizeAllPanel(): JSX.Element {
   const { t } = useTranslation();
   const { currentLocation } = useCurrentLocationContext();
   const { running, progress, start, cancel } = useCharacterizeAll();
+  // Slice 6b — force toggle: when on, skipExisting=false so the bulk run
+  // re-characterizes every model (complete + failed). Local UI state only;
+  // resets implicitly when the panel unmounts. No accidental persistence.
+  const [force, setForce] = useState(false);
 
   const rootDir = currentLocation?.path;
   const readOnly = !!currentLocation?.isReadOnly;
@@ -66,13 +73,14 @@ function CharacterizeAllPanel(): JSX.Element {
     <span>
       <Button
         size="small"
-        variant="outlined"
+        variant={force ? 'contained' : 'outlined'}
+        color={force ? 'warning' : 'primary'}
         startIcon={<ScienceIcon />}
         disabled={disabled}
-        onClick={() => rootDir && start(rootDir, readOnly)}
+        onClick={() => rootDir && start(rootDir, readOnly, force)}
         data-tid="characterizeAllTID"
       >
-        {t('core:mhCharAllStart')}
+        {force ? t('core:mhCharAllStartForce') : t('core:mhCharAllStart')}
       </Button>
     </span>
   );
@@ -108,10 +116,35 @@ function CharacterizeAllPanel(): JSX.Element {
               <StopCircleIcon fontSize="small" color="error" />
             </IconButton>
           </Tooltip>
-        ) : blockedTip ? (
-          <Tooltip title={blockedTip}>{startBtn}</Tooltip>
         ) : (
-          startBtn
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Tooltip title={t('core:mhCharAllForceHint')}>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={force}
+                    onChange={(e) => setForce(e.target.checked)}
+                    disabled={disabled}
+                    inputProps={{
+                      'aria-label': t('core:mhCharAllForce'),
+                    }}
+                  />
+                }
+                label={
+                  <Typography variant="caption" color="text.secondary">
+                    {t('core:mhCharAllForce')}
+                  </Typography>
+                }
+              />
+            </Tooltip>
+            {blockedTip ? (
+              <Tooltip title={blockedTip}>{startBtn}</Tooltip>
+            ) : (
+              startBtn
+            )}
+          </Stack>
         )}
       </Stack>
 
