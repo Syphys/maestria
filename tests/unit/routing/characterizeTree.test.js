@@ -156,8 +156,14 @@ describe('R5-gated tree (slice 6a)', () => {
       fr: 0.2,
       en: 0.7,
       zh: 0.1,
+      informatics: 0.6,
     });
-    expect(g).toEqual({ code: 0.5, reasoning: 0.8, lang: 0.7 });
+    expect(g).toEqual({
+      code: 0.5,
+      reasoning: 0.8,
+      lang: 0.7,
+      informatics: 0.6,
+    });
     expect(branchGateFromAxes(undefined)).toEqual({});
     expect(branchGateFromAxes({})).toEqual({});
   });

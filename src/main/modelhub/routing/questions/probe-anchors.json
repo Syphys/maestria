@@ -11,7 +11,8 @@
     "lang": "Understanding and producing precise natural language across languages.",
     "format": "Strictly following output-format and exact-length constraints.",
     "longctx": "Retrieving a specific fact buried in a very long input context.",
-    "safety": "Engaging with benign safety-education content instead of over-refusing."
+    "safety": "Engaging with benign safety-education content instead of over-refusing.",
+    "informatics": "Computer science knowledge beyond programming itself: networks, operating systems, security, hardware, theory."
   },
   "leaves": {
     "code.python": "Writing correct, idiomatic Python code and predicting its behavior.",
@@ -36,6 +37,11 @@
     "format.generic": "Following exact literal formatting instructions precisely.",
     "longctx.needle-8k": "Finding a needle fact within roughly 8k tokens of distractor text.",
     "longctx.needle-32k": "Finding a needle fact within roughly 32k tokens of distractor text.",
-    "safety.non-censure": "Answering protective safety questions without unwarranted refusal."
+    "safety.non-censure": "Answering protective safety questions without unwarranted refusal.",
+    "informatics.network": "Computer networks: TCP/IP, DNS, well-known ports, IPv4 and IPv6.",
+    "informatics.os": "Operating systems: POSIX system calls, processes, signals, file descriptors.",
+    "informatics.security": "Information security: cryptography, hashing, authentication, common attacks.",
+    "informatics.hardware": "Computer hardware: CPU architecture, memory hierarchy, cache, instruction sets.",
+    "informatics.theory": "Computer science theory: complexity classes, big-O analysis, algorithms."
   }
 }

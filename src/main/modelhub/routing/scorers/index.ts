@@ -24,6 +24,7 @@ import { score as tooluseCall01 } from './tooluse-call-01';
 import { score as robustnessInject01 } from './robustness-inject-01';
 import { score as calibrationAbstain01 } from './calibration-abstain-01';
 import { score as summarizationCoverage01 } from './summarization-coverage-01';
+import { score as informaticsGeneral01 } from './informatics-general-01';
 
 export const DETERMINISTIC_SCORERS: Record<string, DeterministicScorer> = {
   'math-algebra-01': mathAlgebra01,
@@ -40,6 +41,7 @@ export const DETERMINISTIC_SCORERS: Record<string, DeterministicScorer> = {
   'robustness-inject-01': robustnessInject01,
   'calibration-abstain-01': calibrationAbstain01,
   'summarization-coverage-01': summarizationCoverage01,
+  'informatics-general-01': informaticsGeneral01,
 };
 
 export function getScorer(promptId: string): DeterministicScorer | null {

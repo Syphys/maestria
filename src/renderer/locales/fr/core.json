@@ -1462,6 +1462,8 @@
   "mhAxisDescCalibration": "Calibration : abstention honnête — dire « je ne sais pas » sur l'inconnaissable au lieu d'inventer une réponse assurée.",
   "mhAxisSummarization": "Résumé",
   "mhAxisDescSummarization": "Résumé : condenser une source en une phrase courte couvrant les entités clés — mesuré déterministe par couverture d'entités + longueur (pas d'embedder sur la caractérisation, SPEC §4).",
+  "mhAxisInformatics": "Informatique",
+  "mhAxisDescInformatics": "Informatique (au sens large, distinct de la programmation) : réseaux, systèmes d'exploitation, sécurité, architecture matérielle, théorie de la complexité. 5 feuilles × 3 niveaux, items exact-norm courts.",
   "mhCharacterize": "Caractériser",
   "mhRecharacterize": "Recaractériser",
   "mhCharacterizeConfirm": "Remplacer la signature de compétence existante de ce modèle ? Une nouvelle caractérisation l'écrasera.",

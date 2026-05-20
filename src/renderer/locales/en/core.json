@@ -1466,6 +1466,8 @@
   "mhAxisDescCalibration": "Calibration: honest abstention — saying \"I don't know\" on the unknowable instead of fabricating a confident answer.",
   "mhAxisSummarization": "Summary",
   "mhAxisDescSummarization": "Summarization: condensing a source into one short sentence covering the key entities — measured deterministically by entity coverage + length (no embedder on the characterization path, SPEC §4).",
+  "mhAxisInformatics": "Informatics",
+  "mhAxisDescInformatics": "Informatics (broader than programming): computer networks, operating systems, security, hardware architecture, complexity theory. 5 leaves × 3 levels, short exact-norm items.",
   "mhCharacterize": "Characterize",
   "mhRecharacterize": "Re-characterize",
   "mhCharacterizeConfirm": "Replace the existing competence signature for this model? A new characterization run will overwrite it.",

@@ -75,6 +75,7 @@ export function branchGateFromAxes(
     format: maxOf('instruction'),
     longctx: maxOf('longctx'),
     safety: maxOf('refusal'),
+    informatics: maxOf('informatics'),
   };
   const out: Partial<Record<CompetenceBranch, number>> = {};
   for (const [b, v] of Object.entries(src) as [

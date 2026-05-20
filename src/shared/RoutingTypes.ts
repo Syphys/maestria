@@ -28,7 +28,12 @@ export type DiagnosticAxis =
   | 'calibration' // honest abstention ("I don't know") vs hallucination
   // slice 6f — deterministic via curated-source coverage, no embedder
   // on the characterization path (SPEC §4) and no judge (D3):
-  | 'summarization';
+  | 'summarization'
+  // slice 7a — domain-of-knowledge axis: computer science beyond
+  // programming (networking, OS, security, hardware, theory). Mirrored
+  // as a branch in the tree (`informatics`) so it gets the laddered
+  // climb too — not just a single R5 probe.
+  | 'informatics';
 
 export type RubricCriterion = {
   /** Stable, snake_case key the judge LLM will see in its scoring rubric. */
@@ -243,11 +248,17 @@ export type CompetenceBranch =
   | 'lang'
   | 'format'
   | 'longctx'
-  | 'safety';
+  | 'safety'
+  // slice 7a — informatics ≠ code: covers CS BEYOND programming
+  // (networks, OS, security, hardware, theory). Authored deterministic
+  // exact-norm items, one per leaf × level (L1-L3).
+  | 'informatics';
 
 /**
- * Frozen v0 tree: branch → leaves. Leaf id convention = `${branch}.${leaf}`
- * (e.g. "code.python", "math.geometrie"). `safety` is binary, not laddered.
+ * v0 tree: branch → leaves. Leaf id convention = `${branch}.${leaf}`
+ * (e.g. "code.python", "math.geometrie"). `safety` is binary, not
+ * laddered. Slice 7a adds `informatics` — formerly absent gap (the
+ * `code` branch covered programming only, not the broader CS field).
  */
 export const COMPETENCE_TREE: Record<CompetenceBranch, readonly string[]> = {
   code: ['python', 'cpp', 'sql', 'web', 'algo-dur', 'generic'],
@@ -257,6 +268,7 @@ export const COMPETENCE_TREE: Record<CompetenceBranch, readonly string[]> = {
   format: ['json-strict', 'longueur-exacte', 'generic'],
   longctx: ['needle-8k', 'needle-32k'],
   safety: ['non-censure'],
+  informatics: ['network', 'os', 'security', 'hardware', 'theory'],
 } as const;
 
 /** `${CompetenceBranch}.${leaf}`. Kept as string (authoring flexibility);

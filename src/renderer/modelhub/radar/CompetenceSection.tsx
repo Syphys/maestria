@@ -110,6 +110,7 @@ export function CompetenceSection({
     }
     const ORDER = [
       'code',
+      'informatics',
       'math',
       'reasoning',
       'multistep',

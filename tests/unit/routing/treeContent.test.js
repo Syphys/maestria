@@ -10,6 +10,8 @@ import triplets from '../../../src/main/modelhub/routing/questions/embedding-tri
 const AXES = new Set([
   'code','math','reasoning','creative','fr','en','zh','vision','refusal',
   'fim','instruction','longctx','factual','multistep','meta',
+  // slice 6e/6f/7a — new deterministic axes (no judge, D3):
+  'tooluse','robustness','calibration','summarization','informatics',
 ]);
 const CHECK_KINDS = new Set([
   'exact-norm','regex','json-schema','length','refusal','code-tests','mcq',
@@ -65,7 +67,8 @@ describe('tree-v0 content', () => {
       } else for (const n of [1, 2, 3]) if (!lv.has(n)) fail.push(`${leaf} missing L${n}`);
     }
     expect(fail).toEqual([]);
-    expect(tree.prompts.length).toBe(67);
+    // slice 7a — +15 informatics prompts (5 leaves × L1/L2/L3); was 67.
+    expect(tree.prompts.length).toBe(82);
   });
 });
 

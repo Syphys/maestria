@@ -948,6 +948,27 @@
           "weight": 0.1
         }
       ]
+    },
+    {
+      "id": "informatics-general-01",
+      "lang": "en",
+      "axes": ["informatics"],
+      "prompt": "Answer each item on ONE line, ONLY the canonical value, no prose:\n1. The IPv4 loopback address (dotted decimal).\n2. The default TCP port number for HTTPS.\n3. The asymptotic complexity class word for binary search (one word: linear, logarithmic, quadratic, exponential, constant).",
+      "expected_behavior": "Three one-line answers in order: 127.0.0.1 ; 443 ; logarithmic.",
+      "rubric": [
+        {
+          "criterion": "loopback_127",
+          "weight": 0.34
+        },
+        {
+          "criterion": "https_443",
+          "weight": 0.33
+        },
+        {
+          "criterion": "binary_search_logarithmic",
+          "weight": 0.33
+        }
+      ]
     }
   ]
 }

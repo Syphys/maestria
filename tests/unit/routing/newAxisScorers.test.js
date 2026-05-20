@@ -5,6 +5,7 @@ import { score as tooluse } from '../../../src/main/modelhub/routing/scorers/too
 import { score as robustness } from '../../../src/main/modelhub/routing/scorers/robustness-inject-01';
 import { score as calibration } from '../../../src/main/modelhub/routing/scorers/calibration-abstain-01';
 import { score as summarization } from '../../../src/main/modelhub/routing/scorers/summarization-coverage-01';
+import { score as informatics } from '../../../src/main/modelhub/routing/scorers/informatics-general-01';
 
 const prompt = (rubric) => ({ id: 'x', axes: [], prompt: '', rubric });
 const TOOL = prompt([
@@ -29,6 +30,11 @@ const SUM = prompt([
   { criterion: 'must_include_armstrong', weight: 0.15 },
   { criterion: 'one_sentence', weight: 0.1 },
   { criterion: 'length_under_30_words', weight: 0.1 },
+]);
+const INFO = prompt([
+  { criterion: 'loopback_127', weight: 0.34 },
+  { criterion: 'https_443', weight: 0.33 },
+  { criterion: 'binary_search_logarithmic', weight: 0.33 },
 ]);
 
 describe('tooluse-call-01 scorer', () => {
@@ -146,6 +152,40 @@ describe('summarization-coverage-01 scorer', () => {
       SUM,
     );
     expect(r.partialCriteria.one_sentence).toBe(false);
+    expect(r.pass).toBe(false);
+  });
+});
+
+describe('informatics-general-01 scorer (slice 7a)', () => {
+  test('all 3 facts on separate lines ⇒ full pass', () => {
+    const r = informatics('127.0.0.1\n443\nlogarithmic', INFO);
+    expect(r.pass).toBe(true);
+    expect(r.score).toBeCloseTo(1, 5);
+  });
+  test('tolerant: French "logarithmique" + <think> + prose around', () => {
+    const r = informatics(
+      '<think>thinking…</think>\nThe loopback is 127.0.0.1, HTTPS uses 443, and binary search is logarithmique.',
+      INFO,
+    );
+    expect(r.partialCriteria.loopback_127).toBe(true);
+    expect(r.partialCriteria.https_443).toBe(true);
+    expect(r.partialCriteria.binary_search_logarithmic).toBe(true);
+    expect(r.pass).toBe(true);
+  });
+  test('2 of 3 ⇒ still pass (majority threshold)', () => {
+    const r = informatics('127.0.0.1\nport 443\nquadratic', INFO);
+    expect(r.partialCriteria.binary_search_logarithmic).toBe(false);
+    expect(r.pass).toBe(true);
+  });
+  test('only 1 of 3 ⇒ fail', () => {
+    const r = informatics('127.0.0.1\n8080\nlinear', INFO);
+    expect(r.pass).toBe(false);
+  });
+  test('digit-glued numbers DO NOT match (defensive boundaries)', () => {
+    // "10.127.0.0.1.0" should NOT match 127.0.0.1; "4430" must not match 443.
+    const r = informatics('10.127.0.0.1.0 and port 4430', INFO);
+    expect(r.partialCriteria.loopback_127).toBe(false);
+    expect(r.partialCriteria.https_443).toBe(false);
     expect(r.pass).toBe(false);
   });
 });
