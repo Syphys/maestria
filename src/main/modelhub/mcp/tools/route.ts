@@ -22,6 +22,7 @@ import { loadSignature } from '../../routing/signatureStore';
 import { type RouteCandidate, type RouteWeights } from '../../routing/router';
 import { decideRoute } from '../../routing/routeDecision';
 import { getRoutingConfig, effectiveRoutingParams } from '../../routingConfig';
+import { ensureEmbedderReady } from '../../embedderLifecycle';
 import { register } from '../registry';
 
 function coerceWeights(value: unknown): RouteWeights | undefined {
@@ -160,12 +161,27 @@ register({
 
     const resources = await probeFreeMemory();
     const params = effectiveRoutingParams(await getRoutingConfig());
+    // Slice 7e — resolve embedder to a live baseUrl. `managed` ⇒ launch
+    // the GGUF via maestria; `external` ⇒ user-provided URL; null ⇒ R5
+    // fallback (decideRoute handles the embedder-absent case natively).
+    let embedderRef: { baseUrl: string; model?: string } | undefined;
+    if (params.embedder?.kind === 'managed') {
+      const ready = await ensureEmbedderReady(params.embedder.filePath, {
+        model: params.embedder.model,
+      });
+      if (ready) embedderRef = { baseUrl: ready.baseUrl, model: ready.model };
+    } else if (params.embedder?.kind === 'external') {
+      embedderRef = {
+        baseUrl: params.embedder.baseUrl,
+        model: params.embedder.model,
+      };
+    }
     const decision = await decideRoute({
       query: a.query,
       candidates,
       resources,
       weights,
-      embedder: params.embedder,
+      embedder: embedderRef,
       params: {
         thetaQ: params.thetaQ,
         embeddingReliabilityThreshold: params.embeddingReliabilityThreshold,

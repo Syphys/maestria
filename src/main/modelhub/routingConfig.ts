@@ -40,11 +40,27 @@ export interface RoutingConfig {
   /** Bytes held back from probed free RAM before fit scoring. */
   ramReserveBytes?: number;
   /**
-   * SPEC v0 vector routing. When `routingEmbedderBaseUrl` is set,
-   * `models.route` projects the query onto the probe anchors and ranks by
-   * the competence tree; on ANY failure it silently falls back to the R5
-   * deterministic classifier. Empty ⇒ R5 only (back-compat).
+   * SPEC v0 vector routing — TWO ways to point at an embedder:
+   *
+   * 1. `routingEmbedderPath` (slice 7e, recommended) — absolute path to a
+   *    GGUF embedder file (e.g. `D:\models\LLM\Embedding\Qwen3-Embedding-
+   *    0.6B-Q8_0.gguf`). Maestria itself launches it via
+   *    `llama-server --embedding`, tracks the PID, and reuses it. Treats
+   *    it like any other model (appears in RunningModelsPanel,
+   *    `launchedBy: 'embedder'`). The recommended UX — user just picks a
+   *    file.
+   *
+   * 2. `routingEmbedderBaseUrl` (legacy, manual) — URL of an embedder
+   *    ALREADY RUNNING somewhere (local llama-server you started, OpenAI
+   *    cloud, Voyage, etc.). User-managed lifecycle. Useful when you
+   *    don't want maestria to spawn a process.
+   *
+   * Priority: `routingEmbedderPath` wins when both are set (the file path
+   * is the cleaner UX). On ANY failure (file missing, launch crash, URL
+   * unreachable) routing silently falls back to the R5 deterministic
+   * classifier. Both empty ⇒ R5 only (back-compat).
    */
+  routingEmbedderPath?: string;
   routingEmbedderBaseUrl?: string;
   /** Model id sent to the embedder (local llama-server ignores it). */
   routingEmbedderModel?: string;
@@ -102,6 +118,8 @@ function sanitize(input: RoutingConfig): RoutingConfig {
   if (typeof input.ramReserveBytes === 'number' && input.ramReserveBytes > 0) {
     out.ramReserveBytes = Math.floor(input.ramReserveBytes);
   }
+  const fp = input.routingEmbedderPath?.trim();
+  if (fp) out.routingEmbedderPath = fp;
   const url = input.routingEmbedderBaseUrl?.trim();
   if (url) out.routingEmbedderBaseUrl = url;
   const model = input.routingEmbedderModel?.trim();
@@ -151,19 +169,42 @@ export function effectiveRoutingParams(cfg: RoutingConfig): {
   thetaQ: number;
   thetaOpen: number;
   embeddingReliabilityThreshold: number;
-  embedder?: { baseUrl: string; model?: string };
+  /**
+   * Embedder location at config-time (does NOT include the live URL of
+   * a maestria-launched embedder — that's resolved at runtime by
+   * `embedderLifecycle.ensureEmbedderReady()`). Either:
+   *  - `kind: 'managed'` + `filePath` — maestria spawns it (slice 7e)
+   *  - `kind: 'external'` + `baseUrl` — already running, user-managed
+   *  - undefined — no embedder, R5 fallback only
+   */
+  embedder?:
+    | { kind: 'managed'; filePath: string; model?: string }
+    | { kind: 'external'; baseUrl: string; model?: string };
 } {
+  let embedder:
+    | { kind: 'managed'; filePath: string; model?: string }
+    | { kind: 'external'; baseUrl: string; model?: string }
+    | undefined;
+  // path wins over url (cleaner UX — maestria runs the process)
+  if (cfg.routingEmbedderPath) {
+    embedder = {
+      kind: 'managed',
+      filePath: cfg.routingEmbedderPath,
+      model: cfg.routingEmbedderModel,
+    };
+  } else if (cfg.routingEmbedderBaseUrl) {
+    embedder = {
+      kind: 'external',
+      baseUrl: cfg.routingEmbedderBaseUrl,
+      model: cfg.routingEmbedderModel,
+    };
+  }
   return {
     thetaQ: cfg.thetaQ ?? DEFAULT_THETA_Q,
     thetaOpen: cfg.thetaOpen ?? DEFAULT_THETA_OPEN,
     embeddingReliabilityThreshold:
       cfg.embeddingReliabilityThreshold ??
       DEFAULT_EMBEDDING_RELIABILITY_THRESHOLD,
-    embedder: cfg.routingEmbedderBaseUrl
-      ? {
-          baseUrl: cfg.routingEmbedderBaseUrl,
-          model: cfg.routingEmbedderModel,
-        }
-      : undefined,
+    embedder,
   };
 }

@@ -79,6 +79,9 @@ function SettingsAI(_props: Props) {
   const [rcDraft, setRcDraft] = React.useState<{
     vramGb: string;
     ramGb: string;
+    // Slice 7e — `embPath` is the managed-launch path; `embUrl` is the
+    // legacy external-URL fallback. `embPath` wins when both are set.
+    embPath: string;
     embUrl: string;
     embModel: string;
     thetaQ: string;
@@ -87,6 +90,7 @@ function SettingsAI(_props: Props) {
   }>({
     vramGb: '',
     ramGb: '',
+    embPath: '',
     embUrl: '',
     embModel: '',
     thetaQ: '',
@@ -103,6 +107,7 @@ function SettingsAI(_props: Props) {
     setRcDraft({
       vramGb: gb(rc.config.vramReserveBytes),
       ramGb: gb(rc.config.ramReserveBytes),
+      embPath: rc.config.routingEmbedderPath ?? '',
       embUrl: rc.config.routingEmbedderBaseUrl ?? '',
       embModel: rc.config.routingEmbedderModel ?? '',
       thetaQ: u(rc.config.thetaQ),
@@ -119,6 +124,7 @@ function SettingsAI(_props: Props) {
       const n = parseFloat(s);
       return Number.isFinite(n) && n > 0 && n <= 1 ? n : undefined;
     };
+    const path = rcDraft.embPath.trim();
     const url = rcDraft.embUrl.trim();
     const model = rcDraft.embModel.trim();
     await rc.save({
@@ -126,6 +132,7 @@ function SettingsAI(_props: Props) {
         Number.isFinite(v) && v > 0 ? Math.round(v * 1024 ** 3) : undefined,
       ramReserveBytes:
         Number.isFinite(r) && r > 0 ? Math.round(r * 1024 ** 3) : undefined,
+      routingEmbedderPath: path || undefined,
       routingEmbedderBaseUrl: url || undefined,
       routingEmbedderModel: model || undefined,
       thetaQ: unit(rcDraft.thetaQ),
@@ -431,8 +438,22 @@ function SettingsAI(_props: Props) {
               {t('core:mhSettingsRoutingVectorHint')}
             </Typography>
             <TsTextField
+              label={t('core:mhSettingsRoutingEmbedderPath')}
+              placeholder="D:\\models\\LLM\\Embedding\\Qwen3-Embedding-0.6B-Q8_0.gguf"
+              value={rcDraft.embPath}
+              updateValue={(v) => setRcDraft((d) => ({ ...d, embPath: v }))}
+              retrieveValue={() => rcDraft.embPath}
+            />
+            <Typography
+              variant="caption"
+              color="text.disabled"
+              sx={{ display: 'block', mt: 0.25, mb: 0.5, fontStyle: 'italic' }}
+            >
+              {t('core:mhSettingsRoutingEmbedderPathHint')}
+            </Typography>
+            <TsTextField
               label={t('core:mhSettingsRoutingEmbedderUrl')}
-              placeholder="http://127.0.0.1:8080"
+              placeholder="http://127.0.0.1:8081"
               value={rcDraft.embUrl}
               updateValue={(v) => setRcDraft((d) => ({ ...d, embUrl: v }))}
               retrieveValue={() => rcDraft.embUrl}

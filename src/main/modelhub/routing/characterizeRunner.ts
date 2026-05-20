@@ -20,6 +20,7 @@ import { characterizeTree } from './characterizeTree';
 import { ChatClient } from './chat';
 import { EmbedClient } from './embed';
 import { getRoutingConfig, effectiveRoutingParams } from '../routingConfig';
+import { ensureEmbedderReady } from '../embedderLifecycle';
 import type { EmbedFn } from './embedProject';
 import type { CharacterizationProgress } from '../../../shared/RoutingTypes';
 
@@ -244,17 +245,31 @@ export async function runCharacterization(
     // keep it and only log; the tree must never sink the whole run.
     // Covers both the single-model and the bulk path (characterizeAll
     // delegates here). Fine-grained tree progress is deferred to 6c.
-    // Slice 7d — Free-gen probe wiring. Reuse the routing-side embedder
-    // config (Settings ▸ AI ▸ Routing — routingEmbedderBaseUrl) when set.
-    // The same EmbedClient that powers `models.route` projects the
-    // free-gen response onto the tree anchors. Absent ⇒ probe skipped
-    // silently (Decision DCC §4 carve-out preserves the absent path).
+    // Slice 7d/7e — Free-gen probe wiring. Resolve the embedder per
+    // routing config: `managed` ⇒ maestria launches the GGUF itself
+    // (slice 7e, recommended UX); `external` ⇒ user-provided URL.
+    // Absent ⇒ probe skipped silently (Decision DCC §4 preserves the
+    // absent path).
     let embed: EmbedFn | undefined;
     try {
       const cfg = await getRoutingConfig();
       const params = effectiveRoutingParams(cfg);
-      if (params.embedder) {
-        const client = new EmbedClient(params.embedder);
+      if (params.embedder?.kind === 'managed') {
+        const ready = await ensureEmbedderReady(params.embedder.filePath, {
+          model: params.embedder.model,
+        });
+        if (ready) {
+          const client = new EmbedClient({
+            baseUrl: ready.baseUrl,
+            model: ready.model,
+          });
+          embed = (texts) => client.embed(texts);
+        }
+      } else if (params.embedder?.kind === 'external') {
+        const client = new EmbedClient({
+          baseUrl: params.embedder.baseUrl,
+          model: params.embedder.model,
+        });
         embed = (texts) => client.embed(texts);
       }
     } catch {

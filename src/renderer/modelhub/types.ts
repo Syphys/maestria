@@ -573,8 +573,16 @@ export interface RoutingConfig {
   vramReserveBytes?: number;
   /** Bytes held back from probed free RAM. Blank ⇒ 2 GiB default. */
   ramReserveBytes?: number;
-  /** Routing embedder base URL. Set ⇒ models.route tries the vector
-   *  path (gated); blank ⇒ R5 deterministic only. */
+  /**
+   * Slice 7e — Absolute path to a GGUF embedder. When set, maestria
+   * launches it itself via `llama-server --embedding` (appears in the
+   * RunningModelsPanel as `launchedBy: 'embedder'`). Wins over
+   * `routingEmbedderBaseUrl` when both are set. Recommended UX.
+   */
+  routingEmbedderPath?: string;
+  /** Routing embedder base URL (LEGACY/EXTERNAL). For embedders the
+   *  user runs themselves elsewhere. Use `routingEmbedderPath` for the
+   *  maestria-managed flow. */
   routingEmbedderBaseUrl?: string;
   /** Model id sent to the routing embedder (optional). */
   routingEmbedderModel?: string;
