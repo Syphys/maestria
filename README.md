@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="brand/exports/icon.png" alt="Maestria" width="120" />
+  <img src="branding/exports/icon.png" alt="Maestria" width="120" />
 </p>
 
 # Maestria
