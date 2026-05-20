@@ -37,12 +37,19 @@ describe('tree-v0 content', () => {
       if (!Array.isArray(p.rubric) || !p.rubric.length)
         fail.push(`${p.id}: no rubric`);
       const c = p.check;
-      if (!c || !CHECK_KINDS.has(c.kind)) fail.push(`${p.id}: bad check`);
-      else if (c.kind === 'regex') {
-        try {
-          new RegExp(c.pattern, c.flags);
-        } catch (e) {
-          fail.push(`${p.id}: bad regex ${e.message}`);
+      // slice 7b — a prompt MAY have `check: null` when its scoring is
+      // dispatched through DETERMINISTIC_SCORERS by promptId (rich
+      // multi-criterion scorers like tools-tooluse-L2, reusing the
+      // 6e/6f scorers). In that case the rubric is the source of truth.
+      // Reject only when check is present AND malformed.
+      if (c != null) {
+        if (!CHECK_KINDS.has(c.kind)) fail.push(`${p.id}: bad check`);
+        else if (c.kind === 'regex') {
+          try {
+            new RegExp(c.pattern, c.flags);
+          } catch (e) {
+            fail.push(`${p.id}: bad regex ${e.message}`);
+          }
         }
       }
     }
@@ -68,7 +75,8 @@ describe('tree-v0 content', () => {
     }
     expect(fail).toEqual([]);
     // slice 7a — +15 informatics prompts (5 leaves × L1/L2/L3); was 67.
-    expect(tree.prompts.length).toBe(82);
+    // slice 7b — +12 tools prompts (4 leaves × L1/L2/L3). 82 + 12 = 94.
+    expect(tree.prompts.length).toBe(94);
   });
 });
 

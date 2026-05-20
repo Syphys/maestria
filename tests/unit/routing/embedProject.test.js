@@ -58,8 +58,8 @@ describe('projectQuery / projectFromVectors', () => {
     expect(near(p.leaves['code.python'], 1)).toBe(true);
     expect(near(p.leaves['math.proba'], 0)).toBe(true);
     expect(
-      Object.keys(p.branches).length === 8 &&
-        Object.keys(p.leaves).length === 28,
+      Object.keys(p.branches).length === 9 &&
+        Object.keys(p.leaves).length === 32,
     ).toBe(true);
   });
 
@@ -69,10 +69,10 @@ describe('projectQuery / projectFromVectors', () => {
     const [qv] = await fake(['___q___']);
     const p = projectFromVectors(qv, anchorVecs, branchIds, leafIds);
     expect(near(p.leaves['code.python'], 1)).toBe(true);
-    // slice 7a — tree grew: code(6) + math(5) + reasoning(3) + lang(3) +
-    // format(3) + longctx(2) + safety(1) + informatics(5) = 28 leaves /
-    // 8 branches.
-    expect(branchIds.length === 8 && leafIds.length === 28).toBe(true);
+    // slice 7a/7b — tree grew: code(6) + math(5) + reasoning(3) +
+    // lang(3) + format(3) + longctx(2) + safety(1) + informatics(5) +
+    // tools(4) = 32 leaves / 9 branches.
+    expect(branchIds.length === 9 && leafIds.length === 32).toBe(true);
   });
 });
 

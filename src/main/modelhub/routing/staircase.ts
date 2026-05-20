@@ -20,6 +20,7 @@
 import type { DiagnosticPrompt } from '../../../shared/RoutingTypes';
 import type { ChatLike } from './chat';
 import { runCheck, isSandboxRequest } from './scorers/checkSpec';
+import { getScorer } from './scorers';
 
 /** SPEC §3 default — open a branch's leaves only if level-1 ≥ this. */
 export const DEFAULT_THETA_OPEN = 0.6;
@@ -76,7 +77,14 @@ export async function evaluateItem(
   ask: ChatLike,
   seams: StaircaseSeams = {},
 ): Promise<ItemVerdict> {
-  if (!item.check) return { status: 'unmeasured', reason: 'no-items' };
+  // Slice 7b: prompts can route to a registered DeterministicScorer by
+  // id (rich multi-criterion, like the 6e/6f tooluse/robustness/...
+  // scorers reused at L2 of the tools tree branch). If neither a
+  // `check` block nor a scorer is registered, the item is genuinely
+  // unmeasurable.
+  const registeredScorer = getScorer(item.id);
+  if (!item.check && !registeredScorer)
+    return { status: 'unmeasured', reason: 'no-items' };
   let prompt = item.prompt;
   if (item.runtime_inject) {
     if (!seams.injectRuntime)
@@ -93,7 +101,16 @@ export async function evaluateItem(
   } catch {
     return { status: 'fail', reason: 'model-error' };
   }
-  const r = runCheck(item.check, response);
+  // Registered scorer first (covers `check: null` rich-rubric prompts).
+  if (registeredScorer) {
+    try {
+      const sr = registeredScorer(response, item);
+      return { status: sr.pass ? 'pass' : 'fail' };
+    } catch {
+      return { status: 'fail', reason: 'scorer-error' };
+    }
+  }
+  const r = runCheck(item.check!, response);
   if (isSandboxRequest(r)) {
     if (!seams.runSandbox)
       return { status: 'unmeasured', reason: 'sandbox-pending' };

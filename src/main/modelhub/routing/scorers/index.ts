@@ -42,6 +42,14 @@ export const DETERMINISTIC_SCORERS: Record<string, DeterministicScorer> = {
   'calibration-abstain-01': calibrationAbstain01,
   'summarization-coverage-01': summarizationCoverage01,
   'informatics-general-01': informaticsGeneral01,
+  // Slice 7b — `tools` branch laddered L2 reuses the 6e/6f scorers,
+  // registered under their tree promptIds. Same scoring logic; no
+  // duplication. L1/L3 of these leaves are pure exact-norm / regex in
+  // tree-v0.json (no scorer code needed).
+  'tools-tooluse-L2': tooluseCall01,
+  'tools-robustness-L2': robustnessInject01,
+  'tools-calibration-L2': calibrationAbstain01,
+  'tools-summarization-L2': summarizationCoverage01,
 };
 
 export function getScorer(promptId: string): DeterministicScorer | null {

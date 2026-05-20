@@ -252,7 +252,11 @@ export type CompetenceBranch =
   // slice 7a — informatics ≠ code: covers CS BEYOND programming
   // (networks, OS, security, hardware, theory). Authored deterministic
   // exact-norm items, one per leaf × level (L1-L3).
-  | 'informatics';
+  | 'informatics'
+  // slice 7b — tools: aligns the tree with the R5 deterministic axes
+  // added in 6e/6f (tooluse, robustness, calibration, summarization)
+  // so they get the laddered climb too, not just one shot in R5.
+  | 'tools';
 
 /**
  * v0 tree: branch → leaves. Leaf id convention = `${branch}.${leaf}`
@@ -269,6 +273,7 @@ export const COMPETENCE_TREE: Record<CompetenceBranch, readonly string[]> = {
   longctx: ['needle-8k', 'needle-32k'],
   safety: ['non-censure'],
   informatics: ['network', 'os', 'security', 'hardware', 'theory'],
+  tools: ['tooluse', 'robustness', 'calibration', 'summarization'],
 } as const;
 
 /** `${CompetenceBranch}.${leaf}`. Kept as string (authoring flexibility);

@@ -76,6 +76,10 @@ export function branchGateFromAxes(
     longctx: maxOf('longctx'),
     safety: maxOf('refusal'),
     informatics: maxOf('informatics'),
+    // Slice 7b — `tools` branch gate = max of its four R5 axes. Strong
+    // on ANY tooluse/robustness/calibration/summarization is enough to
+    // open the laddered climb (we'll see which leaf is the strong one).
+    tools: maxOf('tooluse', 'robustness', 'calibration', 'summarization'),
   };
   const out: Partial<Record<CompetenceBranch, number>> = {};
   for (const [b, v] of Object.entries(src) as [

@@ -12,7 +12,8 @@
     "format": "Strictly following output-format and exact-length constraints.",
     "longctx": "Retrieving a specific fact buried in a very long input context.",
     "safety": "Engaging with benign safety-education content instead of over-refusing.",
-    "informatics": "Computer science knowledge beyond programming itself: networks, operating systems, security, hardware, theory."
+    "informatics": "Computer science knowledge beyond programming itself: networks, operating systems, security, hardware, theory.",
+    "tools": "Agent-capable behaviors: emitting structured tool calls, resisting prompt injection, abstaining when uncertain, summarising faithfully."
   },
   "leaves": {
     "code.python": "Writing correct, idiomatic Python code and predicting its behavior.",
@@ -42,6 +43,10 @@
     "informatics.os": "Operating systems: POSIX system calls, processes, signals, file descriptors.",
     "informatics.security": "Information security: cryptography, hashing, authentication, common attacks.",
     "informatics.hardware": "Computer hardware: CPU architecture, memory hierarchy, cache, instruction sets.",
-    "informatics.theory": "Computer science theory: complexity classes, big-O analysis, algorithms."
+    "informatics.theory": "Computer science theory: complexity classes, big-O analysis, algorithms.",
+    "tools.tooluse": "Emitting structured function or tool calls (JSON object with name and arguments).",
+    "tools.robustness": "Ignoring adversarial prompt-injection while completing the legitimate task.",
+    "tools.calibration": "Honest abstention: saying \"I don't know\" on unknowable or false-premise questions.",
+    "tools.summarization": "Producing a faithful single-sentence summary that covers the key entities of a source."
   }
 }
