@@ -24,6 +24,10 @@ import {
 import type { ChatLike } from './chat';
 import { characterizeBranch, type StaircaseSeams } from './staircase';
 import { measureQcmReliability } from './qcmReliability';
+import type { EmbedFn } from './embedProject';
+import { runFreeGenProbe } from './freegen';
+import probeAnchors from './questions/probe-anchors.json';
+import type { ProbeAnchorBank } from '../../../shared/RoutingTypes';
 import {
   loadSignature,
   saveSignature,
@@ -104,6 +108,16 @@ export type CharacterizeTreeOptions = {
    * `scores_per_axis` (so a juxtaposed R5 pass auto-drives the tree).
    */
   branchGate?: Partial<Record<CompetenceBranch, number>>;
+  /**
+   * Slice 7c — Free-gen probe seam (« sonder la teuté du modèle »).
+   * When provided, after the tree pass we ask the model to write
+   * ~400 free-form words on a topic IT picks, embed the response, and
+   * persist the projection onto the 32 leaf anchors as
+   * `topic_coverage_per_leaf` (SPEC §4 carve-out — Decision DCC).
+   * Absent ⇒ probe skipped, behavioral block stays measurement-only.
+   * A probe failure is ISOLATED (try/catch) and never sinks the run.
+   */
+  embed?: EmbedFn;
   /** All injectable for offline tests. */
   treeSuite?: Suite;
   qcmSuite?: Suite;
@@ -213,6 +227,38 @@ export async function characterizeTree(
     leavesFromQcmPrior++;
   }
 
+  // Slice 7c — Free-gen probe (« sonder la teuté du modèle »).
+  // When an embedder is wired in (opts.embed), ask the model to talk
+  // freely for ~400 words on a topic IT picks, embed the response, and
+  // project onto the same 32 leaf anchors. Stored as
+  // `topic_coverage_per_leaf` — additional EVIDENCE on top of the
+  // deterministic competence scores, never a replacement. Probe failure
+  // is ISOLATED (try/catch): a flaky embedder, an empty response, an
+  // over-aligned model that refuses — none of these sink the tree pass
+  // we already computed.
+  let topic_coverage_per_leaf: Record<string, number> | undefined;
+  let topic_coverage_per_branch: Record<string, number> | undefined;
+  let freegen_words: number | undefined;
+  let freegen_excerpt: string | undefined;
+  if (opts.embed) {
+    try {
+      const fg = await runFreeGenProbe(
+        opts.ask,
+        opts.embed,
+        probeAnchors as unknown as ProbeAnchorBank,
+      );
+      topic_coverage_per_leaf = fg.topic_coverage_per_leaf;
+      topic_coverage_per_branch = fg.topic_coverage_per_branch;
+      freegen_words = fg.response_words;
+      freegen_excerpt = fg.response_excerpt;
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `freegen probe failed (tree kept): ${(e as Error).message}`,
+      );
+    }
+  }
+
   const prevBehavioral: BehavioralSignature = base.behavioral ?? {
     diagnostic_run: {},
     scores_per_axis: {},
@@ -225,6 +271,10 @@ export async function characterizeTree(
     n_per_leaf,
     passes_per_leaf,
     scoring_scheme: 'beta-laplace-v1',
+    ...(topic_coverage_per_leaf ? { topic_coverage_per_leaf } : {}),
+    ...(topic_coverage_per_branch ? { topic_coverage_per_branch } : {}),
+    ...(freegen_words != null ? { freegen_words } : {}),
+    ...(freegen_excerpt ? { freegen_excerpt } : {}),
   };
 
   const signature: Signature = {

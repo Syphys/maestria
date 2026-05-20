@@ -221,3 +221,83 @@ describe('R5-gated tree (slice 6a)', () => {
     expect(r.signature.behavioral.scores_per_axis.code).toBe(0.9);
   });
 });
+
+describe('characterizeTree — free-gen probe (slice 7c)', () => {
+  test('embed absent ⇒ probe skipped, no topic_coverage fields', async () => {
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask: strong,
+      branchGate: { math: 0.9 },
+      loadExisting: async () => undefined,
+      computeHash: async () => 'sha256:nofg',
+      now: () => 't',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    expect(r.signature.behavioral.topic_coverage_per_leaf).toBeUndefined();
+    expect(r.signature.behavioral.topic_coverage_per_branch).toBeUndefined();
+    expect(r.signature.behavioral.freegen_words).toBeUndefined();
+  });
+
+  test('embed provided ⇒ probe runs, topic_coverage fields populated', async () => {
+    // Toy embedder: every text → all-ones (so cosines = 1 across the
+    // board). What matters here is shape: fields present, populated,
+    // numeric, indexed by the same leaves as scores_per_leaf.
+    const ones = new Float32Array([1, 1, 1, 1]);
+    const embed = async (texts) => texts.map(() => ones);
+    const freeGenAsk = {
+      async complete(prompt, ctx) {
+        if (ctx?.id === 'freegen-probe')
+          return 'topic-a, topic-b, topic-c\n\nA paragraph about technical things with vocabulary.';
+        const id0 = ctx.id.split('#')[0];
+        const item = treeById[id0] ?? qcmById[id0];
+        return item ? gold(item, prompt) : '';
+      },
+    };
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask: freeGenAsk,
+      embed,
+      branchGate: { math: 0.9 },
+      loadExisting: async () => undefined,
+      computeHash: async () => 'sha256:fg',
+      now: () => 't',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    const beh = r.signature.behavioral;
+    expect(beh.topic_coverage_per_leaf).toBeDefined();
+    expect(beh.topic_coverage_per_branch).toBeDefined();
+    expect(beh.freegen_words).toBeGreaterThan(0);
+    // every-text-is-ones ⇒ cosine ≡ 1 for every anchor pair
+    expect(beh.topic_coverage_per_leaf['code.python']).toBeCloseTo(1, 5);
+    expect(beh.topic_coverage_per_branch.code).toBeCloseTo(1, 5);
+    // Excerpt stored (transparency).
+    expect(typeof beh.freegen_excerpt).toBe('string');
+    expect(beh.freegen_excerpt.length).toBeGreaterThan(0);
+  });
+
+  test('probe failure ISOLATED — tree pass kept (regression guard)', async () => {
+    const askThatFailsFreegen = {
+      async complete(prompt, ctx) {
+        if (ctx?.id === 'freegen-probe') return ''; // empty ⇒ throw
+        const id0 = ctx.id.split('#')[0];
+        const item = treeById[id0] ?? qcmById[id0];
+        return item ? gold(item, prompt) : '';
+      },
+    };
+    const embed = async (texts) => texts.map(() => new Float32Array(4));
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask: askThatFailsFreegen,
+      embed,
+      branchGate: { math: 0.9 },
+      loadExisting: async () => undefined,
+      computeHash: async () => 'sha256:fail',
+      now: () => 't',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    // Tree pass survived — leaves still measured.
+    expect(r.signature.behavioral.scores_per_leaf['math.generic']).toBe(0.8);
+    // But no freegen fields (probe threw, isolated).
+    expect(r.signature.behavioral.topic_coverage_per_leaf).toBeUndefined();
+  });
+});

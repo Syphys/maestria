@@ -400,6 +400,32 @@ export type BehavioralSignature = {
    * Absent ⇒ legacy `'breaking-rung-v0'` (pre-étape-1 signatures).
    */
   scoring_scheme?: 'beta-laplace-v1' | 'breaking-rung-v0';
+  /**
+   * Slice 7c — Free-gen probe (« sonder la teuté du modèle »).
+   *
+   * The model is asked to talk freely for ~400 words on a topic IT
+   * picks (no leading topic), the response is embedded, and the cosine
+   * projection onto every leaf anchor is stored here. Units: cosines
+   * in [-1, 1] (typically [0, 0.9]); same key space as
+   * `scores_per_leaf`, so the routing dot-product can blend the two
+   * signals (deterministic competence + topic coverage).
+   *
+   * SPEC §4 carve-out (DECISIONS.md DCC): this is the ONE place the
+   * embedder is invoked during characterization. The carve-out is
+   * justified because what gets persisted is NOT a 768-d opaque vector
+   * but the 32 cosines against the SAME anchors the routing path uses
+   * — interpretable, on the same tree, and ALWAYS used as additional
+   * evidence alongside the deterministic `scores_per_leaf`, never as
+   * a replacement. The embedder identity is already journalled in
+   * `embedder_id`, so a swap invalidates and re-runs this naturally.
+   */
+  topic_coverage_per_leaf?: Record<CompetenceLeafId, number>;
+  /** Same projection at branch granularity (audit + fast UI summary). */
+  topic_coverage_per_branch?: Partial<Record<CompetenceBranch, number>>;
+  /** Word count of the free-gen response (low ⇒ noisy probe signal). */
+  freegen_words?: number;
+  /** First ~600 chars of the response, kept for transparency / debug. */
+  freegen_excerpt?: string;
 };
 
 export type Signature = {
