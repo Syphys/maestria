@@ -21,11 +21,18 @@ import {
   measuredRadarData,
   buildLeafRadar,
   toPointsAttr,
+  type ScoringScheme,
   type TreeData,
 } from './treeSunburstGeometry';
 
 export interface CompetenceTreeProps {
   data: TreeData;
+  /**
+   * Scoring scheme tag from the signature — drives the "fully mastered"
+   * predicate inside {@link measuredRadarData}. Defaults to the legacy
+   * `breaking-rung-v0` to keep pre-étape-1 callers unchanged.
+   */
+  scheme?: ScoringScheme;
   /** SVG pixel side. Default 300. */
   size?: number;
 }
@@ -36,6 +43,7 @@ function fmtRaw(n: number): string {
 
 export function CompetenceTree({
   data,
+  scheme,
   size,
 }: CompetenceTreeProps): JSX.Element | null {
   const { t } = useTranslation();
@@ -43,7 +51,7 @@ export function CompetenceTree({
   const [hovered, setHovered] = useState<string | null>(null);
   const px = size ?? 300;
 
-  const items = measuredRadarData(data);
+  const items = measuredRadarData(data, scheme);
   const geom = buildLeafRadar(items, {
     size: 100,
     padding: 24,

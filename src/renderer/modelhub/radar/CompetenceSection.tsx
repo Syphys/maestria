@@ -44,6 +44,12 @@ import {
   type CharacterizeRunStatus,
 } from '../useCharacterize';
 import { CompetenceRadar } from './CompetenceRadar';
+import { CompetenceTree } from './CompetenceTree';
+import {
+  hasTreeData,
+  treeBreakdownText,
+  treeDataFromSignature,
+} from './treeSunburstGeometry';
 import {
   AXIS_I18N,
   AXIS_DESC_I18N,
@@ -75,6 +81,10 @@ export function CompetenceSection({
     () => setReloadNonce((n) => n + 1),
   );
   const [axis, setAxis] = useState<DiagnosticAxis | null>(null);
+  // Slice 8b — the fine vector-routing tree is information-dense (9
+  // branches × ~32 leaves + breakdown). Default closed; toggle reveals it
+  // under the R5 radar so it never competes with the coarse view above.
+  const [treeOpen, setTreeOpen] = useState(false);
   const [snack, setSnack] = useState<string | null>(null);
   // Slice 7d — surface the missing free-gen probe ONCE per signature load.
   // The probe is opt-in (Settings ▸ AI ▸ Routing must have an embedder
@@ -166,6 +176,17 @@ export function CompetenceSection({
       e.axes?.includes(axis),
     );
   }, [beh, axis]);
+
+  // Tree-level projection (slice 8b). The geometry is pure and resilient
+  // to a partial signature; we only render the section when at least one
+  // leaf or branch score is finite (`hasTreeData`), otherwise the toggle
+  // would expand into an empty card.
+  const treeData = useMemo(() => treeDataFromSignature(beh), [beh]);
+  const hasTree = useMemo(() => hasTreeData(beh), [beh]);
+  const treeBreakdown = useMemo(
+    () => (hasTree ? treeBreakdownText(treeData) : ''),
+    [hasTree, treeData],
+  );
 
   const copy = async (text: string, msg?: string) => {
     try {
@@ -382,6 +403,96 @@ export function CompetenceSection({
       </Typography>
 
       <Trigger hasExisting />
+
+      {/* Slice 8b — fine vector-routing tree (per-leaf), collapsible. The
+          geometry uses `signature.scoring_scheme` to pick the right
+          "fully mastered" predicate (Beta-Laplace passes===n vs legacy
+          breaking-rung integer); the breakdown text below it stays the
+          honest, copyable source of truth for every leaf. */}
+      {hasTree && (
+        <Box sx={{ mt: 1.5 }}>
+          <Divider sx={{ mb: 1 }} />
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 0.5 }}
+          >
+            <ButtonBase
+              onClick={() => setTreeOpen((v) => !v)}
+              sx={{
+                px: 0.5,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                borderRadius: 1,
+              }}
+              aria-expanded={treeOpen}
+            >
+              {treeOpen ? '▾ ' : '▸ '}
+              {t('core:mhTreeTitle')}
+            </ButtonBase>
+            {treeOpen && treeBreakdown && (
+              <Tooltip title={t('core:mhTreeCopy')}>
+                <IconButton
+                  size="small"
+                  onClick={() => copy(treeBreakdown, t('core:mhTreeCopied'))}
+                  aria-label={t('core:mhTreeCopy')}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+          <Collapse in={treeOpen} unmountOnExit>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5 }}
+            >
+              {t('core:mhTreeSubtitle')}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.disabled"
+              sx={{ display: 'block', mb: 1 }}
+            >
+              {t('core:mhTreeScaleHint')}
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+              <CompetenceTree
+                data={treeData}
+                scheme={beh.scoring_scheme}
+                size={280}
+              />
+            </Box>
+            {treeBreakdown && (
+              <Box
+                component="pre"
+                sx={{
+                  m: 0,
+                  mt: 1,
+                  p: 1,
+                  maxHeight: 280,
+                  overflow: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: '0.72rem',
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  userSelect: 'text',
+                  color: 'text.primary',
+                  bgcolor: 'action.hover',
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                }}
+              >
+                {treeBreakdown}
+              </Box>
+            )}
+          </Collapse>
+        </Box>
+      )}
 
       <Collapse in={!!axis} unmountOnExit>
         <Box sx={{ mt: 1 }}>
