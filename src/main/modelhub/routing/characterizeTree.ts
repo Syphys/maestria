@@ -166,6 +166,7 @@ export async function characterizeTree(
   const scores_per_leaf: Record<string, number> = {};
   const branch_scores: Partial<Record<CompetenceBranch, number>> = {};
   const n_per_leaf: Record<string, number> = {};
+  const passes_per_leaf: Record<string, number> = {};
   const branchesOpened: string[] = [];
 
   // Slice 6a: R5 (mapped) drives which branches the staircase deepens.
@@ -187,12 +188,17 @@ export async function characterizeTree(
     if (bm.opened) branchesOpened.push(branch);
     Object.assign(scores_per_leaf, bm.scores_per_leaf);
     Object.assign(n_per_leaf, bm.n_per_leaf);
+    Object.assign(passes_per_leaf, bm.passes_per_leaf);
   }
   const leavesMeasured = Object.keys(scores_per_leaf).length;
 
   // QCM: judge-candidacy facet + Dyy/D12 dual-purpose leaf prior. The
   // prior only fills leaves the staircase did NOT measure (never
-  // replaces a real rung), already discounted (low confidence).
+  // replaces a real rung), already discounted (low confidence). NOTE:
+  // QCM-prior leaves DO NOT get a passes_per_leaf entry — they aren't
+  // Bernoulli items, just a coarse [0,1] prior; Phase B saturation
+  // detection (étape 2) keys on `passes_per_leaf[l] === n_per_leaf[l]`,
+  // which absent ⇒ never triggered (correct: priors stay priors).
   const qcmRes = await measureQcmReliability(qcm.prompts, opts.ask);
   let leavesFromQcmPrior = 0;
   for (const [leaf, prior] of Object.entries(qcmRes.leaf_priors)) {
@@ -212,6 +218,8 @@ export async function characterizeTree(
     scores_per_leaf,
     branch_scores,
     n_per_leaf,
+    passes_per_leaf,
+    scoring_scheme: 'beta-laplace-v1',
   };
 
   const signature: Signature = {

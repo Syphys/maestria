@@ -73,15 +73,19 @@ describe('characterizeTree (slice 4c)', () => {
       r.signature.qcm_reliability.overall === 1 &&
         r.signature.qcm_reliability.n === 7,
     ).toBe(true);
-    expect(sl['math.generic'] === 3 && sl['math.proba'] === 3).toBe(true);
-    expect(sl['code.cpp']).toBe(3);
+    // Étape 1: Beta-Laplace ⇒ 3/3 = 4/5 = 0.8 (no more saturated 1.0)
+    expect(sl['math.generic'] === 0.8 && sl['math.proba'] === 0.8).toBe(true);
+    expect(sl['code.cpp']).toBe(0.8);
     expect(typeof r.signature.behavioral.branch_scores.math).toBe('number');
+    expect(r.signature.behavioral.scoring_scheme).toBe('beta-laplace-v1');
+    expect(r.signature.behavioral.passes_per_leaf['math.generic']).toBe(3);
     expect(persisted.length).toBe(1);
     expect(persisted[0].s === r.signature).toBe(true);
     expect(r.written).toBe(true);
     // Dyy/D12: code.python unmeasured (no sandbox) ⇒ discounted QCM prior
+    // (unchanged by étape 1: priors are already in [0,1])
     expect(sl['code.python']).toBe(0.5);
-    expect(sl['math.generic']).toBe(3); // never overwritten
+    expect(sl['math.generic']).toBe(0.8); // never overwritten
     expect(r.leavesFromQcmPrior > 0).toBe(true);
     expect(r.leavesMeasured >= 5).toBe(true);
   });
@@ -122,7 +126,7 @@ describe('characterizeTree (slice 4c)', () => {
       r.signature.behavioral.diagnostic_run['r5-x'] != null &&
         r.signature.behavioral.scores_per_axis.code === 0.7,
     ).toBe(true);
-    expect(r.signature.behavioral.scores_per_leaf['math.generic']).toBe(3);
+    expect(r.signature.behavioral.scores_per_leaf['math.generic']).toBe(0.8);
   });
 
   test('skipWrite honoured', async () => {
@@ -172,7 +176,7 @@ describe('R5-gated tree (slice 6a)', () => {
     const bs = r.signature.behavioral.branch_scores;
     expect(bs.math).toBe(0.9);
     expect(bs.code).toBe(0);
-    expect(sl['math.generic']).toBe(3);
+    expect(sl['math.generic']).toBe(0.8); // Beta-Laplace 3/3 (étape 1)
     expect(sl['code.cpp']).toBeUndefined(); // code branch gated closed
     expect(sl['code.python']).toBe(0.5); // qcm dual-purpose prior (Dyy/D12)
   });
@@ -200,7 +204,7 @@ describe('R5-gated tree (slice 6a)', () => {
     const sl = r.signature.behavioral.scores_per_leaf;
     expect(r.signature.behavioral.branch_scores.code).toBe(0.9); // gate open
     expect(r.signature.behavioral.branch_scores.math).toBe(0); // gate closed
-    expect(sl['code.cpp']).toBe(3);
+    expect(sl['code.cpp']).toBe(0.8); // Beta-Laplace 3/3
     expect(sl['math.algebre']).toBeUndefined();
     // R5 axis block preserved (additive, not destroyed)
     expect(r.signature.behavioral.scores_per_axis.code).toBe(0.9);

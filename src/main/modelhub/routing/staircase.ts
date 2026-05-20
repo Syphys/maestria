@@ -1,15 +1,21 @@
-// Slice 4a — staircase characterization engine (SPEC §3, pure core).
+// Slice 4a + étape-1 — staircase characterization engine (SPEC §3, pure core).
 //
 // Per leaf we climb the difficulty ladder until the FIRST failure
-// (early-stop, CAT-style): the leaf score is the breaking rung — the
-// highest contiguous level passed, NOT a saturated 0..1. A branch is
-// only "opened" (its leaves climbed past level 1) if the cheap level-1
-// probe meets θ_open — this auto-bounds cost (a weak / off-domain model
-// stops almost immediately). Deterministic: model I/O is the injected
-// `ChatLike` seam, scoring is slice-2b `runCheck`. `code-tests` rungs
-// need the slice-2d sandbox and `runtime_inject` rungs need the asset
-// pipeline; absent their seam the rung is UNMEASURED (≠ failed) so it
-// becomes a branch prior at routing (D12), never a false zero.
+// (early-stop, CAT-style). The leaf score is now the **Beta-Laplace
+// posterior mean** `(1 + passes) / (2 + asked)` over the climb (étape 1
+// 2026-05) — NOT the breaking rung. Why: integer rungs saturate at the
+// ladder top (3/3 ⇒ 1.0) and pretend perfect competence; Laplace
+// smoothing keeps 3/3 at 0.80 (= 4/5), and only Phase B (more items)
+// lifts that toward 1. `safety` stays binary 0/1 (single item, no
+// smoothing). A branch is only "opened" (leaves climbed past level 1)
+// if the cheap level-1 probe meets θ_open — this auto-bounds cost. The
+// open/close gate uses the RAW level-1 pass fraction (not Laplace-
+// smoothed) because it's a routing-path decision, not a competence.
+// Deterministic: model I/O is the injected `ChatLike` seam, scoring is
+// slice-2b `runCheck`. `code-tests` rungs need the slice-2d sandbox and
+// `runtime_inject` rungs need the asset pipeline; absent their seam the
+// rung is UNMEASURED (≠ failed) so it becomes a branch prior at
+// routing (D12), never a false zero.
 
 import type { DiagnosticPrompt } from '../../../shared/RoutingTypes';
 import type { ChatLike } from './chat';
@@ -41,13 +47,28 @@ export type BranchMeasure = {
   /** Fraction of MEASURABLE level-1 items passed; undefined ⇒ none measurable. */
   branch_score?: number;
   opened: boolean;
-  /** scores_per_leaf for opened leaves: breaking rung (highest level passed). */
+  /**
+   * scores_per_leaf for opened leaves: Beta-Laplace posterior mean
+   * `(1 + passes_per_leaf[l]) / (2 + n_per_leaf[l])` ∈ (0, 1) — except
+   * `safety` which stays binary 0/1.
+   */
   scores_per_leaf: Record<string, number>;
   /** Items actually evaluated per leaf (audit / confidence). */
   n_per_leaf: Record<string, number>;
+  /** Items PASSED per leaf (audit + Phase-B saturation trigger). */
+  passes_per_leaf: Record<string, number>;
   /** Leaves left unmeasured and why (→ branch prior, D12). */
   unmeasured: Record<string, Unmeasured>;
 };
+
+/**
+ * Beta-Laplace posterior mean `(1 + passes) / (2 + asked)`. Smooth: a
+ * single 1/1 → 0.67 (not 1.0); a 3/3 → 0.80. Exported for tests and so
+ * downstream code can recompute when Phase B adds items.
+ */
+export function betaLaplace(passes: number, asked: number): number {
+  return (1 + passes) / (2 + asked);
+}
 
 /** Run one item through the model + slice-2b checker. Never throws. */
 export async function evaluateItem(
@@ -127,6 +148,10 @@ export async function characterizeBranch(
       (a, b) => (a.level ?? 1) - (b.level ?? 1),
     );
 
+  // Final leaf score: binary safety (0/1) OR Beta-Laplace smoothed.
+  const leafScore = (passes: number, ran: number): number =>
+    binary ? (passes > 0 ? 1 : 0) : betaLaplace(passes, ran);
+
   // --- Slice 6a: R5-gated path (additive; legacy self-probe untouched).
   if (opts.branchGate !== undefined) {
     const gate = opts.branchGate;
@@ -137,10 +162,12 @@ export async function characterizeBranch(
         opened: false,
         scores_per_leaf: {},
         n_per_leaf: {},
+        passes_per_leaf: {},
         unmeasured: {},
       };
     const sl: Record<string, number> = {};
     const npl: Record<string, number> = {};
+    const ppl: Record<string, number> = {};
     const um: Record<string, Unmeasured> = {};
     for (const leaf of leaves) {
       const items = sorted[leaf];
@@ -149,7 +176,7 @@ export async function characterizeBranch(
         continue;
       }
       let ran = 0;
-      let score = 0;
+      let passes = 0;
       for (let i = 0; i < items.length; i++) {
         const v = await evaluateItem(items[i], ask, seams);
         if (v.status === 'unmeasured') {
@@ -158,13 +185,14 @@ export async function characterizeBranch(
         }
         ran++;
         if (v.status === 'pass') {
-          score = items[i].level ?? i + 1;
+          passes++;
           if (binary) break; // safety = level-1 only
-        } else break; // first failure → breaking rung reached
+        } else break; // first failure → climb stops (Beta over what ran)
       }
       if (ran > 0) {
-        sl[leaf] = score;
+        sl[leaf] = leafScore(passes, ran);
         npl[leaf] = ran;
+        ppl[leaf] = passes;
       }
     }
     return {
@@ -173,6 +201,7 @@ export async function characterizeBranch(
       opened: true,
       scores_per_leaf: sl,
       n_per_leaf: npl,
+      passes_per_leaf: ppl,
       unmeasured: um,
     };
   }
@@ -198,11 +227,15 @@ export async function characterizeBranch(
     if (v.status === 'pass') passed++;
   }
 
+  // RAW pass fraction at L1 — kept un-smoothed: this is a gate decision
+  // ("is this branch worth deepening?"), not a competence to compare
+  // across models. Smoothing would shift the θ_open cut-off arbitrarily.
   const branch_score = measurable > 0 ? passed / measurable : undefined;
   const opened = branch_score !== undefined && branch_score >= thetaOpen;
 
   const scores_per_leaf: Record<string, number> = {};
   const n_per_leaf: Record<string, number> = {};
+  const passes_per_leaf: Record<string, number> = {};
   if (!opened)
     return {
       branch,
@@ -210,6 +243,7 @@ export async function characterizeBranch(
       opened: false,
       scores_per_leaf,
       n_per_leaf,
+      passes_per_leaf,
       unmeasured,
     };
 
@@ -217,19 +251,20 @@ export async function characterizeBranch(
     const v1 = l1[leaf];
     if (!v1 || v1.status === 'unmeasured') continue; // already in `unmeasured`
     let ran = 1;
-    let score = v1.status === 'pass' ? (sorted[leaf][0].level ?? 1) : 0;
+    let passes = v1.status === 'pass' ? 1 : 0;
     if (v1.status === 'pass' && !binary) {
       for (let i = 1; i < sorted[leaf].length; i++) {
         const item = sorted[leaf][i];
         const v = await evaluateItem(item, ask, seams);
         if (v.status === 'unmeasured') break; // stop climb; keep last rung
         ran++;
-        if (v.status === 'pass') score = item.level ?? i + 1;
-        else break; // first failure → breaking rung reached
+        if (v.status === 'pass') passes++;
+        else break; // first failure → climb stops (Beta over what ran)
       }
     }
-    scores_per_leaf[leaf] = score;
+    scores_per_leaf[leaf] = leafScore(passes, ran);
     n_per_leaf[leaf] = ran;
+    passes_per_leaf[leaf] = passes;
   }
 
   return {
@@ -238,6 +273,7 @@ export async function characterizeBranch(
     opened: true,
     scores_per_leaf,
     n_per_leaf,
+    passes_per_leaf,
     unmeasured,
   };
 }

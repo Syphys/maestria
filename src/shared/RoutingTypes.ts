@@ -347,11 +347,20 @@ export type BehavioralSignature = {
   overall?: number;
   behavior_centroid: number[]; // embedding track — [] in the MVP (no embeddings)
   /**
-   * SPEC v0 vector-routing competence: leaf id → breaking-rung score
-   * (real-valued, unsaturated — the staircase rung where the model first
-   * failed). Absent leaf = not measured ⇒ use the branch prior
-   * (`branch_scores`, D12 priorDiscount mechanism). Coexists with
-   * `scores_per_axis` (R5 fallback path).
+   * SPEC v0 vector-routing competence: leaf id → competence in [0,1].
+   *
+   * Scoring scheme — see `scoring_scheme`:
+   *  - `'beta-laplace-v1'` (current): smoothed pass-rate
+   *    `(1 + passes) / (2 + asked)` over the climb. Caps at 0.80 for a
+   *    Phase-A 3/3 (4/5 = 0.80); ≥0.80 only after Phase B opens more
+   *    items. `safety` leaves stay binary 0/1 (single item, no smoothing).
+   *  - `'breaking-rung-v0'` (legacy): integer 0..3, the highest level
+   *    contiguously passed. Pre-Beta signatures; consumers normalise via
+   *    `/maxRung`. Marked for re-characterisation.
+   *
+   * Absent leaf = not measured ⇒ use the branch prior (`branch_scores`,
+   * D12 priorDiscount mechanism). Coexists with `scores_per_axis` (R5
+   * fallback path).
    */
   scores_per_leaf?: Record<CompetenceLeafId, number>;
   /**
@@ -361,6 +370,19 @@ export type BehavioralSignature = {
   branch_scores?: Partial<Record<CompetenceBranch, number>>;
   /** Sample size behind each leaf score (noisy ⇒ surfaced by the radar). */
   n_per_leaf?: Record<CompetenceLeafId, number>;
+  /**
+   * Raw item passes per leaf (audit + Phase-B saturation trigger).
+   * Present iff `scoring_scheme === 'beta-laplace-v1'`. The leaf score
+   * derives from this and `n_per_leaf` via Laplace, so writing it lets
+   * downstream code recompute the Beta posterior without re-running the
+   * model (e.g. when Phase B adds items).
+   */
+  passes_per_leaf?: Record<CompetenceLeafId, number>;
+  /**
+   * How `scores_per_leaf` / `branch_scores` should be interpreted.
+   * Absent ⇒ legacy `'breaking-rung-v0'` (pre-étape-1 signatures).
+   */
+  scoring_scheme?: 'beta-laplace-v1' | 'breaking-rung-v0';
 };
 
 export type Signature = {

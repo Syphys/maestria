@@ -25,8 +25,16 @@ import type { RouteCandidate, RouteResources, RouteWeights } from './router';
 
 /** Descend to leaf granularity when a leaf projects at least this well. */
 export const DEFAULT_THETA_Q = 0.5;
-/** Rung scale of `scores_per_leaf` → normalised to [0,1] (v0: 3 levels). */
-export const DEFAULT_MAX_RUNG = 3;
+/**
+ * Divisor applied to `scores_per_leaf` to bring it into [0,1] for the
+ * competence dot-product. With `scoring_scheme === 'beta-laplace-v1'`
+ * (étape 1) leaf scores are already smoothed Beta posterior means
+ * `(1+passes)/(2+asked) ∈ (0,1)`, so the divisor is 1 (no-op). Legacy
+ * `'breaking-rung-v0'` signatures stored integer rungs 0..3 and need
+ * `maxRung = 3` to renormalise — pass it explicitly when reading old
+ * sidecars. `Math.min(1, raw/maxRung)` clamps either way.
+ */
+export const DEFAULT_MAX_RUNG = 1;
 const DEFAULTS = { competence: 1.0, fit: 0.5, hot: 0.1, priorDiscount: 0.5 };
 
 export interface VectorRouteHit {
