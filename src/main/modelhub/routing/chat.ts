@@ -20,9 +20,23 @@ export type ChatClientConfig = {
   model?: string;
   /** Bearer token for hosted APIs. Omitted for local llama-server. */
   apiKey?: string;
-  /** Per-attempt timeout (ms). Default 120000 (gen is slower than embed). */
+  /**
+   * Per-attempt timeout (ms). Default 240000 (4 min).
+   *
+   * Why 4 min: `multistep` characterization prompts (debug-then-fix,
+   * train-meeting-time, etc.) ask the model for a multi-step CoT; on a
+   * slow local model (CPU partial, low ngl) generating ~1k tokens of
+   * reasoning can comfortably take 2–3 min. The old 2-min default was
+   * tripping early-abort on multistep specifically. AbortError is now
+   * NOT retried (see below) — a slow model stays slow.
+   */
   timeoutMs?: number;
-  /** Retry attempts after the first try. Default 2. */
+  /**
+   * Retry attempts after the first try. Default 2. Retries fire on
+   * network failures and 429/5xx only — AbortError (request timeout)
+   * is NOT retryable (the model is just slow; retrying wastes 2× more
+   * time waiting for the same slow generation).
+   */
   maxRetries?: number;
   /** Base backoff (ms); attempt n waits ~base·2ⁿ + jitter. Default 600. */
   backoffBaseMs?: number;
@@ -30,7 +44,15 @@ export type ChatClientConfig = {
   temperature?: number;
   /** RNG seed for reproducibility. Default 42. */
   seed?: number;
-  /** Hard cap on generated tokens. Default 1024. */
+  /**
+   * Hard cap on generated tokens. Default 2048.
+   *
+   * Why 2048: `multistep` prompts (math word problems, debug-then-fix)
+   * regularly produce 800–1500 tokens of CoT + final answer. The old
+   * 1024 cap truncated long-reasoner outputs mid-step, which then
+   * failed the rubric on `correct_arithmetic` / `fix_handles_all_edge_
+   * cases` despite the model having correct intent.
+   */
   maxTokens?: number;
 };
 
@@ -72,7 +94,7 @@ export class ChatClient implements ChatLike {
 
   constructor(private readonly cfg: ChatClientConfig) {
     this.url = cfg.baseUrl.replace(/\/+$/, '') + '/v1/chat/completions';
-    this.timeoutMs = cfg.timeoutMs ?? 120_000;
+    this.timeoutMs = cfg.timeoutMs ?? 240_000;
     this.maxRetries = cfg.maxRetries ?? 2;
     this.backoffBaseMs = cfg.backoffBaseMs ?? 600;
   }
@@ -87,7 +109,7 @@ export class ChatClient implements ChatLike {
       messages: [{ role: 'user', content: prompt }],
       temperature: this.cfg.temperature ?? 0,
       seed: this.cfg.seed ?? 42,
-      max_tokens: this.cfg.maxTokens ?? 1024,
+      max_tokens: this.cfg.maxTokens ?? 2048,
       stream: false,
       n: 1,
     });
@@ -135,13 +157,21 @@ export class ChatClient implements ChatLike {
           lastErr = e;
         } else {
           const aborted = e instanceof Error && e.name === 'AbortError';
-          lastErr = new ChatError(
+          const err = new ChatError(
             aborted
               ? `chat timed out after ${this.timeoutMs} ms`
               : `chat request failed: ${(e as Error).message}`,
             undefined,
             attempt + 1,
           );
+          // A timeout means the model is too slow for the configured
+          // `timeoutMs` — retrying spends another `timeoutMs` watching
+          // the same slow generation. Surface it immediately so the
+          // user can raise the budget (or skip the model) instead of
+          // burning 2× more time. Real network/process failures
+          // (anything that isn't an AbortError) stay retryable.
+          if (aborted) throw err;
+          lastErr = err;
         }
       } finally {
         clearTimeout(timer);
