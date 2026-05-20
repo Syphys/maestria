@@ -1,13 +1,12 @@
 {
   "name": "tagspaces",
   "productName": "Maestria",
-  "version": "1.0.0",
-  "description": "Offline file organizer and browser with tagging support.",
-  "homepage": "https://www.tagspaces.org",
+  "version": "0.1.0-alpha.1",
+  "description": "Maestria — local AI-model browser & manager. Fork of TagSpaces, AGPL-3.0.",
+  "homepage": "https://github.com/Syphys/maestria",
   "author": {
-    "name": "TagSpaces GmbH",
-    "email": "info@tagspaces.org",
-    "url": "https://www.tagspaces.org"
+    "name": "Maestria contributors",
+    "url": "https://github.com/Syphys/maestria"
   },
   "main": "./dist/main/main.js",
   "license": "AGPL-3.0",

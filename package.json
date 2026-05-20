@@ -1,26 +1,31 @@
 {
   "name": "tagspaces",
   "version": "0.0.0",
-  "description": "TagSpaces Core Repository",
+  "description": "Maestria — local AI-model browser & manager. Fork of TagSpaces, AGPL-3.0.",
   "keywords": [
     "electron",
     "react",
+    "ai",
+    "llm",
+    "gguf",
+    "llama.cpp",
+    "mcp",
+    "model-management",
     "tagging",
     "file-manager"
   ],
-  "homepage": "https://www.tagspaces.org",
+  "homepage": "https://github.com/Syphys/maestria",
   "bugs": {
-    "url": "https://github.com/tagspaces/tagspaces/issues"
+    "url": "https://github.com/Syphys/maestria/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tagspaces/tagspaces/"
+    "url": "git+https://github.com/Syphys/maestria.git"
   },
   "license": "AGPL-3.0",
   "author": {
-    "name": "TagSpaces GmbH",
-    "email": "info@tagspaces.org",
-    "url": "https://www.tagspaces.org"
+    "name": "Maestria contributors",
+    "url": "https://github.com/Syphys/maestria"
   },
   "main": "./.erb/dll/main.bundle.dev.js",
   "scripts": {

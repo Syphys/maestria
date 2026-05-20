@@ -52,7 +52,7 @@
       "role": "Viewer"
     }
   ],
-  "copyright": "Copyright © 2026 TagSpaces GmbH",
+  "copyright": "Copyright © 2026 Maestria contributors. Based on TagSpaces © TagSpaces GmbH, AGPL-3.0.",
   "artifactName": "${name}-${os}-${arch}-${version}.${ext}",
   "win": {
     "target": ["nsis", "zip"],
