@@ -1,0 +1,56 @@
+Maestria
+========
+
+Copyright (C) 2026-present Maestria contributors.
+Licensed under the GNU Affero General Public License v3.0 — see LICENSE.txt.
+
+This product is an independent fork of TagSpaces.
+
+----------------------------------------------------------------------
+Upstream attribution
+----------------------------------------------------------------------
+
+This product includes substantial code originally written by TagSpaces
+GmbH for the TagSpaces project (https://github.com/tagspaces/tagspaces),
+licensed under the GNU Affero General Public License v3.0.
+
+  Copyright (C) 2023-present TagSpaces GmbH.
+
+Per AGPL-3.0 §5, the original copyright notices, license headers and
+author lines are retained in every source file inherited from TagSpaces.
+The TagSpaces name and logo are trademarks of TagSpaces GmbH and are NOT
+used in this fork; Maestria identifies itself with its own name and
+assets (see branding/). Maestria is not affiliated with, nor endorsed
+by, TagSpaces GmbH.
+
+----------------------------------------------------------------------
+Third-party components (major)
+----------------------------------------------------------------------
+
+Maestria bundles or depends on the following third-party software,
+under their respective licenses:
+
+  * Electron (MIT) — https://www.electronjs.org/
+  * React, React DOM (MIT) — https://react.dev/
+  * Material UI (MIT) — https://mui.com/
+  * @modelcontextprotocol/sdk (MIT) — https://modelcontextprotocol.io/
+  * @huggingface/hub (MIT) — https://github.com/huggingface/huggingface.js
+  * pdfjs-dist (Apache-2.0) — https://github.com/mozilla/pdf.js
+  * wasm-vips (LGPL-3.0) — https://github.com/kleisauke/wasm-vips
+  * llama.cpp / llama-server (MIT) — NOT bundled; invoked as an external
+      process when present. Users install llama.cpp themselves.
+
+A full transitive list with exact versions and licenses is available
+via `npm ls --all` and `npm exec license-checker --summary` from the
+project root.
+
+----------------------------------------------------------------------
+Models
+----------------------------------------------------------------------
+
+Maestria does NOT distribute any model weights. Users download GGUF /
+safetensors model files themselves (typically from Hugging Face). Each
+model carries its own license, which Maestria reads from the file
+header / Hugging Face metadata and surfaces in the UI as a tag
+(`lic:*`), but does not enforce. Compliance with each model's license
+is the user's responsibility.
