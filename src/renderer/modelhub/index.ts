@@ -1,6 +1,6 @@
 /**
  * Public Models Hub renderer surface.
- * See MODELS_HUB.md and MODELS_HUB_FEATURES.md for the full plan.
+ * See MODELS_HUB.md for the full plan (vision + task tracker + MCP dossier).
  */
 
 export * from './types';

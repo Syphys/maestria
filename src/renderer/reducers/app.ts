@@ -185,7 +185,7 @@ export const actions = {
     // would always advertise a "newer" version that doesn't include our
     // local Pro-unlocks (filesystem watcher, bookmarks, listing filter…).
     // Update checks are opt-in via the manual "Check for Updates" button
-    // in the About dialog. See MODELS_HUB_FEATURES.md 6.12.
+    // in the About dialog. See MODELS_HUB.md Phase 6.12.
     void getCheckForUpdateOnStartup; // keep import alive for future use
     setTimeout(() => {
       setGlobalShortcuts(isGlobalKeyBindingEnabled(state));
