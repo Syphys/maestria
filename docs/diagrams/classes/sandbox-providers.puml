@@ -1,110 +1,20 @@
 @startuml sandbox-providers
 !include ../_includes/style.iuml
 
-title Sandbox providers — slice 2d\nclasses grouped by source file (5 files under sandbox/)
+' DRY composer — every class definition lives in its own partial under
+' _includes/classes/. This file ONLY assembles the picture (includes +
+' inheritance arrows + factory dependencies + a single explanatory
+' note). Any other diagram that wants to reference, say, `SandboxProvider`
+' should `!include _includes/classes/sandbox-types.iuml` and reuse the
+' SAME class — never redeclare.
 
-' Every class is shown inside the `.ts` file that exports it. The
-' diagram doubles as a quick map of `src/main/modelhub/routing/sandbox/`.
+!include ../_includes/classes/sandbox-types.iuml
+!include ../_includes/classes/sandbox-unsafe.iuml
+!include ../_includes/classes/sandbox-posix.iuml
+!include ../_includes/classes/sandbox-windows.iuml
+!include ../_includes/classes/sandbox-index.iuml
 
-package "src/main/modelhub/routing/sandbox/" <<Folder>> {
-
-  package "types.ts" <<Frame>> {
-    abstract class SandboxProvider {
-      + {abstract} kind : string
-      + {abstract} runPythonTests(code, tests, opts?) : Promise<SandboxResult>
-    }
-    class SandboxResult <<value>> {
-      + pass : boolean
-      + stdout : string  (capped)
-      + stderr : string  (capped)
-      + durationMs : number
-      + reason? : 'exit-nonzero' | 'timeout'\n  | 'output-overflow' | 'unknown'
-    }
-    class SandboxOptions <<value>> {
-      + timeoutMs? : number   (default 10_000)
-      + maxOutputBytes? : number   (default 1_000_000)
-      + cpuLimitSeconds? : number   (default 10)
-      + memoryLimitBytes? : number   (default 512 MiB)
-    }
-    class SandboxUnavailable <<exception>> extends Error {
-      --
-      Thrown when the OS-level boundary
-      CANNOT be established. Caller maps
-      to UNMEASURED (D12 prior).
-      --
-      Reasons: opt-in off, no python,
-      no `resource` module, mkdtemp KO,
-      Job Object failure, wrong platform.
-    }
-  }
-
-  package "unsafe.ts" <<Frame>> {
-    class UnsafeSandbox {
-      + kind = 'unsafe'
-      + runPythonTests() : Promise<never>
-      --
-      Default when `enableSandbox: false`.
-      Always throws SandboxUnavailable.
-    }
-  }
-
-  package "posix.ts" <<Frame>> {
-    class PosixSandbox {
-      + kind = 'posix'
-      - spawner : Spawner   (test seam)
-      - pythonBin? : string   (lazy-probed)
-      --
-      + runPythonTests(...)
-      - findPython()
-      - probeBinary(bin)
-      - spawnIsolated(...)
-      --
-      Boundaries (kernel):
-      • RLIMIT_NPROC = cur   (T2/T7)
-      • RLIMIT_AS / DATA = 512 MiB   (T6)
-      • RLIMIT_CPU = 10 s   (T1)
-      • RLIMIT_FSIZE = 0   (T4)
-      Plus: detached pgrp + kill(-pgid),
-      empty env, disposable workdir,
-      python -I -S -B.
-    }
-    class "type Spawner" as Spawner <<type>> {
-      (cmd, args, options) => ChildProcess
-      Re-exported by windows.ts for symmetry
-    }
-  }
-
-  package "windows.ts" <<Frame>> {
-    class WindowsSandbox {
-      + kind = 'windows'
-      - spawner : Spawner
-      - pythonBin? : string
-      - ps1Path : string
-      --
-      + runPythonTests(...)
-      - findPython()
-      - spawnIsolated(...)
-      --
-      Spawns powershell.exe -File win-job.ps1.
-      Job Object kernel limits:
-      • ActiveProcessLimit = 1   (T2/T7)
-      • ProcessMemoryLimit = 512 MiB   (T6)
-      • KILL_ON_JOB_CLOSE
-      Plus: emptied env, marker-line stream
-      protocol, exit 124 on inner timeout.
-    }
-  }
-
-  package "index.ts" <<Frame>> {
-    class GetSandbox <<factory>> {
-      + getSandbox({enabled}) : SandboxProvider
-    }
-  }
-
-  ' win-job.ps1 is a runtime artefact, not a class — kept here for
-  ' the file-level map.
-  component "win-job.ps1\n(Add-Type P/Invoke launcher)" as PS1
-}
+title Sandbox providers — slice 2d\nclass definitions imported from\n_includes/classes/sandbox-*.iuml (DRY)
 
 SandboxProvider <|-- UnsafeSandbox
 SandboxProvider <|-- PosixSandbox

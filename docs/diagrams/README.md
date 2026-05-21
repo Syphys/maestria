@@ -13,7 +13,17 @@ docs/diagrams/
 ├── _includes/                      ← shared bricks (`.iuml`)
 │   ├── style.iuml                  ← Maestria palette + skinparams
 │   ├── actors.iuml                 ← shared User / llama-server / sidecar
-│   └── legend.iuml                 ← rung/prior/none + scheme legend
+│   ├── legend.iuml                 ← rung/prior/none + scheme legend
+│   └── classes/                    ← DRY class definitions (one file
+│       │                              per group, included from any
+│       │                              composer that draws those shapes)
+│       ├── routing-types.iuml      ← Signature / BehavioralSignature / …
+│       ├── competence-tree.iuml    ← CompetenceBranch + COMPETENCE_TREE
+│       ├── sandbox-types.iuml      ← SandboxProvider (ABC) + Result/Options/Unavailable
+│       ├── sandbox-unsafe.iuml     ← UnsafeSandbox
+│       ├── sandbox-posix.iuml      ← PosixSandbox + Spawner
+│       ├── sandbox-windows.iuml    ← WindowsSandbox + win-job.ps1 ref
+│       └── sandbox-index.iuml      ← GetSandbox factory
 ├── system-overview.puml            ← bird's-eye of the whole runtime
 ├── components/
 │   ├── mcp-server.puml             ← MCP registry + transport + tools
@@ -63,6 +73,13 @@ Three ways, in order of friction:
   `!include _includes/actors.iuml`.
 - Routing diagrams that show the rung/prior/none vocabulary
   `!include _includes/legend.iuml` at the bottom.
+- **Each class / type / shape is defined ONCE** in a partial under
+  `_includes/classes/`. Any composer that draws that shape
+  `!include`s the partial — never redeclares the class. Editing a
+  field is a one-line change that propagates to every composer that
+  references it. The composers (`classes/*.puml`) become thin: a
+  handful of `!include`s + the relationships (inheritance arrows,
+  factory deps, persistence boundary) + notes.
 - The scope is **AI subsystem only** — no TagSpaces-inherited file
   organiser plumbing, no perspective rendering, no general settings.
   Those have their own informal description in `CLAUDE.md` and the

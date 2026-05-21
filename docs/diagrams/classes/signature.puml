@@ -2,78 +2,21 @@
 !include ../_includes/style.iuml
 !include ../_includes/legend.iuml
 
-title BehavioralSignature — shape on disk (`.ts/<file>.json`)\nclasses grouped by source file
+' DRY composer — the class definitions live in
+' _includes/classes/routing-types.iuml. Any other diagram that needs
+' to reference these shapes (`Signature`, `BehavioralSignature`, …)
+' should `!include` the SAME partial — never redeclare.
 
-' All shapes below live in the SAME file. Wrapping them in a single
-' `package` block makes that explicit and gives the diagram the same
-' navigation cue as the multi-file `sandbox-providers` view.
+!include ../_includes/classes/routing-types.iuml
 
-package "src/shared/RoutingTypes.ts" <<Frame>> {
+title BehavioralSignature — shape on disk (`.ts/<file>.json`)
 
-  class Signature {
-    + modelHash : string
-    + suite_version : string
-    + characterized_at : ISO 8601
-    + characterization_state : 'complete' | 'incomplete' | 'quarantined'
-    + structural : StructuralSignature
-    + behavioral : BehavioralSignature
-    + qcm_reliability : QcmReliability
-    + embedder_id : string   <i>(slice 7c)</i>
-  }
-
-  class StructuralSignature {
-    + est_footprint_bytes : number  <i>(D9 fit-scoring)</i>
-    + tensor_count : number
-    + arch : string
-    + quant : string
-    + ctx_max : number
-    + …
-  }
-
-  class BehavioralSignature {
-    + diagnostic_run : Record<promptId, DiagnosticRunEntry>
-    + scores_per_axis : Partial<Record<DiagnosticAxis, number>>
-    + n_per_axis? : Partial<Record<DiagnosticAxis, number>>
-    + overall? : number
-    --
-    <b>Tree-routing fields (slice 4c+)</b>
-    + scores_per_leaf? : Record<leafId, number>  <i>(0..1 — see scheme)</i>
-    + branch_scores? : Partial<Record<CompetenceBranch, number>>
-    + n_per_leaf? : Record<leafId, number>
-    + passes_per_leaf? : Record<leafId, number>  <i>(beta-laplace only)</i>
-    + scoring_scheme? : 'beta-laplace-v1' | 'breaking-rung-v0'
-    --
-    <b>Free-gen probe (slice 7c)</b>
-    + topic_coverage_per_leaf? : Record<leafId, number>  <i>(cosines)</i>
-    + topic_coverage_per_branch? : Record<CompetenceBranch, number>
-    + freegen_words? : number
-    + freegen_excerpt? : string
-  }
-
-  class DiagnosticRunEntry {
-    + id : string
-    + axes : DiagnosticAxis[]
-    + pass : boolean
-    + score? : number
-    + response : string
-    + detail? : string
-    + error? : string
-  }
-
-  class QcmReliability {
-    + format_adherence : number  <i>(0..1)</i>
-    + consistency : number
-    + overall : number  <i>(display-only — NEVER enters routing)</i>
-    + n : number
-  }
-}
-
-' Persistence path — informational, the type isn't a class but the
-' on-disk file is what `signatureStore.ts` reads/writes.
+' Persistence side — kept inline because it's diagram-specific (a
+' different composer might show signatureStore behaviour without the
+' on-disk database).
 package "src/main/modelhub/routing/" <<Folder>> {
   component "signatureStore.ts\nloadSignature() / writeSignature()" as STORE
 }
-
 database ".ts/<modelfile>.json\n(per-model sidecar)" as DISK
 
 Signature *-- StructuralSignature

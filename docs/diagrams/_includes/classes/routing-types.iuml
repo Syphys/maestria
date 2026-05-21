@@ -1,0 +1,69 @@
+' Partial — class definitions for routing/signature types.
+' Source: src/shared/RoutingTypes.ts (single file).
+' Included by: classes/signature.puml (and any future composer that
+' needs to reference these shapes).
+'
+' Conventions:
+'   - No `@startuml` / `@enduml` here (this is an include only).
+'   - Class IDs are stable — composers reference them by alias.
+'   - The `<<Frame>>` wrapper gives the file-grouping cue.
+
+package "src/shared/RoutingTypes.ts" <<Frame>> as PKG_ROUTING_TYPES {
+
+  class Signature {
+    + modelHash : string
+    + suite_version : string
+    + characterized_at : ISO 8601
+    + characterization_state : 'complete' | 'incomplete' | 'quarantined'
+    + structural : StructuralSignature
+    + behavioral : BehavioralSignature
+    + qcm_reliability : QcmReliability
+    + embedder_id : string   <i>(slice 7c)</i>
+  }
+
+  class StructuralSignature {
+    + est_footprint_bytes : number  <i>(D9 fit-scoring)</i>
+    + tensor_count : number
+    + arch : string
+    + quant : string
+    + ctx_max : number
+    + …
+  }
+
+  class BehavioralSignature {
+    + diagnostic_run : Record<promptId, DiagnosticRunEntry>
+    + scores_per_axis : Partial<Record<DiagnosticAxis, number>>
+    + n_per_axis? : Partial<Record<DiagnosticAxis, number>>
+    + overall? : number
+    --
+    <b>Tree-routing fields (slice 4c+)</b>
+    + scores_per_leaf? : Record<leafId, number>  <i>(0..1 — see scheme)</i>
+    + branch_scores? : Partial<Record<CompetenceBranch, number>>
+    + n_per_leaf? : Record<leafId, number>
+    + passes_per_leaf? : Record<leafId, number>  <i>(beta-laplace only)</i>
+    + scoring_scheme? : 'beta-laplace-v1' | 'breaking-rung-v0'
+    --
+    <b>Free-gen probe (slice 7c)</b>
+    + topic_coverage_per_leaf? : Record<leafId, number>  <i>(cosines)</i>
+    + topic_coverage_per_branch? : Record<CompetenceBranch, number>
+    + freegen_words? : number
+    + freegen_excerpt? : string
+  }
+
+  class DiagnosticRunEntry {
+    + id : string
+    + axes : DiagnosticAxis[]
+    + pass : boolean
+    + score? : number
+    + response : string
+    + detail? : string
+    + error? : string
+  }
+
+  class QcmReliability {
+    + format_adherence : number  <i>(0..1)</i>
+    + consistency : number
+    + overall : number  <i>(display-only — NEVER enters routing)</i>
+    + n : number
+  }
+}

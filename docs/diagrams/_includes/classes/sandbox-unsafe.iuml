@@ -1,0 +1,13 @@
+' Partial — UnsafeSandbox provider (the opt-in-off default).
+' Source: src/main/modelhub/routing/sandbox/unsafe.ts.
+
+package "src/main/modelhub/routing/sandbox/unsafe.ts" <<Frame>> as PKG_SBX_UNSAFE {
+
+  class UnsafeSandbox {
+    + kind = 'unsafe'
+    + runPythonTests() : Promise<never>
+    --
+    Default when `enableSandbox: false`.
+    Always throws SandboxUnavailable.
+  }
+}

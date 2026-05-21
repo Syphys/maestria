@@ -1,0 +1,38 @@
+' Partial — sandbox abstract contract.
+' Source: src/main/modelhub/routing/sandbox/types.ts.
+' Included by: classes/sandbox-providers.puml (and any composer that
+' wants to reference the SandboxProvider contract).
+
+package "src/main/modelhub/routing/sandbox/types.ts" <<Frame>> as PKG_SBX_TYPES {
+
+  abstract class SandboxProvider {
+    + {abstract} kind : string
+    + {abstract} runPythonTests(code, tests, opts?) : Promise<SandboxResult>
+  }
+
+  class SandboxResult <<value>> {
+    + pass : boolean
+    + stdout : string  (capped)
+    + stderr : string  (capped)
+    + durationMs : number
+    + reason? : 'exit-nonzero' | 'timeout'\n  | 'output-overflow' | 'unknown'
+  }
+
+  class SandboxOptions <<value>> {
+    + timeoutMs? : number   (default 10_000)
+    + maxOutputBytes? : number   (default 1_000_000)
+    + cpuLimitSeconds? : number   (default 10)
+    + memoryLimitBytes? : number   (default 512 MiB)
+  }
+
+  class SandboxUnavailable <<exception>> extends Error {
+    --
+    Thrown when the OS-level boundary
+    CANNOT be established. Caller maps
+    to UNMEASURED (D12 prior).
+    --
+    Reasons: opt-in off, no python,
+    no `resource` module, mkdtemp KO,
+    Job Object failure, wrong platform.
+  }
+}

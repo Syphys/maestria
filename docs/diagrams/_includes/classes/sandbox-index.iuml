@@ -1,0 +1,9 @@
+' Partial — GetSandbox factory (single dispatch site).
+' Source: src/main/modelhub/routing/sandbox/index.ts.
+
+package "src/main/modelhub/routing/sandbox/index.ts" <<Frame>> as PKG_SBX_INDEX {
+
+  class GetSandbox <<factory>> {
+    + getSandbox({enabled}) : SandboxProvider
+  }
+}
