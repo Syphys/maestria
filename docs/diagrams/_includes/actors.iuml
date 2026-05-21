@@ -1,0 +1,11 @@
+' Shared actor / external-system definitions, referenced by several
+' diagrams. Keeping the definitions in one place means renames stay
+' atomic across the whole set.
+
+actor "User" as USER
+actor "MCP Client\n(Claude Code,\nCursor,\ndeer-flow, …)" as MCP_CLIENT
+node "llama-server\n(chat model)" as LLAMA_CHAT
+node "llama-server\n--embedding\n(routing embedder)" as LLAMA_EMBED
+node "python3\n(sandboxed, slice 2d)" as PYTHON_SANDBOX
+database ".ts/ sidecars\n(signatures,\nautoTags)" as SIDECARS
+database "Hugging Face\n(metadata only)" as HF

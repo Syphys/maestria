@@ -1,0 +1,47 @@
+@startuml freegen
+!include ../_includes/style.iuml
+
+title Free-gen probe — slice 7c (« sonder la teuté du modèle »)
+
+state "Tree characterization\nfinished (slice 4c)" as TREE_DONE
+state "characterizeTree.ts\n  if (opts.embed) {…}" as GATE
+state "freegen.runFreeGenProbe()" as PROBE {
+  state "1× model call\nFREEGEN_PROMPT\n(topic-neutral,\n~600–800 words)" as ASK
+  state "Strip <think>…</think>\n(D11)" as STRIP
+  state "1× embed call\n(query text)" as EMB
+  state "Project onto 32\nleaf anchors\n(probe-anchors.json)" as PROJECT
+  state "Reduce to\n• topic_coverage_per_leaf\n• topic_coverage_per_branch\n• freegen_words\n• freegen_excerpt" as REDUCE
+}
+state "merge into signature\n(`scoring_scheme` unchanged)" as MERGE
+state "skip silently\n(no embedder configured)" as SKIP_S
+state "log + skip\n(probe failure isolated)" as SKIP_E
+
+TREE_DONE --> GATE
+GATE --> PROBE : embed seam present
+GATE --> SKIP_S : opts.embed absent\n(SPEC §4 strict path)
+
+PROBE --> ASK
+ASK --> STRIP
+STRIP --> EMB
+EMB --> PROJECT
+PROJECT --> REDUCE
+REDUCE --> MERGE
+
+PROBE --> SKIP_E : ANY throw\n(embedder down, empty\nresponse, refusal…)
+
+note right of MERGE
+  Fields are **additional
+  evidence** in routing
+  (α=0.7 deterministic,
+  β=0.3 coverage blend).
+  Never replace `scores_per_leaf`.
+end note
+
+note bottom of SKIP_E
+  DECISIONS.md DCC §5 —
+  probe failure NEVER sinks
+  the tree pass that already
+  computed scores_per_leaf.
+end note
+
+@enduml

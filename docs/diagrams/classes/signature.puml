@@ -1,0 +1,88 @@
+@startuml signature
+!include ../_includes/style.iuml
+!include ../_includes/legend.iuml
+
+title BehavioralSignature — shape on disk (`.ts/<file>.json`)
+
+class Signature {
+  + modelHash : string
+  + suite_version : string
+  + characterized_at : ISO 8601
+  + characterization_state : 'complete' | 'incomplete' | 'quarantined'
+  + structural : StructuralSignature
+  + behavioral : BehavioralSignature
+  + qcm_reliability : QcmReliability
+  + embedder_id : string   <i>(slice 7c)</i>
+}
+
+class StructuralSignature {
+  + est_footprint_bytes : number  <i>(D9 fit-scoring)</i>
+  + tensor_count : number
+  + arch : string
+  + quant : string
+  + ctx_max : number
+  + …
+}
+
+class BehavioralSignature {
+  + diagnostic_run : Record<promptId, DiagnosticRunEntry>
+  + scores_per_axis : Partial<Record<DiagnosticAxis, number>>
+  + n_per_axis? : Partial<Record<DiagnosticAxis, number>>
+  + overall? : number
+  --
+  <b>Tree-routing fields (slice 4c+)</b>
+  + scores_per_leaf? : Record<leafId, number>  <i>(0..1 — see scheme)</i>
+  + branch_scores? : Partial<Record<CompetenceBranch, number>>
+  + n_per_leaf? : Record<leafId, number>
+  + passes_per_leaf? : Record<leafId, number>  <i>(beta-laplace only)</i>
+  + scoring_scheme? : 'beta-laplace-v1' | 'breaking-rung-v0'
+  --
+  <b>Free-gen probe (slice 7c)</b>
+  + topic_coverage_per_leaf? : Record<leafId, number>  <i>(cosines)</i>
+  + topic_coverage_per_branch? : Record<CompetenceBranch, number>
+  + freegen_words? : number
+  + freegen_excerpt? : string
+}
+
+class DiagnosticRunEntry {
+  + id : string
+  + axes : DiagnosticAxis[]
+  + pass : boolean
+  + score? : number
+  + response : string
+  + detail? : string
+  + error? : string
+}
+
+class QcmReliability {
+  + format_adherence : number  <i>(0..1)</i>
+  + consistency : number
+  + overall : number  <i>(display-only — NEVER enters routing)</i>
+  + n : number
+}
+
+Signature *-- StructuralSignature
+Signature *-- BehavioralSignature
+Signature *-- QcmReliability
+BehavioralSignature *-- "many" DiagnosticRunEntry
+
+note right of BehavioralSignature::scores_per_leaf
+  Beta-Laplace `(1+passes)/(2+asked)` ∈ (0, 1].
+  3/3 ⇒ 0.80, never 1.0 in Phase A.
+  Coexists with `scores_per_axis` (R5 fallback).
+end note
+
+note right of BehavioralSignature::topic_coverage_per_leaf
+  DCC §4 carve-out. 32 cosines against
+  the SAME shared anchors used by routing —
+  same index space as `scores_per_leaf`.
+  Additional evidence, never replacement.
+end note
+
+note bottom of QcmReliability
+  SPEC §6bis: QCM aptitude is a
+  judge-candidacy signal, never
+  a competence signal for routing.
+end note
+
+@enduml

@@ -1,0 +1,57 @@
+@startuml characterization
+!include ../_includes/style.iuml
+!include ../_includes/legend.iuml
+
+title Characterization — runner → tree → staircase → scorers
+
+package "src/main/modelhub/routing/" {
+  component "characterizeRunner.ts\n• ensureChatLive\n  (spawn llama-server\n  if needed)\n• build seams\n  (embed, runSandbox)\n• timeoutMs 600_000" as RUNNER
+
+  component "characterize.ts\n(R5 pass — 16 R5 axes,\nslice 6c collapse fr/en/zh,\nQCM aptitude)" as R5_RUN
+
+  component "characterizeTree.ts\n• read R5 signature\n• gate branches\n  with θ_open\n• loop branches" as TREE
+
+  component "staircase.ts\n• CAT-style climb\n• early-stop on fail\n• Beta-Laplace\n  posterior mean" as STAIR
+
+  package "scorers/" as SCORERS_PKG {
+    component "_types.ts\n+ checkSpec.ts\n(runCheck dispatch)" as SCORER_CORE
+    component "10 deterministic\nscorers\n(math, factual,\nlogic, longctx,\ninstruction, meta, …)" as DET_SCORERS
+    component "4 axis scorers\n(tooluse, robustness,\ncalibration,\nsummarization)" as AXIS_SCORERS
+    component "informatics scorer\n(network/OS/sec/hw/theory)" as INFO_SCORER
+    component "sandbox-pending\nscorers\n(code-debug/fim/refactor)\n→ slice 2d" as PEND_SCORERS
+  }
+
+  component "freegen.ts\n(slice 7c probe)" as FREEGEN
+  component "sandbox/\n(slice 2d)\nindex → posix |\n      windows |\n      unsafe" as SANDBOX
+  component "signatureStore.ts\n(read / write\n.ts/<file>.json)" as STORE
+}
+
+RUNNER --> R5_RUN : R5 first\n(coarse pass)
+RUNNER --> TREE : then tree\n(fine pass, R5-gated)
+RUNNER --> FREEGEN : optional probe\n(slice 7c)
+TREE --> STAIR : per branch\n(opened only)
+STAIR --> SCORER_CORE : runCheck(item.check)
+SCORER_CORE --> DET_SCORERS
+SCORER_CORE --> AXIS_SCORERS
+SCORER_CORE --> INFO_SCORER
+SCORER_CORE --> PEND_SCORERS
+PEND_SCORERS --> SANDBOX : `runSandbox` seam\n(slice 2d)
+RUNNER --> STORE : finalResult ↩\nsignature
+TREE --> STORE : merge tree fields\n(scores_per_leaf,\nbranch_scores,\npasses_per_leaf,\ntopic_coverage_*)
+
+note bottom of RUNNER
+  Failure-isolated:
+  R5 ✓ even if tree fails;
+  tree ✓ even if freegen fails;
+  staircase ✓ even if a leaf
+  goes UNMEASURED (D12 prior).
+end note
+
+note right of STAIR
+  étape 1 (Beta-Laplace):
+  leaf_score = (1+passes)/(2+asked)
+  3/3 ⇒ 0.80, never 1.0 in Phase A.
+  Phase B saturation = deferred.
+end note
+
+@enduml

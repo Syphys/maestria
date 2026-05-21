@@ -1,0 +1,71 @@
+@startuml characterization-flow
+!include ../_includes/style.iuml
+
+title Characterise ONE model — full flow
+
+actor User
+participant "UI\n(Inférence tab)" as UI
+participant "characterizeRunner" as RUN
+participant "runner registry\n+ launch.ts" as LAUNCH
+participant "llama-server\n(chat)" as CHAT
+participant "characterize.ts\n(R5 pass)" as R5
+participant "characterizeTree.ts" as TREE
+participant "staircase.ts\n+ scorers" as STAIR
+participant "sandbox\n(slice 2d)" as SBX
+participant "freegen.ts\n(slice 7c)" as FG
+participant "embedderLifecycle" as ELC
+participant "llama-server\n--embedding" as EMB
+participant "signatureStore\n(.ts/<file>.json)" as SIG
+
+User -> UI : "Caractériser" / "Re-caractériser"
+UI -> RUN : start({filePath, skipExisting})
+RUN -> LAUNCH : ensure chat live (spawn if needed)
+LAUNCH -> CHAT : llama-server (8080)
+RUN -> R5 : runR5(ask=chatClient)
+R5 -> CHAT : N prompts (v1-30)
+CHAT --> R5 : completions
+R5 --> RUN : behavioral (R5 vector)
+
+== Tree (slice 4c) ==
+RUN -> TREE : characterizeTree({\n  ask, embed?, seams.runSandbox\n})
+loop per OPENED branch (R5 ≥ θ_open)
+  TREE -> STAIR : characterizeBranch(branch)
+  loop per leaf, climb level 1→N until first fail
+    STAIR -> CHAT : item.prompt
+    CHAT --> STAIR : response
+    alt check is registered scorer
+      STAIR -> STAIR : runCheck(response)
+    else check is sandbox request (code-tests)
+      STAIR -> SBX : runSandbox({code, tests})
+      alt opt-in OFF or boundary fails
+        SBX --> STAIR : throw SandboxUnavailable
+        STAIR -> STAIR : mark UNMEASURED\n(branch prior D12)
+      else
+        SBX -> SBX : spawn python (POSIX rlimits / Win Job)
+        SBX --> STAIR : {pass:true|false}
+      end
+    end
+  end
+end
+TREE --> RUN : scores_per_leaf,\nbranch_scores,\npasses_per_leaf
+
+== Free-gen probe (slice 7c, optional) ==
+alt embedder configured (slice 7e)
+  TREE -> ELC : ensureEmbedderReady(filePath)
+  ELC -> EMB : spawn or reuse
+  EMB --> ELC : baseUrl ready
+  TREE -> FG : runFreeGenProbe(ask, embed)
+  FG -> CHAT : FREEGEN_PROMPT
+  CHAT --> FG : ~600 words
+  FG -> EMB : embed(response)
+  EMB --> FG : 1 vector
+  FG -> FG : project onto 32 anchors
+  FG --> TREE : topic_coverage_*
+end
+
+TREE --> RUN : merged signature
+RUN -> SIG : writeSignature(skipWrite?)
+RUN --> UI : status:'done' + signature
+UI -> UI : refresh radar (R5 + tree)
+
+@enduml

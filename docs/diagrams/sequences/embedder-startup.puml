@@ -1,0 +1,57 @@
+@startuml embedder-startup
+!include ../_includes/style.iuml
+
+title Embedder — `ensureEmbedderReady()` (slice 7e)
+
+participant "Caller\n(routeByVectors\nOR characterizeTree)" as CALL
+participant "embedderLifecycle" as LC
+participant "in-flight\nlaunch promise" as INFLIGHT
+participant "listRunning()" as LIST
+participant "launchModelByPath" as LAUNCH
+participant "llama-server\n--embedding" as EMB
+
+CALL -> LC : ensureEmbedderReady(filePath, {model?})
+
+alt another caller already launching
+  LC -> INFLIGHT : await same promise
+  INFLIGHT --> LC : result (reused)
+  LC --> CALL : {baseUrl, pid, source:'reused'}
+else first/only caller
+  LC -> LIST : look for `launchedBy: 'embedder'`\n+ filePath match + alive
+  alt already running
+    LIST --> LC : {pid, url}
+    LC --> CALL : {baseUrl: url, source:'reused'}
+  else needs spawn
+    LC -> LC : set INFLIGHT promise
+    LC -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy:'embedder',\n  port: 8081,\n  paramsOverride:{customArgs:'--embedding'}\n})
+    LAUNCH -> EMB : spawn (port 8081)
+    LAUNCH --> LC : {pid, url, ok}
+    alt launch failed
+      LC --> CALL : null (silent fallback to R5)
+    else launched
+      loop until /v1/models OK or 60s timeout
+        LC -> EMB : fetch /v1/models (4s budget)
+        alt response OK
+          EMB --> LC : 200
+          LC --> CALL : {baseUrl, pid, source:'launched'}
+        else process exited
+          LC -> LAUNCH : stopProcess(pid)
+          LC --> CALL : null
+        else still warming
+          LC -> LC : sleep 1s
+        end
+      end
+    end
+    LC -> LC : clear INFLIGHT
+  end
+end
+
+note right of LC
+  Concurrency-safe: parallel callers
+  (routing query + characterizer probe)
+  share ONE launch — never spawn twice.
+  Failure ⇒ null ⇒ caller silently
+  falls back. NEVER throws.
+end note
+
+@enduml

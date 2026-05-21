@@ -1,0 +1,50 @@
+@startuml mcp-call
+!include ../_includes/style.iuml
+
+title `models.run` over MCP — with `launchedBy` provenance (4.1.10–11)
+
+actor "User in Claude Code" as USR
+participant "Claude Code\nMCP client" as CC
+participant "MCP server\n(127.0.0.1:41541)" as MCP
+participant "Bearer auth\nmiddleware" as AUTH
+participant "tools registry\n+ JSON-Schema" as REG
+participant "models.ts\n(tools/)" as TOOL
+participant "launchModelByPath" as LAUNCH
+participant "llama-server\n(chat)" as CHAT
+participant "RunningModelsPanel\n(renderer)" as PANEL
+
+USR -> CC : "Run model X for me"
+CC -> MCP : POST /messages\nAuthorization: Bearer <token>\ntools/call models.run {path}
+MCP -> AUTH : verify token
+AUTH --> MCP : OK
+MCP -> REG : dispatch + JSON-Schema validate args
+REG -> TOOL : handler({path, params?}, ctx)
+TOOL -> TOOL : callerLabelFor(ctx)\n← session / clientInfo (4.0.22, pending)
+TOOL -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy: 'via MCP — Claude Code',\n  paramsOverride: merge(autotune, sidecar, args.params)\n})
+LAUNCH -> CHAT : spawn (auto-port)
+CHAT --> LAUNCH : {pid, url, params}
+LAUNCH --> TOOL : ActiveEntry
+TOOL --> REG : {pid, url, runnerLabel, params}
+REG --> MCP : JSON-RPC response
+MCP --> CC : {pid, url, …}
+CC --> USR : "Started! Chat at …"
+
+note right of LAUNCH
+  ActiveEntry carries `launchedBy`.
+  RunningModelsPanel groups by it
+  (Direct / via MCP — clientInfo).
+end note
+
+PANEL -> LAUNCH : listRunning() (poll)
+LAUNCH --> PANEL : entries[]
+PANEL -> PANEL : group by launchedBy\n→ headers in sidebar
+
+== Later: stop ==
+CC -> MCP : models.stop {pid}
+MCP -> TOOL : dispatch
+TOOL -> LAUNCH : stopProcess(pid)
+LAUNCH -> CHAT : SIGTERM (then SIGKILL)
+LAUNCH --> TOOL : {stopped:true}
+TOOL --> MCP --> CC
+
+@enduml

@@ -1,0 +1,54 @@
+@startuml mcp-server
+!include ../_includes/style.iuml
+!include ../_includes/actors.iuml
+
+title MCP server — registry, transport, tools
+
+package "src/main/modelhub/mcp/" as MCP_PKG {
+  component "server.ts\n• HTTP+SSE on\n  127.0.0.1:41541\n• Bearer middleware\n• rotating log\n  ~/.tagspaces/mcp.log" as SERVER
+  component "registry.ts\n• ToolDefinition[]\n• JSON-Schema\n  validate" as REG
+  component "useMcp.ts\n(renderer hook +\nconfig builder)" as USE_MCP
+
+  package "tools/" as TOOLS {
+    component "models.ts\n• search\n• get\n• list_running\n• run\n• stop\n• get_run_params\n• list_runner_flags" as T_MODELS
+    component "route.ts\n• models.route\n  (vector / R5)" as T_ROUTE
+    component "tags.ts\n• tags.add\n• tags.remove" as T_TAGS
+    component "description.ts\n• description.get\n• description.set" as T_DESC
+    component "hf.ts\n• hf.fetch" as T_HF
+    component "hardware.ts\n• hardware.detect\n• hardware.autotune" as T_HW
+  }
+}
+
+component "launch.ts\n(runner registry)" as LAUNCH
+component "routeDecision.ts\n+ routeByVectors.ts" as ROUTE_CORE
+component "shardFs.ts\n(canonical paths)" as SHARDFS
+
+MCP_CLIENT --> SERVER : GET /sse\nPOST /messages
+SERVER --> REG : dispatch tool call
+REG --> T_MODELS
+REG --> T_ROUTE
+REG --> T_TAGS
+REG --> T_DESC
+REG --> T_HF
+REG --> T_HW
+
+T_MODELS --> LAUNCH : list / spawn / kill
+T_MODELS --> SHARDFS : resolve canonical
+T_ROUTE --> ROUTE_CORE : project + score
+T_TAGS --> SIDECARS : patch tags
+T_DESC --> SIDECARS : patch description
+T_HF --> HF : fetch metadata
+T_HW ..> "Hardware\nprofiler" : detect
+
+UI_SETTINGS_R --> USE_MCP : toggle / token / copy
+USE_MCP --> SERVER : start / stop / regenerate
+component "Settings ▸ AI ▸ MCP" as UI_SETTINGS_R
+
+note bottom of REG
+  Source of truth.
+  Every tool exposed
+  here is also callable
+  in-app (no duplication).
+end note
+
+@enduml

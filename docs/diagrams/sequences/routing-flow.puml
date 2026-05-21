@@ -1,0 +1,60 @@
+@startuml routing-flow
+!include ../_includes/style.iuml
+
+title `models.route` — vector path with R5 fallback
+
+actor "MCP client" as CLI
+participant "MCP server\n+ registry" as MCP
+participant "route.ts\n(MCP tool)" as TOOL
+participant "routingConfig" as CFG
+participant "embedderLifecycle" as ELC
+participant "llama-server\n--embedding" as EMB
+participant "embedDetect\n+ reliability" as REL
+participant "routeByVectors" as VEC
+participant "classifyQuery\n(R5)" as R5
+participant "routeDecision\n(rank + score)" as RANK
+participant "signatureStore\n(.ts/ on disk)" as SIG
+
+CLI -> MCP : models.route\n{query, directory, limit, weights}
+MCP -> TOOL : dispatch + JSON-Schema validate
+TOOL -> CFG : effectiveRoutingParams(cfg)
+CFG --> TOOL : {thetaQ, embedder, …}
+TOOL -> SIG : list candidates (complete sigs only — D9)
+SIG --> TOOL : RouteCandidate[]
+TOOL -> TOOL : probeFreeMemory()
+
+alt embedder configured
+  TOOL -> ELC : ensureEmbedderReady(filePath)\nOR external baseUrl
+  ELC -> EMB : spawn if managed
+  ELC --> TOOL : baseUrl
+  TOOL -> REL : measure reliability\n(per language)
+  REL --> TOOL : {fr, zh, en} cosines
+  alt all langs ≥ threshold
+    TOOL -> VEC : routeByVectors({\n  embedder, candidates,\n  query, params})
+    VEC -> EMB : embed(query)
+    EMB --> VEC : query vector
+    VEC -> VEC : project onto 32 anchors\n+ blend α/β with topic_coverage
+    VEC --> TOOL : routedBy:'vector',\nlevel, ranked
+  else any lang below threshold
+    TOOL -> R5 : classifyQuery(query)\n(fallback)
+    R5 --> TOOL : axisWeights
+    TOOL -> RANK : score by R5 weights\n+ fit + hot
+    RANK --> TOOL : routedBy:'r5',\nranked
+  end
+else no embedder
+  TOOL -> R5 : classifyQuery(query)\n(default fallback)
+  R5 --> TOOL : axisWeights
+  TOOL -> RANK : score
+  RANK --> TOOL : routedBy:'r5'
+end
+
+TOOL --> MCP : {best, ranked, resources,\nrouting, gateReason}
+MCP --> CLI : JSON response
+
+note over CLI, TOOL
+  Advice only: this tool DOES NOT launch.
+  Caller typically follows up with
+  `models.run({path: best.id})`.
+end note
+
+@enduml

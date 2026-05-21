@@ -1,0 +1,10 @@
+' Shared legend block — embedded at the bottom of diagrams that
+' display routing/characterization vocabulary (rung / prior / scheme).
+
+legend right
+  | symbol | meaning |
+  | <#FFFFFF>**rung** | real staircase climb (passes recorded) |
+  | <#FFFDF6>**prior** | low-confidence QCM/branch prior (Dyy/D12 discount) |
+  | <#E6DFD2>**none** | never measured (D8.B: leave blank, never zero) |
+  | scheme | `beta-laplace-v1` (current) or `breaking-rung-v0` (legacy) |
+endlegend

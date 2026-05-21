@@ -1,0 +1,42 @@
+@startuml embedder
+!include ../_includes/style.iuml
+!include ../_includes/actors.iuml
+
+title Embedder — managed lifecycle (slice 7e)
+
+package "src/main/modelhub/" {
+  component "embedderLifecycle.ts\n• ensureEmbedderReady(filePath)\n• in-flight launch promise\n  (concurrency-safe)\n• stopManagedEmbedders()" as EMBED_LC
+  component "launchModelByPath\n(via launch.ts)\nlaunchedBy: 'embedder'\ncustomArgs: '--embedding'" as LAUNCH
+  component "EmbedClient\n(routing/embed.ts)\n/v1/embeddings POST" as EMBED_CLIENT
+  component "routingConfig.ts\n.routingEmbedderPath /\n.routingEmbedderBaseUrl" as RC
+}
+
+component "characterizeRunner\n(slice 7c probe)" as CHARACT
+component "routeByVectors\n(slice 5b query path)" as ROUTE
+
+CHARACT --> RC : effectiveRoutingParams\n.embedder
+ROUTE --> RC : same
+RC --> EMBED_LC : kind:'managed'\n+ filePath
+RC ..> EMBED_CLIENT : kind:'external'\n+ baseUrl (direct)
+EMBED_LC --> LAUNCH : spawn if not running
+LAUNCH --> LLAMA_EMBED : llama-server\n--embedding
+LLAMA_EMBED --> EMBED_LC : /v1/models OK\n(ready probe, 60s timeout)
+EMBED_LC --> EMBED_CLIENT : baseUrl
+EMBED_CLIENT --> LLAMA_EMBED : POST /v1/embeddings
+
+note bottom of EMBED_LC
+  Idempotent: existing process
+  with `launchedBy: 'embedder'`
+  is reused. Concurrent callers
+  share the same launch promise.
+  Boot crash ⇒ stopProcess + return
+  null (silent fallback to R5).
+end note
+
+note right of LLAMA_EMBED
+  Visible in RunningModelsPanel
+  grouped by `launchedBy: 'embedder'`
+  alongside chat models.
+end note
+
+@enduml

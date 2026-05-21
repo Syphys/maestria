@@ -1,0 +1,69 @@
+@startuml sandbox-execution
+!include ../_includes/style.iuml
+
+title Sandbox — per-OS isolation lifecycle (slice 2d)
+
+participant "staircase.\nevaluateItem" as STAIR
+participant "characterizeRunner\n(builds seam)" as RUN
+participant "getSandbox({enabled})" as DISP
+participant "PosixSandbox\n/ WindowsSandbox\n/ UnsafeSandbox" as PROV
+participant "spawn (child_process)" as SPAWN
+participant "kernel\n(rlimits / Job Object)" as KERNEL
+participant "python child" as PY
+
+STAIR -> RUN : item is sandbox-request\n(needs runSandbox seam)
+RUN -> DISP : params.enableSandbox?
+DISP --> RUN : provider instance
+
+alt UnsafeSandbox (opt-in OFF, default)
+  RUN -> PROV : runPythonTests(code, tests)
+  PROV --> RUN : throw SandboxUnavailable
+  RUN --> STAIR : item ⇒ UNMEASURED (D12 prior)
+else PosixSandbox (linux/darwin, opt-in ON)
+  RUN -> PROV : runPythonTests(code, tests)
+  PROV -> PROV : findPython() probe
+  alt probe fails
+    PROV --> RUN : throw SandboxUnavailable
+    RUN --> STAIR : UNMEASURED
+  else probe OK
+    PROV -> PROV : mkdtemp + write script\n  (preamble + code + tests)
+    PROV -> SPAWN : python -I -S -B script.py\n  detached:true (own pgrp)\n  env minimal
+    SPAWN -> PY : exec
+    PY -> KERNEL : setrlimit NPROC=cur,\n  AS=512M, CPU=10s, FSIZE=0
+    KERNEL --> PY : arm limits
+    PY -> PY : run model's code + asserts
+    alt asserts pass, exit 0
+      PY --> SPAWN : exit 0
+      SPAWN --> PROV : close(0)
+      PROV --> RUN : {pass: true}
+    else assert fails / exception
+      PY --> SPAWN : exit 1
+      PROV --> RUN : {pass: false, reason: exit-nonzero}
+    else timeout (parent enforces)
+      PROV -> PROV : kill -pgid SIGKILL
+      PROV --> RUN : {pass: false, reason: timeout}
+    else output overflow
+      PROV -> PROV : kill -pgid SIGKILL
+      PROV --> RUN : {pass: false, reason: output-overflow}
+    end
+    PROV -> PROV : rmtree workdir (finally)
+  end
+else WindowsSandbox (win32, opt-in ON)
+  RUN -> PROV : runPythonTests(code, tests)
+  PROV -> SPAWN : powershell.exe -File win-job.ps1
+  SPAWN -> KERNEL : CreateJobObject +\n  SetInformationJobObject\n  (ActiveProcess=1,\n   MemoryLimit=512MiB,\n   KILL_ON_JOB_CLOSE)
+  KERNEL --> SPAWN : job handle
+  SPAWN -> PY : Process.Start(python.exe)
+  SPAWN -> KERNEL : AssignProcessToJobObject
+  PY -> PY : run script
+  alt WaitForExit returns in time
+    PY --> SPAWN : exit code
+    SPAWN --> PROV : exit code + marker-line\n  stdout/stderr
+  else timeout
+    SPAWN -> KERNEL : TerminateJobObject (1)
+    SPAWN --> PROV : exit 124
+  end
+  PROV --> RUN : {pass, reason}
+end
+
+@enduml
