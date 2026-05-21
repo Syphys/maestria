@@ -18,24 +18,18 @@
 
 import {
   AboutIcon,
-  CancelSubscriptionIcon,
   ChangeLogIcon,
-  EmailIcon,
   ForumIcon,
   HelpIcon,
   IssueIcon,
   KeyShortcutsIcon,
-  MastodonIcon,
   NewFeatureIcon,
   OnboardingIcon,
-  TranslationIcon,
   WebClipperIcon,
-  XIcon,
 } from '-/components/CommonIcons';
 import { useAboutDialogContext } from '-/components/dialogs/hooks/useAboutDialogContext';
 import { useKeyboardDialogContext } from '-/components/dialogs/hooks/useKeyboardDialogContext';
 import { useOnboardingDialogContext } from '-/components/dialogs/hooks/useOnboardingDialogContext';
-import { Pro } from '-/pro';
 import { AppDispatch } from '-/reducers/app';
 import {
   actions as SettingsActions,
@@ -196,61 +190,12 @@ function HelpFeedbackPanel(props: Props) {
             <ListItemText>{t('core:reportIssues')}</ListItemText>
           </ListItemButton>
         </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.helpTranslating, true)}
-          >
-            <ListItemIcon>
-              <TranslationIcon />
-            </ListItemIcon>
-            <ListItemText>{t('core:helpWithTranslation')}</ListItemText>
-          </ListItemButton>
-        </ListItem>
-        <Divider />
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.emailContact, true)}
-          >
-            <ListItemIcon>
-              <EmailIcon />
-            </ListItemIcon>
-            <ListItemText>{t('core:emailContact')}</ListItemText>
-          </ListItemButton>
-        </ListItem>
-        {Pro && (
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() =>
-                openURLExternally(Links.links.cancelSubscription, true)
-              }
-            >
-              <ListItemIcon>
-                <CancelSubscriptionIcon />
-              </ListItemIcon>
-              <ListItemText>{t('core:cancelSubscription')}</ListItemText>
-            </ListItemButton>
-          </ListItem>
-        )}
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.mastodon, true)}
-          >
-            <ListItemIcon>
-              <MastodonIcon color="action" />
-            </ListItemIcon>
-            <ListItemText primary={t('core:followOnMastodon')} />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.twitter, true)}
-          >
-            <ListItemIcon>
-              <XIcon />
-            </ListItemIcon>
-            <ListItemText>{t('core:followOnX')}</ListItemText>
-          </ListItemButton>
-        </ListItem>
+        {/* Maestria fork (rebranding 6.11) — removed upstream-only items:
+            - helpWithTranslation (no Maestria Transifex project),
+            - emailContact (no Maestria support email; use GitHub issues),
+            - cancelSubscription (no Pro/paid tier in this fork),
+            - followOnMastodon / followOnX (no Maestria social presence).
+            The block stays in git history if anyone wants to re-add it. */}
       </List>
     </Box>
   );

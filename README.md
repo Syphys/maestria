@@ -35,6 +35,11 @@ account, no telemetry. Available for **Windows**, **Linux**, and **macOS**.
   namespaced `models.*`, `tags.*`, `description.*`, `hardware.*` tools.
 - **Offline & private** — 100% local, serverless, no vendor lock-in.
 
+> **Web Clipper compatibility** — Maestria reads the same `.ts/` sidecar
+> format as TagSpaces, so the upstream [TagSpaces Web Clipper](https://chrome.google.com/webstore/detail/tagspaces-web-clipper/ldalmgifdlgpiiadeccbcjojljeanhjk)
+> browser extension works as-is: pages saved with the clipper land in
+> your library with their tags and metadata intact.
+
 ---
 
 ## 👩‍💻 Developer guide

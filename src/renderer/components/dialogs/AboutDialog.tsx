@@ -140,8 +140,18 @@ function AboutDialog(props: Props) {
             {productName}
             &nbsp;
           </strong>
-          is made possible by the TagSpaces project and other open source
-          software listed in the:
+          is a local AI-model browser & manager: it scans a folder of GGUF /
+          safetensors files, parses their headers, enriches and tags them, and
+          launches them through llama.cpp&apos;s <code>llama-server</code>. An
+          MCP server exposes the library to external clients (Claude Code,
+          Cursor, deer-flow). 100% offline, no account, no telemetry.
+          <br />
+          <br />
+          {productName} is an independent fork of the open-source TagSpaces
+          project (© TagSpaces GmbH), re-purposed from a general file organizer
+          into a specialized AI model hub. It is not affiliated with, nor
+          endorsed by, TagSpaces GmbH. The full list of bundled third-party
+          software is in the:
           <br />
           <TsButton
             sx={{ marginTop: '5px' }}
@@ -150,13 +160,11 @@ function AboutDialog(props: Props) {
             Software Acknowledgements
           </TsButton>
           <br />
-          {!Pro && (
-            <span>
-              This program is free software: you can redistribute it and/or
-              modify it under the terms of the GNU Affero General Public License
-              (version 3) as published by the Free Software Foundation.
-            </span>
-          )}
+          <span>
+            This program is free software: you can redistribute it and/or modify
+            it under the terms of the GNU Affero General Public License (version
+            3) as published by the Free Software Foundation.
+          </span>
           <br />
           This program is distributed in the hope that it will be useful, but
           WITHOUT ANY WARRANTY; without even the implied warranty of
