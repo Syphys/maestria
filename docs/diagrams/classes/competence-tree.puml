@@ -1,10 +1,11 @@
 @startuml competence-tree
 !include ../_includes/style.iuml
 
-title COMPETENCE_TREE — frozen taxonomy (9 branches × ~32 leaves)
+title COMPETENCE_TREE — frozen taxonomy\nsource: `src/shared/RoutingTypes.ts` (one file)
 
-' Visual hierarchy via PlantUML rectangles. Source of truth is
-' src/shared/RoutingTypes.ts (COMPETENCE_TREE constant).
+' The taxonomy is a constant + a string-union type, both in
+' RoutingTypes.ts. Wrapping the whole tree in a single `package` block
+' makes the navigation cue match the other class diagrams.
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
@@ -12,66 +13,84 @@ skinparam rectangle {
   FontColor #0E1014
 }
 
-rectangle "**Competence tree**\n9 branches" as ROOT #F4EEE3 {
+package "src/shared/RoutingTypes.ts" <<Frame>> {
 
-  rectangle "code" as B_CODE {
-    rectangle "python" as L_PY
-    rectangle "cpp" as L_CPP
-    rectangle "sql" as L_SQL
-    rectangle "web" as L_WEB
-    rectangle "algo-dur" as L_ALG
-    rectangle "generic" as L_GEN_C
+  rectangle "**type CompetenceBranch**\n=\n9 string literals" as BTYPE
+  rectangle "**const COMPETENCE_TREE**\nRecord<CompetenceBranch, readonly string[]>" as TREE
+
+  BTYPE ..> TREE : keys of
+
+  rectangle "**Competence tree**\n9 branches" as ROOT #F4EEE3 {
+
+    rectangle "code" as B_CODE {
+      rectangle "python" as L_PY
+      rectangle "cpp" as L_CPP
+      rectangle "sql" as L_SQL
+      rectangle "web" as L_WEB
+      rectangle "algo-dur" as L_ALG
+      rectangle "generic" as L_GEN_C
+    }
+
+    rectangle "math" as B_MATH {
+      rectangle "algebre" as L_ALG_M
+      rectangle "geometrie" as L_GEO
+      rectangle "analyse" as L_ANA
+      rectangle "proba" as L_PROBA
+      rectangle "generic" as L_GEN_M
+    }
+
+    rectangle "reasoning" as B_REA {
+      rectangle "deductif" as L_DED
+      rectangle "multi-step" as L_MS
+      rectangle "generic" as L_GEN_R
+    }
+
+    rectangle "lang" as B_LANG {
+      rectangle "fr" as L_FR
+      rectangle "zh" as L_ZH
+      rectangle "en" as L_EN
+    }
+
+    rectangle "format" as B_FMT {
+      rectangle "json-strict" as L_JSON
+      rectangle "longueur-exacte" as L_LEN
+      rectangle "generic" as L_GEN_F
+    }
+
+    rectangle "longctx" as B_LCTX {
+      rectangle "needle-8k" as L_N8K
+      rectangle "needle-32k" as L_N32K
+    }
+
+    rectangle "safety" as B_SAFE #FFFDF6 {
+      rectangle "non-censure" as L_NCENS
+    }
+
+    rectangle "informatics" as B_INFO {
+      rectangle "network" as L_NET
+      rectangle "os" as L_OS
+      rectangle "security" as L_SEC
+      rectangle "hardware" as L_HW
+      rectangle "theory" as L_THEO
+    }
+
+    rectangle "tools" as B_TOOLS {
+      rectangle "tooluse" as L_TU
+      rectangle "robustness" as L_ROB
+      rectangle "calibration" as L_CAL
+      rectangle "summarization" as L_SUM
+    }
   }
 
-  rectangle "math" as B_MATH {
-    rectangle "algebre" as L_ALG_M
-    rectangle "geometrie" as L_GEO
-    rectangle "analyse" as L_ANA
-    rectangle "proba" as L_PROBA
-    rectangle "generic" as L_GEN_M
-  }
+  TREE -- ROOT : equals
+}
 
-  rectangle "reasoning" as B_REA {
-    rectangle "deductif" as L_DED
-    rectangle "multi-step" as L_MS
-    rectangle "generic" as L_GEN_R
-  }
-
-  rectangle "lang" as B_LANG {
-    rectangle "fr" as L_FR
-    rectangle "zh" as L_ZH
-    rectangle "en" as L_EN
-  }
-
-  rectangle "format" as B_FMT {
-    rectangle "json-strict" as L_JSON
-    rectangle "longueur-exacte" as L_LEN
-    rectangle "generic" as L_GEN_F
-  }
-
-  rectangle "longctx" as B_LCTX {
-    rectangle "needle-8k" as L_N8K
-    rectangle "needle-32k" as L_N32K
-  }
-
-  rectangle "safety" as B_SAFE #FFFDF6 {
-    rectangle "non-censure" as L_NCENS
-  }
-
-  rectangle "informatics" as B_INFO {
-    rectangle "network" as L_NET
-    rectangle "os" as L_OS
-    rectangle "security" as L_SEC
-    rectangle "hardware" as L_HW
-    rectangle "theory" as L_THEO
-  }
-
-  rectangle "tools" as B_TOOLS {
-    rectangle "tooluse" as L_TU
-    rectangle "robustness" as L_ROB
-    rectangle "calibration" as L_CAL
-    rectangle "summarization" as L_SUM
-  }
+' Co-located helpers — types that key off the same taxonomy, also
+' in RoutingTypes.ts but shown separately to avoid clutter inside
+' the tree drawing.
+package "src/shared/RoutingTypes.ts (cont.)" <<Frame>> {
+  rectangle "**type CompetenceLeafId**\n= `${CompetenceBranch}.${leaf}`" as LID
+  LID ..> TREE : derived from
 }
 
 note right of B_SAFE
