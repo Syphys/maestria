@@ -592,6 +592,13 @@ export interface RoutingConfig {
   thetaOpen?: number;
   /** Embedding-reliability gate threshold (0..1). Blank ⇒ 0.7. */
   embeddingReliabilityThreshold?: number;
+  /**
+   * Slice 2d — Code-tests sandbox opt-in. Off by default. When `true`,
+   * the staircase runs the 9 `code.python`/`code.algo-dur`/`code.generic`
+   * items via a kernel-isolated subprocess (POSIX `setrlimit` /
+   * Windows Job Object). See DECISIONS.md Dαα.
+   */
+  enableSandbox?: boolean;
 }
 
 /** Snapshot of the MCP server state for the renderer. */

@@ -89,11 +89,14 @@ function SettingsAI(_props: Props) {
     // "Réinitialiser" button.
     embPath: string;
     embUrl: string;
+    /** Slice 2d — opt-in for the code-tests sandbox (default false). */
+    enableSandbox: boolean;
   }>({
     vramGb: '',
     ramGb: '',
     embPath: '',
     embUrl: '',
+    enableSandbox: false,
   });
   // Sync the draft from the persisted config every time it lands. Blank
   // means "use the documented default" — the placeholder shows it.
@@ -105,6 +108,7 @@ function SettingsAI(_props: Props) {
       ramGb: gb(rc.config.ramReserveBytes),
       embPath: rc.config.routingEmbedderPath ?? '',
       embUrl: rc.config.routingEmbedderBaseUrl ?? '',
+      enableSandbox: rc.config.enableSandbox === true,
     });
   }, [rc.config]);
 
@@ -140,6 +144,7 @@ function SettingsAI(_props: Props) {
       thetaQ: undefined,
       thetaOpen: undefined,
       embeddingReliabilityThreshold: undefined,
+      enableSandbox: rcDraft.enableSandbox === true ? true : undefined,
     });
   };
 
@@ -479,6 +484,31 @@ function SettingsAI(_props: Props) {
               updateValue={(v) => setRcDraft((d) => ({ ...d, embUrl: v }))}
               retrieveValue={() => rcDraft.embUrl}
             />
+            {/* Slice 2d — code-tests sandbox opt-in. Default off; toggling on
+                lets the staircase measure the 9 `code-tests` items via a
+                kernel-isolated subprocess (POSIX rlimits / Windows Job
+                Object). The hint spells out the residual risk surface
+                (per DECISIONS.md Dαα) so the user opts in informed. */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={rcDraft.enableSandbox}
+                  onChange={(_e, checked) =>
+                    setRcDraft((d) => ({ ...d, enableSandbox: checked }))
+                  }
+                  data-tid="routingEnableSandboxTID"
+                />
+              }
+              label={t('core:mhSettingsRoutingEnableSandbox')}
+              sx={{ mt: 1, display: 'block' }}
+            />
+            <Typography
+              variant="caption"
+              color="text.disabled"
+              sx={{ display: 'block', mt: 0, mb: 0.5, fontStyle: 'italic' }}
+            >
+              {t('core:mhSettingsRoutingEnableSandboxHint')}
+            </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <TsButton
                 onClick={() => void saveRoutingDraft()}

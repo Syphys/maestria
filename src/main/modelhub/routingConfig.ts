@@ -70,6 +70,17 @@ export interface RoutingConfig {
   thetaOpen?: number;
   /** Embedding-reliability gate threshold (0..1). Blank ⇒ 0.7. */
   embeddingReliabilityThreshold?: number;
+  /**
+   * Slice 2d — Code-tests sandbox opt-in. When `false` (default), the
+   * 9 items `code.python.L1-L3` / `code.algo-dur.L1-L3` /
+   * `code.generic.L1-L3` stay UNMEASURED (branch prior D12). When
+   * `true`, Maestria runs the model's generated `solve(...)` inside a
+   * kernel-isolated sandbox (POSIX `setrlimit` / Windows Job Object).
+   * See DECISIONS.md Dαα + SECURITY-sandbox-2d.md. NEVER auto-enables
+   * — the user must tick the box in Settings ▸ AI ▸ Routing after
+   * acknowledging the residual risk surface.
+   */
+  enableSandbox?: boolean;
 }
 
 interface RoutingFile {
@@ -130,6 +141,7 @@ function sanitize(input: RoutingConfig): RoutingConfig {
   if (to !== undefined) out.thetaOpen = to;
   const er = unit(input.embeddingReliabilityThreshold);
   if (er !== undefined) out.embeddingReliabilityThreshold = er;
+  if (input.enableSandbox === true) out.enableSandbox = true;
   return out;
 }
 
@@ -169,6 +181,8 @@ export function effectiveRoutingParams(cfg: RoutingConfig): {
   thetaQ: number;
   thetaOpen: number;
   embeddingReliabilityThreshold: number;
+  /** Slice 2d — code-tests sandbox opt-in (default false, see Dαα). */
+  enableSandbox: boolean;
   /**
    * Embedder location at config-time (does NOT include the live URL of
    * a maestria-launched embedder — that's resolved at runtime by
@@ -205,6 +219,7 @@ export function effectiveRoutingParams(cfg: RoutingConfig): {
     embeddingReliabilityThreshold:
       cfg.embeddingReliabilityThreshold ??
       DEFAULT_EMBEDDING_RELIABILITY_THRESHOLD,
+    enableSandbox: cfg.enableSandbox === true,
     embedder,
   };
 }

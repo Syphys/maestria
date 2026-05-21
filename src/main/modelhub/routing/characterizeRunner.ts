@@ -21,6 +21,7 @@ import { ChatClient } from './chat';
 import { EmbedClient } from './embed';
 import { getRoutingConfig, effectiveRoutingParams } from '../routingConfig';
 import { ensureEmbedderReady } from '../embedderLifecycle';
+import { getSandbox, SandboxUnavailable } from './sandbox';
 import type { EmbedFn } from './embedProject';
 import type { CharacterizationProgress } from '../../../shared/RoutingTypes';
 
@@ -251,6 +252,13 @@ export async function runCharacterization(
     // Absent ⇒ probe skipped silently (Decision DCC §4 preserves the
     // absent path).
     let embed: EmbedFn | undefined;
+    let runSandbox:
+      | ((req: {
+          codeLang: 'python' | 'cpp';
+          code: string;
+          tests: string;
+        }) => Promise<boolean>)
+      | undefined;
     try {
       const cfg = await getRoutingConfig();
       const params = effectiveRoutingParams(cfg);
@@ -272,8 +280,24 @@ export async function runCharacterization(
         });
         embed = (texts) => client.embed(texts);
       }
+      // Slice 2d — Sandbox seam. Always built (the dispatch picks the
+      // right provider, including `UnsafeSandbox` when the opt-in is
+      // off). The provider throws `SandboxUnavailable` when the OS
+      // boundary cannot be established; we re-throw so the staircase
+      // catches it and marks the item UNMEASURED (D12 prior).
+      const provider = getSandbox({ enabled: params.enableSandbox });
+      runSandbox = async (req) => {
+        if (req.codeLang !== 'python') {
+          // v0: Python only. cpp tests stay UNMEASURED.
+          throw new SandboxUnavailable(
+            `language not supported in sandbox v0: ${req.codeLang}`,
+          );
+        }
+        const r = await provider.runPythonTests(req.code, req.tests);
+        return r.pass;
+      };
     } catch {
-      // never fatal — probe just doesn't run
+      // never fatal — embedder / sandbox seam just don't run.
     }
 
     const characterizeTreeFn = d.characterizeTreeFn ?? characterizeTree;
@@ -284,6 +308,7 @@ export async function runCharacterization(
         ask: new ChatClient({ baseUrl }),
         skipWrite: opts.skipWrite,
         embed,
+        seams: runSandbox ? { runSandbox } : undefined,
         loadExisting: async () => result.signature,
         computeHash: async () => result.signature.modelHash,
       });

@@ -29,9 +29,18 @@ export type Unmeasured = 'sandbox-pending' | 'runtime-inject' | 'no-items';
 
 /** Optional capabilities; absent ⇒ the dependent rung is unmeasured. */
 export type StaircaseSeams = {
-  /** Slice-2d: execute code-tests, return whether all asserts pass. */
+  /**
+   * Slice-2d: execute the model's generated code plus the curated
+   * `tests` (assert block) inside an isolated sandbox. Returns `true`
+   * iff every assert passes; `false` iff any fails or the child exits
+   * non-zero / times out / overflows output; THROWS iff the OS-level
+   * boundary couldn't be established at all (the caller maps that to
+   * UNMEASURED, never a false pass). `code` is the raw model response
+   * (the `def solve(...)` it was prompted to emit).
+   */
   runSandbox?: (req: {
     codeLang: 'python' | 'cpp';
+    code: string;
     tests: string;
   }) => Promise<boolean>;
   /** Asset pipeline: realise a runtime_inject prompt (needle/long text). */
@@ -117,6 +126,7 @@ export async function evaluateItem(
     try {
       const ok = await seams.runSandbox({
         codeLang: r.codeLang,
+        code: response,
         tests: r.tests,
       });
       return { status: ok ? 'pass' : 'fail' };

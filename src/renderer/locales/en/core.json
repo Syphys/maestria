@@ -1540,6 +1540,8 @@
   "mhSettingsRoutingEmbedderBrowse": "Browse…",
   "mhSettingsRoutingEmbedderBrowseTooltip": "Open a file picker to choose a .gguf embedder model",
   "mhSettingsRoutingEmbedderUrl": "External embedder URL (alternative)",
+  "mhSettingsRoutingEnableSandbox": "Run code-tests in a sandbox",
+  "mhSettingsRoutingEnableSandboxHint": "Off by default. When on, characterizing a model executes the Python code IT generates (sandbox: kernel-isolated subprocess — POSIX rlimits on Linux/macOS, Job Object on Windows; no filesystem writes, no sub-processes, capped memory). Residual risk: network egress is not blocked at the OS level in v0. Leave off if unsure — the 9 code-tests items stay UNMEASURED.",
   "mhSettingsRoutingReset": "Reset to defaults",
   "mhSettingsRoutingResetTooltip": "Clear both reserves and fall back on the built-in defaults (VRAM 1 GB, RAM 2 GB).",
   "mhSettingsMcp": "MCP Server",

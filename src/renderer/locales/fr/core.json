@@ -1536,6 +1536,8 @@
   "mhSettingsRoutingEmbedderBrowse": "Parcourir…",
   "mhSettingsRoutingEmbedderBrowseTooltip": "Ouvrir un sélecteur de fichier pour choisir un modèle embedder .gguf",
   "mhSettingsRoutingEmbedderUrl": "URL de l'embedder externe (alternatif)",
+  "mhSettingsRoutingEnableSandbox": "Exécuter les code-tests dans un sandbox",
+  "mhSettingsRoutingEnableSandboxHint": "Désactivé par défaut. Quand activé, la caractérisation d'un modèle exécute le code Python qu'IL génère (sandbox : sous-process kernel-isolé — rlimits POSIX sur Linux/macOS, Job Object sur Windows ; aucune écriture FS, aucun sous-process, mémoire plafonnée). Risque résiduel : l'egress réseau n'est pas bloqué au niveau OS en v0. Laisse désactivé en cas de doute — les 9 items code-tests restent NON MESURÉS.",
   "mhSettingsRoutingReset": "Réinitialiser",
   "mhSettingsRoutingResetTooltip": "Vide les deux réserves et retombe sur les valeurs par défaut (VRAM 1 Go, RAM 2 Go).",
   "mhSettingsMcp": "Serveur MCP",
