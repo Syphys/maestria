@@ -706,6 +706,8 @@
   "searchTypeSemiStrictTooltip": "Pesquisa exacta no caminho do ficheiro, descrição e conteúdo de texto (com pesquisa de texto completo activada)",
   "searchTypeStrict": "Estrito",
   "searchTypeStrictTooltip": "Igual ao semi-estrito mas sensível a maiúsculas/minúsculas",
+  "searchTypeRouting": "Roteamento",
+  "searchTypeRoutingTooltip": "Models Hub: trata a consulta como uma pergunta em linguagem natural e classifica os modelos caracterizados pela correspondência de competências. Modelos não caracterizados ficam ocultos.",
   "warningOpeningFilesExternally": "Mostrar aviso ao abrir ficheiros externamente",
   "geoTaggingFormat": "Formato de Geo-Etiquetagem",
   "searchDisabledWhileIndexing": "Pesquisa desactivada durante a indexação",

@@ -105,6 +105,14 @@ export const accuracy = {
   fuzzy: 'fuzzy',
   semistrict: 'semistrict',
   strict: 'strict',
+  /**
+   * Slice 9 — Models-Hub competence routing. Treats `textQuery` as a
+   * natural-language question, projects it onto the competence tree
+   * via `models.route`, and orders eligible characterised models by
+   * score (highest first). Auto-selected by SearchBox when entering
+   * a query in a Models-Hub-filtered folder (see SearchBox.tsx).
+   */
+  routing: 'routing',
 };
 
 export type ScopeType = 'location' | 'folder' | 'global';

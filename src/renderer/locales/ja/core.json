@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "ファイルパス、説明、テキストコンテンツの正確な検索（全文検索を有効にすることにより）",
   "searchTypeStrict": "厳格に",
   "searchTypeStrictTooltip": "やや厳格にと同じですが、大文字と小文字が区別されます",
+  "searchTypeRouting": "ルーティング",
+  "searchTypeRoutingTooltip": "Models Hub: クエリを自然言語の質問として扱い、特性化されたモデルを能力一致度でランク付けします。特性化されていないモデルは非表示になります。",
   "warningOpeningFilesExternally": "ファイルを外部で開く際に警告を表示する",
   "geoTaggingFormat": "ジオタグ形式",
   "searchDisabledWhileIndexing": "インデックス作成中に検索が無効になりました",

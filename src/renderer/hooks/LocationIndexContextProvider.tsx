@@ -842,6 +842,53 @@ export const LocationIndexContextProvider = ({
     // Lazy-load fulltext index only when text search is needed
     const hasTextQuery =
       searchQuery.textQuery && searchQuery.textQuery.length > 1;
+
+    // Slice 9 — competence-routing path. When the user picks the
+    // `routing` search accuracy (or SearchBox auto-defaults to it in a
+    // Models-Hub-filtered folder), the `textQuery` is treated as a
+    // natural-language question, routed through the Models-Hub
+    // pipeline (vector if the embedder is up, R5 fallback otherwise),
+    // and the eligible-only ranked file paths are joined back to
+    // FileSystemEntry instances from the same index. Non-eligible
+    // (uncharacterized) models are hidden — user decision.
+    if (
+      AppConfig.isElectron &&
+      searchQuery.searchType === 'routing' &&
+      hasTextQuery
+    ) {
+      try {
+        const electron = window.electronIO?.ipcRenderer;
+        if (electron && currentLocation) {
+          const directoryPath = await getLocationPath(currentLocation);
+          const result = (await electron.invoke('modelhub:routeQuery', {
+            query: searchQuery.textQuery!,
+            directoryPath,
+            limit: searchQuery.maxSearchResults ?? 50,
+          })) as {
+            hits: Array<{ path: string; score: number }>;
+            routedBy: 'vector' | 'r5';
+            gateReason?: string;
+          };
+          if (Array.isArray(result?.hits) && result.hits.length > 0) {
+            const byPath = new Map<string, TS.FileSystemEntry>();
+            for (const e of searchIndex) byPath.set(e.path, e);
+            const ordered: TS.FileSystemEntry[] = [];
+            for (const hit of result.hits) {
+              const entry = byPath.get(hit.path);
+              if (entry) ordered.push({ ...entry, competenceScore: hit.score });
+            }
+            return ordered;
+          }
+          // No hits (e.g. no characterized models in this folder).
+          // Fall through to fuzzy so the user gets SOMETHING back
+          // instead of an empty pane. Silent fallback by design.
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[routing-search] failed, falling back:', e);
+      }
+    }
+
     if (hasTextQuery && !fullTextLoaded.current) {
       await loadFullTextIfNeeded(searchIndex);
     }

@@ -35,10 +35,16 @@ import {
   type HardwareOverride,
 } from './hardwareOverride';
 import {
+  effectiveRoutingParams,
   getRoutingConfig,
   setRoutingConfig,
   type RoutingConfig,
 } from './routingConfig';
+import { listModelFiles } from './listModelFiles';
+import { probeFreeMemory } from './routing/freeMemory';
+import { decideRoute } from './routing/routeDecision';
+import { ensureEmbedderReady } from './embedderLifecycle';
+import type { RouteCandidate } from './routing/router';
 import {
   detectAndMerge,
   listRunners,
@@ -656,6 +662,125 @@ export default function registerModelhubEvents(): void {
         return { ok: true };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  // Slice 9 — search-integrated competence routing. Same pipeline as the
+  // `models.route` MCP tool, but invoked from the renderer's search bar
+  // when `searchType: 'routing'` is selected. Returns just the ranked
+  // file paths + their score so the LocationIndexContextProvider can map
+  // them to FileSystemEntry[] for the perspective renderers. Failure ⇒
+  // empty array (caller falls back to a fuzzy search silently).
+  ipcMain.handle(
+    MODELHUB_IPC.routeQuery,
+    async (
+      _event,
+      args: { query: string; directoryPath: string; limit?: number },
+    ) => {
+      const { query, directoryPath } = args;
+      const limit =
+        typeof args.limit === 'number' && args.limit > 0
+          ? Math.floor(args.limit)
+          : 50;
+      if (!query || !query.trim() || !directoryPath) {
+        return { hits: [], routedBy: 'r5', gateReason: 'empty query / path' };
+      }
+      try {
+        // Hot bonus — canonical paths held by a live runner.
+        const runningSet = new Set<string>();
+        for (const r of listRunning()) {
+          if (!r.exited && r.filePath) {
+            runningSet.add(await resolveCanonicalShardPath(r.filePath));
+          }
+        }
+
+        const files = await listModelFiles(directoryPath);
+        const candidates: RouteCandidate[] = await Promise.all(
+          files.map(async (f) => {
+            const signature =
+              (await loadSignature(f).catch(() => undefined)) ?? null;
+            let footprintBytes: number | undefined;
+            if (
+              signature &&
+              !(
+                typeof signature.structural?.est_footprint_bytes === 'number' &&
+                signature.structural.est_footprint_bytes > 0
+              )
+            ) {
+              const bytes = await sumShardBytes(f)
+                .then((s) => s.totalBytes)
+                .catch(() => 0);
+              if (bytes > 0) footprintBytes = bytes;
+            }
+            return {
+              id: f,
+              signature,
+              footprintBytes,
+              running: runningSet.has(f),
+            };
+          }),
+        );
+
+        const resources = await probeFreeMemory();
+        const params = effectiveRoutingParams(await getRoutingConfig());
+
+        // Resolve managed embedder → live URL (slice 7e), or pass
+        // through the external URL. Absent ⇒ decideRoute handles R5.
+        let embedderRef: { baseUrl: string; model?: string } | undefined;
+        if (params.embedder?.kind === 'managed') {
+          const ready = await ensureEmbedderReady(params.embedder.filePath, {
+            model: params.embedder.model,
+          });
+          if (ready) {
+            embedderRef = { baseUrl: ready.baseUrl, model: ready.model };
+          }
+        } else if (params.embedder?.kind === 'external') {
+          embedderRef = {
+            baseUrl: params.embedder.baseUrl,
+            model: params.embedder.model,
+          };
+        }
+
+        const decision = await decideRoute({
+          query,
+          candidates,
+          resources,
+          embedder: embedderRef,
+          params: {
+            thetaQ: params.thetaQ,
+            embeddingReliabilityThreshold: params.embeddingReliabilityThreshold,
+          },
+        });
+
+        // Only eligible (D9) entries → mask out the rest. Sort by score
+        // desc, normalise into [0, 1] just in case.
+        const ranked = (decision.ranked as Array<any>).filter(
+          (r) => r.eligible !== false && typeof r.score === 'number',
+        );
+        ranked.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+        const head = ranked.slice(0, limit);
+        const maxScore = head.length > 0 ? (head[0].score ?? 1) : 1;
+        const hits = head.map((r) => ({
+          path: r.id as string,
+          score:
+            maxScore > 0
+              ? Math.min(1, Math.max(0, (r.score ?? 0) / maxScore))
+              : 0,
+        }));
+        return {
+          hits,
+          routedBy: decision.routedBy,
+          gateReason: decision.gateReason,
+        };
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn(`[routeQuery] failed: ${(e as Error).message}`);
+        return {
+          hits: [],
+          routedBy: 'r5',
+          gateReason: `error: ${(e as Error).message}`,
+        };
       }
     },
   );

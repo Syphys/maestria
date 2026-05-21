@@ -706,6 +706,8 @@
   "searchTypeSemiStrictTooltip": "Dokładne wyszukiwanie w ścieżce pliku, opisie i treści tekstowej (przy włączonym wyszukiwaniu pełnotekstowym)",
   "searchTypeStrict": "Ścisłe",
   "searchTypeStrictTooltip": "To samo co częściowo ścisłe, ale z uwzględnieniem wielkości liter",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Pokaż ostrzeżenie przy otwieraniu plików zewnętrznie",
   "geoTaggingFormat": "Format geotagowania",
   "searchDisabledWhileIndexing": "Wyszukiwanie wyłączone podczas indeksowania",

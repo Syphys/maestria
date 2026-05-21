@@ -706,6 +706,8 @@
   "searchTypeSemiStrictTooltip": "Eksakt søk i filbane, beskrivelse og tekstinnhold (med aktivert fulltekstsøk)",
   "searchTypeStrict": "Streng",
   "searchTypeStrictTooltip": "Samme som halvstreng, men skiller mellom store og små bokstaver",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Vis advarsel ved åpning av filer eksternt",
   "geoTaggingFormat": "Format for geomerking",
   "searchDisabledWhileIndexing": "Søk deaktivert under indeksering",

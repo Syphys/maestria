@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Pencarian tepat pada jalur file, deskripsi dan konten teks (dengan pencarian teks lengkap yang diaktifkan)",
   "searchTypeStrict": "Ketat",
   "searchTypeStrictTooltip": "Sama seperti semi-ketat tetapi peka huruf besar/kecil",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Tampilkan peringatan saat membuka file secara eksternal",
   "geoTaggingFormat": "Format Geo Tagging",
   "searchDisabledWhileIndexing": "Pencarian dinonaktifkan saat pengindeksan",

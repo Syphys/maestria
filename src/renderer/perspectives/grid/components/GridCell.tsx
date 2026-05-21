@@ -566,6 +566,7 @@ function GridCell(props: Props) {
             non-models / uncharacterized files. */}
         <Box
           sx={{
+            position: 'relative',
             flexGrow: 1,
             minHeight: 0,
             display: 'flex',
@@ -587,6 +588,34 @@ function GridCell(props: Props) {
             )}
             fallback={<></>}
           />
+          {/* Slice 9 — competence-routing score badge. Only present
+              when the entry was returned by a `searchType: 'routing'`
+              search (LocationIndexContextProvider attaches the field).
+              Rendered as a percentage in the top-right corner of the
+              radar area; never crowds the radar itself. */}
+          {typeof fsEntry.competenceScore === 'number' && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 1,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                lineHeight: 1.2,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                pointerEvents: 'none',
+              }}
+              title={`Competence routing score — ${(
+                fsEntry.competenceScore * 100
+              ).toFixed(0)}%`}
+            >
+              {(fsEntry.competenceScore * 100).toFixed(0)}%
+            </Box>
+          )}
         </Box>
         <Typography
           title={fsEntry.name}

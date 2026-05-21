@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "在文件路径、描述和文本内容中进行精确搜索（通过启用全文搜索）",
   "searchTypeStrict": "严格",
   "searchTypeStrictTooltip": "与半严格相同，但区分大小写",
+  "searchTypeRouting": "路由",
+  "searchTypeRoutingTooltip": "Models Hub：将查询作为自然语言问题处理，根据模型的能力匹配度对已表征模型进行排名。未表征的模型将被隐藏。",
   "warningOpeningFilesExternally": "打开外部文件时显示警告",
   "geoTaggingFormat": "地理标记格式",
   "searchDisabledWhileIndexing": "索引时搜索已禁用",

@@ -706,6 +706,8 @@
   "searchTypeSemiStrictTooltip": "Exakte Suche in Dateipfad, Beschreibung und Textinhalt (durch aktivierte Volltextsuche)",
   "searchTypeStrict": "streng",
   "searchTypeStrictTooltip": "Das gleiche wie Halb-Intensiv, aber zwischen Groß- und Kleinschreibung",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: behandelt die Abfrage als natürlichsprachliche Frage und ordnet charakterisierte Modelle nach ihrer Kompetenzübereinstimmung. Nicht charakterisierte Modelle werden ausgeblendet.",
   "warningOpeningFilesExternally": "Warnung beim Öffnen von Dateien mit externen Programmen anzeigen",
   "geoTaggingFormat": "Geotagging-Format",
   "searchDisabledWhileIndexing": "Suche deaktiviert während Indizierung",

@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Pontos keresés a fájl elérési útjában, leírásban és szöveges tartalomban (teljes szöveges keresés esetén)",
   "searchTypeStrict": "Szigorú",
   "searchTypeStrictTooltip": "Megegyezik a félig szigorúval, de kis- és nagybetű érzékeny",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Figyelmeztetés megjelenítése fájlok külső megnyitásakor",
   "geoTaggingFormat": "Geo-cimkézési formátum",
   "searchDisabledWhileIndexing": "Keresés le van tiltva indexelés közben",

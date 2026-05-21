@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Recherche exacte dans les chemins, les descriptions et les textes des fichiers (avec la recherche intégrale activée)",
   "searchTypeStrict": "Stricte",
   "searchTypeStrictTooltip": "Identique au semi-strict mais sensible à la casse",
+  "searchTypeRouting": "Routage",
+  "searchTypeRoutingTooltip": "Models Hub : interprète la requête comme une question en langage naturel et classe les modèles caractérisés selon leur correspondance de compétences. Les modèles non caractérisés sont masqués.",
   "warningOpeningFilesExternally": "Afficher un avertissement à l'ouverture de fichiers externe",
   "geoTaggingFormat": "Format de géolocalisation",
   "searchDisabledWhileIndexing": "Recherche désactivé pendant l'indexation",

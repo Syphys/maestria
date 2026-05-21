@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Точно търсене в пътя на файла, описанието и текстовото съдържание (при активирано пълнотекстово търсене)",
   "searchTypeStrict": "Строго",
   "searchTypeStrictTooltip": "Същото като полу-строго, но с различаване на главни и малки букви",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Покажете предупреждение при отваряне на файлове външно",
   "geoTaggingFormat": "Формат на Гео-Маркиране",
   "searchDisabledWhileIndexing": "Търсенето е деактивирано по време на индексиране",

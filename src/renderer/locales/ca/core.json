@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Cerca exacta al camí del fitxer, la descripció i el contingut de text (amb la cerca de text complet activada)",
   "searchTypeStrict": "Estricte",
   "searchTypeStrictTooltip": "Igual que semiestrict però sensible a majúscules i minúscules",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Mostra un avís en obrir fitxers externament",
   "geoTaggingFormat": "Format d'etiquetatge geogràfic",
   "searchDisabledWhileIndexing": "La cerca està desactivada mentre s'indexa",

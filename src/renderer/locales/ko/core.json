@@ -706,6 +706,8 @@
   "searchTypeSemiStrictTooltip": "파일 경로, 설명 및 텍스트 콘텐츠에서 정확한 검색(전체 텍스트 검색 활성화)",
   "searchTypeStrict": "엄격",
   "searchTypeStrictTooltip": "준-엄격과 동일하지만 대소문자를 구분합니다.",
+  "searchTypeRouting": "라우팅",
+  "searchTypeRoutingTooltip": "Models Hub: 쿼리를 자연어 질문으로 처리하고 특성화된 모델을 역량 일치도에 따라 순위를 매깁니다. 특성화되지 않은 모델은 숨겨집니다.",
   "warningOpeningFilesExternally": "외부에서 파일을 열 때 경고 표시",
   "geoTaggingFormat": "지오 태깅 형식",
   "searchDisabledWhileIndexing": "인덱싱 중 검색이 비활성화되었습니다",

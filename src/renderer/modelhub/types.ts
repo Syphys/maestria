@@ -552,7 +552,34 @@ export const MODELHUB_IPC = {
   getRoutingConfig: 'modelhub:getRoutingConfig',
   /** Persists the routing config; pass an empty object to reset to defaults. */
   setRoutingConfig: 'modelhub:setRoutingConfig',
+  /**
+   * Slice 9 — competence-routing search. Given a natural-language
+   * `query` and a `directoryPath`, runs `models.route` (the same
+   * pipeline used by the MCP tool) and returns the ranked eligible
+   * file paths with their score in [0, 1]. The renderer maps these
+   * to `FileSystemEntry[]` (with `competenceScore` set) so the search
+   * results pane can render them in the current perspective.
+   * Failure ⇒ empty array (caller falls back to fuzzy search).
+   */
+  routeQuery: 'modelhub:routeQuery',
 } as const;
+
+/** Slice 9 — single ranked entry returned by `MODELHUB_IPC.routeQuery`. */
+export interface RoutedSearchHit {
+  /** Absolute path to the canonical shard file. */
+  path: string;
+  /** Routing score in [0, 1] (higher = better fit). */
+  score: number;
+}
+
+/** Slice 9 — full response for the routing search. */
+export interface RoutedSearchResult {
+  hits: RoutedSearchHit[];
+  /** Provenance — same field shape as `models.route` MCP response. */
+  routedBy: 'vector' | 'r5';
+  /** Short string explaining why this routedBy was chosen. */
+  gateReason?: string;
+}
 
 /** Manual hardware override fields surfaced by Settings UI. */
 export interface HardwareOverride {

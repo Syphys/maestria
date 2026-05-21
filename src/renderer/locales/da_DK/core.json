@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Præcis søgning i filsti, beskrivelse og tekstindhold (ved aktiveret fuldtekstsøgning)",
   "searchTypeStrict": "Streng",
   "searchTypeStrictTooltip": "Samme som semi-streng men med store/små bogstaver",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Vis advarsel ved åbning af filer eksternt",
   "geoTaggingFormat": "Geomærkningsformat",
   "searchDisabledWhileIndexing": "Søgning deaktiveret under indeksering",

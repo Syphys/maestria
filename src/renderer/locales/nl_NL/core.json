@@ -706,6 +706,8 @@
   "searchTypeSemiStrictTooltip": "Exacte zoekopdracht in bestandspad, beschrijving en tekstinhoud (met ingeschakelde volledige-tekstzoekfunctie)",
   "searchTypeStrict": "Strikt",
   "searchTypeStrictTooltip": "Hetzelfde als semi-strikt maar hoofdlettergevoelig",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: behandelt de query als een natuurlijke vraag en rangschikt gekarakteriseerde modellen op basis van competentie-overeenkomst. Niet-gekarakteriseerde modellen worden verborgen.",
   "warningOpeningFilesExternally": "Waarschuwing tonen bij extern openen van bestanden",
   "geoTaggingFormat": "Geo-tagindeling",
   "searchDisabledWhileIndexing": "Zoeken uitgeschakeld tijdens indexeren",

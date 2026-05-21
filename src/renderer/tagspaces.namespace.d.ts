@@ -122,7 +122,20 @@ export namespace TS {
      */
     paramBuckets?: string[];
     searchBoxing?: ScopeType;
-    searchType?: 'fuzzy' | 'semistrict' | 'strict';
+    /**
+     * Match accuracy. The three classic modes (`fuzzy` / `semistrict` /
+     * `strict`) are filename + content matching, delegated to
+     * `@tagspaces/tagspaces-search`. The fourth — `routing` — is a
+     * Models-Hub-only mode (slice 9, 2026-05-21): the `textQuery` is
+     * treated as a natural-language question, embedded, and projected
+     * onto the competence tree; results are eligible characterized
+     * models ranked by `models.route` score (descending). Inserts a
+     * `competenceScore` field on each entry (0..1) so the perspective
+     * tiles can show a percentage badge. Falls back to `fuzzy`
+     * silently when the location has no characterized models or
+     * `models.route` can't run.
+     */
+    searchType?: 'fuzzy' | 'semistrict' | 'strict' | 'routing';
     forceIndexing?: boolean;
     currentDirectory?: string;
     tagTimePeriodFrom?: number | null;
@@ -232,6 +245,12 @@ export namespace TS {
     // entries that flow through other paths (e.g. legacy callers, search
     // results pre-enrichment) may not have it set yet.
     parsedNameTags?: TS.Tag[];
+    /**
+     * Slice 9 — Models-Hub competence-routing score in [0, 1]. Only set
+     * by a `searchType: 'routing'` search; rendered as a percentage
+     * badge on the perspective tiles. Absent for every other code path.
+     */
+    competenceScore?: number;
   }
 
   interface SearchIndex extends FileSystemEntry {

@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "חפש תוצאות מדויקות חלקית",
   "searchTypeStrict": "חיפוש קשיח",
   "searchTypeStrictTooltip": "חפש תוצאות מדויקות",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "אזהרה: פתיחת קבצים חיצונית",
   "geoTaggingFormat": "פורמט תיוג גיאוגרפי",
   "searchDisabledWhileIndexing": "חיפוש מושבת בזמן אינדוקס",

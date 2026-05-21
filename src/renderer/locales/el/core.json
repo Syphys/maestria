@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Ακριβής αναζήτηση σε διαδρομή αρχείου, περιγραφή και περιεχόμενο κειμένου (με ενεργοποιημένη πλήρη αναζήτηση κειμένου)",
   "searchTypeStrict": "Αυστηρή",
   "searchTypeStrictTooltip": "Ίδιο με ημι-αυστηρή αλλά με διάκριση πεζών-κεφαλαίων",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Εμφάνιση προειδοποίησης κατά το άνοιγμα αρχείων εξωτερικά",
   "geoTaggingFormat": "Μορφή Γεωγραφικής Επισήμανσης",
   "searchDisabledWhileIndexing": "Η αναζήτηση είναι απενεργοποιημένη κατά την ευρετηρίαση",

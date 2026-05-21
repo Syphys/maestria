@@ -730,6 +730,8 @@
   "searchTypeSemiStrictTooltip": "Exact search in file path, description and text content (by enabled full-text search)",
   "searchTypeStrict": "Strict",
   "searchTypeStrictTooltip": "Same as semi-strict but case sensitive",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Show warning on opening files externally",
   "geoTaggingFormat": "Geo Tagging Format",
   "searchDisabledWhileIndexing": "Search disabled while indexing",

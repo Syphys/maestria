@@ -101,6 +101,7 @@ function SearchAutocomplete(props: Props) {
     searchQuery,
     setSearchQuery,
     isSearchMode,
+    listingMode,
   } = useDirectoryContentContext();
   const { tempSearchQuery, setTempSearchQuery } = useSearchQueryContext();
   const { openHistoryItem } = useBrowserHistoryContext();
@@ -134,8 +135,17 @@ function SearchAutocomplete(props: Props) {
     searchQuery.searchBoxing || scope.location,
   );
 
-  const searchType = useRef<'fuzzy' | 'semistrict' | 'strict'>(
-    searchQuery.searchType ? searchQuery.searchType : 'fuzzy',
+  // Slice 9 — auto-default to 'routing' when the user is in a Models-Hub
+  // filtered folder (listingMode != 'all', meaning the user has elected to
+  // see model files specifically). They can still flip to fuzzy/semistrict/
+  // strict via EditSearchQuery.tsx — this is just the starting position.
+  // When the folder is generic (listingMode === 'all' OR not models-aware),
+  // we keep the historical 'fuzzy' default so non-Models-Hub usage is
+  // unaffected.
+  const defaultSearchType: 'fuzzy' | 'semistrict' | 'strict' | 'routing' =
+    listingMode && listingMode !== 'all' ? 'routing' : 'fuzzy';
+  const searchType = useRef<'fuzzy' | 'semistrict' | 'strict' | 'routing'>(
+    searchQuery.searchType ? searchQuery.searchType : defaultSearchType,
   );
   const lastModified = useRef<string>(
     searchQuery.lastModified ? searchQuery.lastModified : '',

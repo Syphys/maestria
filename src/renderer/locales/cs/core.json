@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Přesné vyhledávání v cestě k souboru, popisu a textovém obsahu (při povoleném fulltextovém vyhledávání)",
   "searchTypeStrict": "Přesné",
   "searchTypeStrictTooltip": "Stejné jako částečně přesné, ale rozlišuje velikost písmen",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Zobrazit varování při otevírání souborů externě",
   "geoTaggingFormat": "Formát geo-tagování",
   "searchDisabledWhileIndexing": "Vyhledávání je zakázáno během indexování",

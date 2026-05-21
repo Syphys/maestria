@@ -323,14 +323,28 @@ function EditSearchQuery(props: Props) {
           </TsToggleButton>
           <TsToggleButton
             sx={{
-              borderTopLeftRadius: 0,
-              borderBottomLeftRadius: 0,
+              borderRadius: 0,
             }}
             tooltip={t('searchTypeStrictTooltip')}
             value="strict"
             data-tid="strictSearchTID"
           >
             {t('searchTypeStrict')}
+          </TsToggleButton>
+          {/* Slice 9 — Models-Hub competence routing. Auto-defaults on
+              when the user types a query in a Models-Hub-filtered folder
+              (see SearchBox.tsx). Selecting it here is the manual escape
+              hatch from a non-models folder. */}
+          <TsToggleButton
+            sx={{
+              borderTopLeftRadius: 0,
+              borderBottomLeftRadius: 0,
+            }}
+            tooltip={t('searchTypeRoutingTooltip')}
+            value="routing"
+            data-tid="routingSearchTID"
+          >
+            {t('searchTypeRouting')}
           </TsToggleButton>
         </ToggleButtonGroup>
       </FormControl>

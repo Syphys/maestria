@@ -707,6 +707,8 @@
   "searchTypeSemiStrictTooltip": "Ճշգրիտ որոնում նիշքի ուղու, նկարագրության և պարունակության մեջ (եթե միացված է ամբողջական տեքստի որոնումը)",
   "searchTypeStrict": "Խիստ",
   "searchTypeStrictTooltip": "Նույնն է, ինչ կիսախիստը, բայց մեծատառ-փոքրատառը հաշվի առնելով",
+  "searchTypeRouting": "Routing",
+  "searchTypeRoutingTooltip": "Models Hub: treat the query as a natural-language question and rank characterized models by their competence match. Uncharacterized models are hidden.",
   "warningOpeningFilesExternally": "Նիշքերն արտաքին ծրագրով բացելիս զգուշացնել",
   "geoTaggingFormat": "Աշխարհագր․ պիտակման ձևաչափ",
   "searchDisabledWhileIndexing": "Ցուցակման ժամանակ որոնումն անջատված է",
