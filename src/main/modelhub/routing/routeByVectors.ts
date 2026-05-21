@@ -174,17 +174,26 @@ export function routeByVectors(
       }
       // Slice 7d — blend topic_coverage on top of deterministic v.
       // tc lives in [-1, 1] (cosine); we clamp negatives to 0 since a
-      // negative cosine on an axis means « the model talks AWAY from
-      // this topic », not « it talks against it » — neutral, not
-      // anti-routing. When tc is absent (probe not run / no embedder
-      // configured), beta·tc=0 and v stays the deterministic value.
+      // negative cosine means « the model talks AWAY from this topic »,
+      // not « against it » — neutral, not anti-routing.
+      //
+      // Audit fix #1 (2026-05-21): when tc is ABSENT (signature was
+      // characterized before the embedder was configured), treat it as
+      // `v` itself so the blend reduces to the unchanged deterministic
+      // value (α·v + β·v = v). The previous code returned `v` unchanged
+      // when tc was absent, which created the perverse incentive:
+      //   - probe with tc=0 ⇒ blend = α·v < v  (model demoted)
+      //   - no probe at all ⇒ no blend = v     (model FAVOURED for missing data)
+      // Now: absent and "I trust the deterministic score" are treated
+      // alike. A measured-zero tc still demotes (correct — the model
+      // demonstrably doesn't engage that topic).
       const tc =
         d.level === 'leaf'
           ? beh?.topic_coverage_per_leaf?.[d.dim]
           : beh?.topic_coverage_per_branch?.[d.branch as CompetenceBranch];
-      const tcClamped = typeof tc === 'number' && tc > 0 ? Math.min(1, tc) : 0;
-      const vBlended =
-        beta > 0 && typeof tc === 'number' ? alpha * v + beta * tcClamped : v;
+      const tcEffective =
+        typeof tc === 'number' ? (tc > 0 ? Math.min(1, tc) : 0) : v;
+      const vBlended = beta > 0 ? alpha * v + beta * tcEffective : v;
       return { dim: d.dim, level: d.level, q: d.q, v: vBlended, usedPrior };
     });
 

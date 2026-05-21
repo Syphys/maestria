@@ -49,8 +49,27 @@ export interface EnsureEmbedderReadyResult {
  */
 let inFlightLaunch: Promise<EnsureEmbedderReadyResult | null> | null = null;
 
-/** Find an already-running managed embedder matching `filePath`. */
-function findRunning(canonical: string): { pid: number; url: string } | null {
+/**
+ * Find an already-running managed embedder matching `filePath` AND
+ * confirm it actually responds (audit fix #5, 2026-05-21).
+ *
+ * The previous check only looked at the in-memory `exited` flag. If
+ * the embedder process was killed externally (Task Manager, `kill`,
+ * crash that hasn't yet fired the runner's SIGCHLD handler), the flag
+ * lingered as `false` and we returned a stale URL. The caller would
+ * then hit ECONNREFUSED on its first `embed()` call and silently fall
+ * back to R5 — recoverable but with a wasted round-trip and confusing
+ * logs.
+ *
+ * Now: a fast 500 ms HEAD-equivalent (`/v1/models`) confirms liveness
+ * before we return the URL. Unreachable ⇒ treat as gone (caller will
+ * launch a fresh one). The 500 ms budget is below the typical
+ * llama-server response (~50 ms) by an order of magnitude, so a
+ * healthy embedder never triggers the fallback.
+ */
+async function findRunningAlive(
+  canonical: string,
+): Promise<{ pid: number; url: string } | null> {
   for (const r of listRunning()) {
     if (
       r.launchedBy === EMBEDDER_LAUNCHED_BY &&
@@ -58,7 +77,23 @@ function findRunning(canonical: string): { pid: number; url: string } | null {
       !r.exited &&
       r.url
     ) {
-      return { pid: r.pid, url: r.url };
+      try {
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 500);
+        const res = await fetch(`${r.url.replace(/\/+$/, '')}/v1/models`, {
+          signal: ac.signal,
+        });
+        clearTimeout(t);
+        if (res.ok) return { pid: r.pid, url: r.url };
+        // Process responds but not 200 — degraded. Skip it; the caller
+        // will spawn a fresh embedder. We deliberately do NOT
+        // stopProcess(r.pid) here: if it's still alive but slow, the
+        // runner registry's own cleanup will catch it eventually, and
+        // forcing a kill could fight a concurrent legitimate shutdown.
+      } catch {
+        // Unreachable (timeout, ECONNREFUSED, etc.) — process is dead
+        // or frozen. Same reasoning: skip + let the caller spawn fresh.
+      }
     }
   }
   return null;
@@ -122,7 +157,7 @@ export async function ensureEmbedderReady(
   const work = (async (): Promise<EnsureEmbedderReadyResult | null> => {
     try {
       const canonical = await resolveCanonicalShardPath(filePath);
-      const reused = findRunning(canonical);
+      const reused = await findRunningAlive(canonical);
       if (reused) {
         return {
           baseUrl: reused.url,

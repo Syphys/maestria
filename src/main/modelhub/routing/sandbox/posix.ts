@@ -25,6 +25,11 @@ import {
  * runs. Caps (`MEM`, `CPU`, …) are passed as Python expressions so the
  * harness can override them per-call without re-templating the script.
  */
+/** Sentinel exit code: child couldn't establish the kernel boundary.
+ *  Parent maps to SandboxUnavailable ⇒ UNMEASURED (D12). 78 = EX_CONFIG
+ *  on BSD/macOS, conventionally "configuration error". */
+const SANDBOX_RLIMIT_FAIL_EXIT = 78;
+
 function buildPreamble(opts: {
   memoryLimitBytes: number;
   cpuLimitSeconds: number;
@@ -33,42 +38,62 @@ function buildPreamble(opts: {
 # Importing 'resource' MUST succeed on a real POSIX Python; if it does
 # not we cannot establish the boundary and the harness will surface a
 # SandboxUnavailable to the caller (see types.ts).
+#
+# Audit fix #2 (2026-05-21): align with DECISIONS.md Dαα §3 fail-closed.
+# Any failure to set a STRICT rlimit ⇒ exit with sentinel ${SANDBOX_RLIMIT_FAIL_EXIT};
+# the parent maps that to SandboxUnavailable ⇒ UNMEASURED. The previous
+# code swallowed setrlimit errors with \`except: pass\`, which silently
+# ran the model with weaker limits than the threat-model promises.
 import resource as _resource, sys as _sys
 
-# T2/T7 — block any new process (kernel-enforced).
-# RLIMIT_NPROC is per-UID on Linux: set it to the current count so this
+def _strict_setrlimit(label, which, soft, hard=None):
+    """STRICT: failure ⇒ child exits 78, parent surfaces SandboxUnavailable."""
+    try:
+        _resource.setrlimit(which, (soft, soft if hard is None else hard))
+    except Exception as _e:
+        _sys.stderr.write(
+            "MAESTRIA_SANDBOX_RLIMIT_FAIL:" + label + ":" + str(_e) + chr(10)
+        )
+        _sys.stderr.flush()
+        _sys.exit(${SANDBOX_RLIMIT_FAIL_EXIT})
+
+# T2/T7 — block any new process (kernel-enforced). STRICT.
+# RLIMIT_NPROC is per-UID on Linux: pin it at the current count so this
 # user cannot fork anymore, without affecting their other processes.
 try:
     _cur_nproc, _ = _resource.getrlimit(_resource.RLIMIT_NPROC)
-    _resource.setrlimit(_resource.RLIMIT_NPROC, (_cur_nproc, _cur_nproc))
-except Exception:
-    pass
+except Exception as _e:
+    _sys.stderr.write("MAESTRIA_SANDBOX_RLIMIT_FAIL:NPROC_READ:" + str(_e) + chr(10))
+    _sys.stderr.flush()
+    _sys.exit(${SANDBOX_RLIMIT_FAIL_EXIT})
+_strict_setrlimit("NPROC", _resource.RLIMIT_NPROC, _cur_nproc)
 
-# T6 — memory cap (~512 MiB by default).
-# AS (address space) is the strict cap on Linux; DATA is the macOS
-# fallback since RLIMIT_AS is unreliable there.
+# T6 — memory cap (~512 MiB by default). AT LEAST ONE of AS / DATA
+# must succeed (RLIMIT_AS is unreliable on macOS so DATA is the
+# documented fallback). If BOTH fail, fail-closed.
 _MEM = ${opts.memoryLimitBytes}
-try:
-    _resource.setrlimit(_resource.RLIMIT_AS, (_MEM, _MEM))
-except Exception:
-    pass
-try:
-    _resource.setrlimit(_resource.RLIMIT_DATA, (_MEM, _MEM))
-except Exception:
-    pass
+_mem_set = False
+for _which, _label in ((_resource.RLIMIT_AS, "AS"), (_resource.RLIMIT_DATA, "DATA")):
+    try:
+        _resource.setrlimit(_which, (_MEM, _MEM))
+        _mem_set = True
+    except Exception:
+        continue
+if not _mem_set:
+    _sys.stderr.write("MAESTRIA_SANDBOX_RLIMIT_FAIL:MEM:no AS/DATA available" + chr(10))
+    _sys.stderr.flush()
+    _sys.exit(${SANDBOX_RLIMIT_FAIL_EXIT})
 
-# T1 — CPU seatbelt (kernel-side, in addition to the wall-clock timer
-# enforced by the parent).
+# T1 — CPU seatbelt. Best-effort: the parent enforces a wall-clock
+# timeout anyway, so a missing RLIMIT_CPU is a degraded but acceptable
+# defense layer (cf. SECURITY-sandbox-2d.md §5 residual).
 try:
     _resource.setrlimit(_resource.RLIMIT_CPU, (${opts.cpuLimitSeconds}, ${opts.cpuLimitSeconds}))
 except Exception:
     pass
 
-# T4 — no filesystem writes (file size cap = 0).
-try:
-    _resource.setrlimit(_resource.RLIMIT_FSIZE, (0, 0))
-except Exception:
-    pass
+# T4 — no filesystem writes (file size cap = 0). STRICT.
+_strict_setrlimit("FSIZE", _resource.RLIMIT_FSIZE, 0)
 
 # Defense in depth — block import of network/process/native modules.
 # Honest: trivially bypassable via __class__/getattr tricks; the rlimits
@@ -304,6 +329,24 @@ export class PosixSandbox extends SandboxProvider {
       child.on('close', (code) => {
         clearTimeout(timer);
         const durationMs = Date.now() - start;
+        // Audit fix #2 — sentinel exit 78 means the preamble couldn't
+        // arm the kernel limits. Per Dαα §3 fail-closed: surface as
+        // SandboxUnavailable so the caller marks the item UNMEASURED,
+        // NEVER as a real pass / fail. stderr should carry a
+        // `MAESTRIA_SANDBOX_RLIMIT_FAIL:<label>:<message>` line.
+        if (code === SANDBOX_RLIMIT_FAIL_EXIT && !reason) {
+          const tail = stderr
+            .split('\n')
+            .filter((l) => l.startsWith('MAESTRIA_SANDBOX_RLIMIT_FAIL:'))
+            .slice(-1)[0]
+            ?.replace('MAESTRIA_SANDBOX_RLIMIT_FAIL:', '');
+          reject(
+            new SandboxUnavailable(
+              `rlimit setup failed in child: ${tail ?? 'unknown'}`,
+            ),
+          );
+          return;
+        }
         const passNatural = !reason && code === 0;
         if (!passNatural && !reason) reason = 'exit-nonzero';
         resolve({

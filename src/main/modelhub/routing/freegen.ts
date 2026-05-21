@@ -89,7 +89,8 @@ export async function runFreeGenProbe(
 ): Promise<FreeGenProbeResult> {
   // ChatLike.complete only accepts `{ id }` — max tokens are configured
   // on the ChatClient itself. The probe relies on the default cap
-  // (~1024 tokens, plenty for 400 words).
+  // (2048 tokens since the multistep fix 2026-05-21, plenty for the
+  // 600–800 words the FREEGEN_PROMPT requests).
   const response = await ask.complete(FREEGEN_PROMPT, {
     id: 'freegen-probe',
   });
@@ -97,9 +98,9 @@ export async function runFreeGenProbe(
   if (!trimmed) {
     throw new Error('freegen: empty response');
   }
-  // We embed the WHOLE response (step 1 list + step 2 essay). Step 1
-  // adds keyword density toward declared topics; step 2 adds the
-  // distributional fingerprint. Sum > parts.
+  // Embed the entire response (post-<think> trimming) so the cosine
+  // projection onto the leaf anchors reflects the model's actual
+  // distributional fingerprint over the topics it chose to engage.
   const [responseVec] = await embed([trimmed]);
   const { branchIds, leafIds, texts } = anchorOrder(anchors);
   const anchorVecs = await embed(texts);
