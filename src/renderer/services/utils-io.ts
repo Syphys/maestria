@@ -1115,6 +1115,20 @@ export function selectDirectoryDialog(): Promise<any> {
   return Promise.reject(new Error('selectDirectoryDialog: not implemented'));
 }
 
+/**
+ * Models Hub — open a native file-picker filtered for `.gguf` files.
+ * Returns `string[]` (single path, but kept as an array for symmetry
+ * with `selectDirectoryDialog`) or `false` when the user cancels.
+ * Electron-only — mobile/web have no equivalent (the embedder is a
+ * desktop-only feature).
+ */
+export function selectGgufFileDialog(): Promise<string[] | false> {
+  if (AppConfig.isElectron) {
+    return window.electronIO.ipcRenderer.invoke('selectGgufFileDialog');
+  }
+  return Promise.reject(new Error('selectGgufFileDialog: Electron-only'));
+}
+
 export function removePrefix(
   str: string | null | undefined,
   prefix: string | null | undefined,

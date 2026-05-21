@@ -52,6 +52,7 @@ export type Channels =
   | 'openFile'
   | 'openUrl'
   | 'selectDirectoryDialog'
+  | 'selectGgufFileDialog'
   | 'load-extensions'
   | 'removeExtension'
   | 'getUserDataDir'

@@ -579,6 +579,25 @@ export default function loadMainEvents() {
     }
     return false;
   });
+  // Models Hub — picker for a single .gguf embedder model file. Mirrors
+  // `selectDirectoryDialog` (returns `string[] | false`) so the renderer
+  // helper can stay uniform; the caller picks `filePaths[0]`.
+  ipcMain.handle('selectGgufFileDialog', async () => {
+    const options = {
+      title: 'Select a GGUF model file',
+      properties: ['openFile'],
+      filters: [
+        { name: 'GGUF', extensions: ['gguf'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    };
+    // @ts-ignore
+    const resultObject = await dialog.showOpenDialog(options);
+    if (resultObject.filePaths && resultObject.filePaths.length) {
+      return resultObject.filePaths;
+    }
+    return false;
+  });
 
   ipcMain.on('removeExtension', (e, extensionId) => {
     try {
