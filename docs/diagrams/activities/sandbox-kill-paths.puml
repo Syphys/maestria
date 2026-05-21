@@ -1,0 +1,84 @@
+@startuml activity-sandbox-kill-paths
+!include ../_includes/style.iuml
+
+title Activity — sandbox kill paths (POSIX)\nwhat fails the assert vs what voids the measurement
+
+' Disambiguates the FOUR reasons runPythonTests() returns {pass:false}
+' vs the SIX reasons it throws SandboxUnavailable. The former is a
+' real characterization signal (the model's code didn't work); the
+' latter is "we can't trust this measurement" ⇒ UNMEASURED.
+
+start
+:characterizeRunner builds\nrunSandbox seam;
+:staircase.evaluateItem calls\nrunSandbox({codeLang, code, tests});
+
+if (Provider) then (UnsafeSandbox)
+  :throw SandboxUnavailable\n("opt-in off");
+  -> unavailable;
+elseif (PosixSandbox / WindowsSandbox)
+  if (find python OK?) then (no)
+    :throw SandboxUnavailable\n("no python");
+    -> unavailable;
+  endif
+  if (mkdtemp + writeFile OK?) then (no)
+    :throw SandboxUnavailable\n("mkdtemp" / "write");
+    -> unavailable;
+  endif
+  if (POSIX: setrlimit succeeds in child?) then (no)
+    note right : rlimit failures inside\nPython are silently passed;\nthe real failure surfaces\nthrough RLIMIT_FSIZE = 0\nor the wall-clock timer.
+  endif
+  :spawn child (Python -I -S -B,\ndetached pgrp, empty env);
+  if (spawn error event?) then (yes)
+    :throw SandboxUnavailable\n("spawn error");
+    -> unavailable;
+  endif
+  fork
+    :Wait for `close`;
+  fork again
+    :Wall-clock timer\n(timeoutMs default 10 s);
+    if (Elapsed?) then (yes)
+      :kill(-pgid, SIGKILL);
+      :reason = 'timeout';
+    endif
+  fork again
+    :Output watcher\n(maxOutputBytes default 1 MB);
+    if (Threshold reached?) then (yes)
+      :kill(-pgid, SIGKILL);
+      :reason = 'output-overflow';
+    endif
+  end fork
+  if (Exit code 0?) then (yes)
+    :return {pass:true};
+  elseif (Killed by us) then (yes)
+    :return {pass:false, reason};
+  else (other non-zero)
+    :return {pass:false,\nreason:'exit-nonzero'};
+  endif
+  -> measured;
+endif
+
+label measured
+:Item recorded with\n{status: pass/fail};
+stop
+
+label unavailable
+:Caller (staircase) catches\nSandboxUnavailable;
+:Item recorded as\n{status:'unmeasured',\nreason:'sandbox-pending'};
+:Leaf left as branch prior\n(D12, lower confidence);
+stop
+
+note right of measured
+  REAL measurement signal —
+  enters scores_per_leaf via
+  Beta-Laplace (passes_per_leaf
+  incremented if pass).
+end note
+
+note right of unavailable
+  NOT a measurement —
+  passes_per_leaf is NOT
+  touched (only real climbs
+  count toward saturation).
+end note
+
+@enduml

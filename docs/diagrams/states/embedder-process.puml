@@ -1,0 +1,74 @@
+@startuml states-embedder-process
+!include ../_includes/style.iuml
+
+title State machine — managed embedder lifecycle (slice 7e)
+
+' Reflects the logic of embedderLifecycle.ts:
+'   - in-flight launch promise = concurrency guard
+'   - /v1/models polling = ready check, 60 s budget
+'   - silent fallback on any failure (returns null, never throws)
+
+[*] --> Idle
+
+state "Idle (not configured)" as Idle {
+  description : routingEmbedderPath empty\nAND routingEmbedderBaseUrl empty.\nRouting falls back to R5 silently.
+}
+
+Idle --> Probing : ensureEmbedderReady(filePath)\ncalled by routeByVectors\nor characterizeTree
+
+state "Probing existing" as Probing {
+  description : check listRunning() for a\nrunning process with\n`launchedBy: 'embedder'`\n+ same canonical filePath.
+}
+
+Probing --> Reused : found alive
+Probing --> Launching : not found,\nset in-flight promise
+
+state "Reused" as Reused #FFFDF6 {
+  description : return {baseUrl, pid,\nsource:'reused'}.\nCaller proceeds immediately.
+}
+
+state "Launching" as Launching {
+  description : launchModelByPath(\n  launchedBy:'embedder',\n  customArgs:'--embedding'\n)
+}
+
+Launching --> Waiting : spawn OK\n(pid received)
+Launching --> Failed : spawn returned !ok\nOR no pid
+
+state "Waiting for /v1/models" as Waiting {
+  description : loop until\n• response.ok ⇒ Ready\n• entry.exited ⇒ Crashed\n• 60 s deadline ⇒ Timeout\nPolls every 1 s with 4 s budget per probe.
+}
+
+Waiting --> Ready : 200 OK
+Waiting --> Crashed : process exited\nduring boot
+Waiting --> TimedOut : 60 s deadline
+
+state "Ready" as Ready #FFFDF6 {
+  description : return {baseUrl, pid,\nsource:'launched'}.\nVisible in RunningModelsPanel\nunder "embedder" group.
+}
+
+state "Crashed" as Crashed {
+  description : stopProcess(pid),\nreturn null,\nclear in-flight promise.\nCaller silently falls back to R5.
+}
+
+state "Timed out" as TimedOut {
+  description : stopProcess(pid),\nreturn null,\nclear in-flight promise.\nCaller silently falls back to R5.
+}
+
+state "Failed" as Failed {
+  description : log + return null,\nclear in-flight promise.\nCaller silently falls back to R5.
+}
+
+Ready --> Idle : stopManagedEmbedders()\nor process killed manually
+Crashed --> Idle
+TimedOut --> Idle
+Failed --> Idle
+Reused --> Reused : subsequent\nensureEmbedderReady\n(idempotent)
+
+note bottom of Launching
+  Concurrent callers share the SAME
+  in-flight promise — never spawn
+  twice. This is the only critical
+  section in embedderLifecycle.ts.
+end note
+
+@enduml

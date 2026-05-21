@@ -1,0 +1,66 @@
+@startuml activity-routing-decision
+!include ../_includes/style.iuml
+
+title Activity — `models.route` decision flow
+
+' Activity diagram for the routing decision logic. Distinct from the
+' sequence (which shows WHO calls WHO) — here we show the BRANCHING
+' (if embedder, if reliable, if α/β blend, …).
+
+start
+
+:Load `routingConfig`\n+ `effectiveRoutingParams`;
+:List eligible candidates\n(D9: complete signature only);
+:Probe free memory\n(VRAM/RAM);
+
+if (Embedder configured\n(managed or external)?) then (no)
+  :Use R5 deterministic\nclassifier;
+  note right
+    classifyQuery() returns
+    axisWeights from regex /
+    keyword analysis.
+  end note
+  -> r5_path;
+else (yes)
+  :ensureEmbedderReady()\nOR read external URL;
+  if (Embedder live?) then (no)
+    :Silent fallback to R5\n(gateReason:'embedder-down');
+    -> r5_path;
+  else (yes)
+    :Measure embedding\nreliability per language\n(fr/zh/en triplets);
+    if (All langs ≥ threshold?) then (no)
+      :Fallback to R5\n(gateReason:\n'reliability-below-threshold');
+      -> r5_path;
+    else (yes)
+      :Embed query;
+      :Project onto 32 leaf anchors;
+      if (Per-leaf confidence\nq[i] ≥ θ_q?) then (yes)
+        :Descend to LEAF level\n(level:'leaf');
+      else (no)
+        :Stay at BRANCH level\n(level:'branch');
+      endif
+      :Blend v = α·v_deterministic\n+ β·max(0, topic_coverage)\n(α=0.7, β=0.3);
+      :score_m = Σ q[i]·v_m[i]\n+ w_fit·fit_m + w_hot·hot_m;
+      -> vector_done;
+    endif
+  endif
+endif
+
+label r5_path
+:axisWeights → branch priors;
+:score_m using R5 weights;
+label vector_done
+:Filter to D9 eligible\nrank by score (desc);
+:Build response\n{routedBy, gateReason,\nbest, ranked, resources,\nembeddingReliability?,\nlevel?, axisWeights?};
+
+stop
+
+note right
+  routedBy is **always** explicit
+  in the response: 'vector' (full
+  pipeline) or 'r5' (fallback).
+  gateReason explains why for
+  each non-vector outcome.
+end note
+
+@enduml

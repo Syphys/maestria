@@ -1,0 +1,70 @@
+@startuml states-runner-process
+!include ../_includes/style.iuml
+
+title State machine — ActiveEntry / llama-server runner process
+
+' Tracks an ActiveEntry through its lifecycle in runners/launch.ts.
+' Same state machine for chat models AND for the managed embedder —
+' the only difference is `launchedBy` and `customArgs`.
+
+[*] --> Requested
+
+state "Requested" as Requested {
+  description : launchModelByPath(path, opts)\ncalled by:\n• UI Run button (launchedBy:null)\n• MCP models.run (launchedBy:'via MCP — …')\n• embedderLifecycle (launchedBy:'embedder')
+}
+
+Requested --> Validating : args + path OK
+Requested --> RejectedEarly : invalid args /\nfile missing /\nread-only location
+
+state "Validating" as Validating {
+  description : resolveCanonicalShardPath()\n+ pickRunnerFor(filePath, sidecar)\n+ port selection (free-port scan)\n+ autotune + sidecar override merge
+}
+
+Validating --> Spawning : runner resolved\n+ command built
+Validating --> RejectedEarly : no runner /\nport unavailable /\nbuild error
+
+state "Spawning" as Spawning {
+  description : child_process.spawn(\n  runner.path,\n  buildCommand(params)\n)\n+ append to ActiveEntry[]\n+ start log ring buffer
+}
+
+Spawning --> Booting : pid received
+Spawning --> CrashedEarly : ENOENT / EACCES /\nspawn error
+
+state "Booting" as Booting {
+  description : Process alive. Stdout/stderr\nstreaming into ring buffer\n(maybe surfaced live to UI).\nlistRunning() shows it but the\nweb UI isn't reachable yet.
+}
+
+Booting --> Live : (impl. by polling)\nport answers
+Booting --> CrashedEarly : exited within\nfew seconds\n→ auto-open log dialog\n(4.0.15, future)
+
+state "Live" as Live #FFFDF6 {
+  description : llama-server responding.\nBrowser URL opened automatically\nfor chat. Routing/embedder callers\nproceed with API calls.
+}
+
+Live --> Live : models.list_running\n(snapshot read)
+Live --> Stopping : stopProcess(pid)\nOR app quit\nOR models.stop MCP call
+
+state "Stopping" as Stopping {
+  description : SIGTERM then SIGKILL\nafter grace. ActiveEntry stays\nin the list with exited=true\nuntil cleared by user / restart.
+}
+
+Stopping --> Exited
+
+state "Exited" as Exited {
+  description : Process gone. Ring buffer\nstill viewable for debug.
+  Removable from RunningModelsPanel
+  via "Clear exited" action.
+}
+
+Exited --> [*] : cleared
+RejectedEarly --> [*]
+CrashedEarly --> Exited
+
+note bottom of Live
+  Three distinct callers reach this
+  same state with the same shape:
+  Direct (User), via MCP — Claude
+  Code (provenance), embedder.
+end note
+
+@enduml

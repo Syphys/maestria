@@ -1,0 +1,25 @@
+' Partial — MCP server stack. Included by any composer that draws
+' the MCP layer.
+
+package "src/main/modelhub/mcp/" <<Folder>> as PKG_MCP {
+  component "server.ts\n• HTTP+SSE on\n  127.0.0.1:41541\n• Bearer middleware\n• rotating log" as CMP_MCP_SERVER
+  component "registry.ts\n• ToolDefinition[]\n• JSON-Schema\n  validate" as CMP_MCP_REG
+  component "useMcp.ts\n(renderer hook)" as CMP_MCP_USE
+
+  package "tools/" as PKG_MCP_TOOLS {
+    component "models.ts" as CMP_T_MODELS
+    component "route.ts" as CMP_T_ROUTE
+    component "tags.ts" as CMP_T_TAGS
+    component "description.ts" as CMP_T_DESC
+    component "hf.ts" as CMP_T_HF
+    component "hardware.ts" as CMP_T_HW
+  }
+}
+
+CMP_MCP_SERVER --> CMP_MCP_REG : dispatch
+CMP_MCP_REG --> CMP_T_MODELS
+CMP_MCP_REG --> CMP_T_ROUTE
+CMP_MCP_REG --> CMP_T_TAGS
+CMP_MCP_REG --> CMP_T_DESC
+CMP_MCP_REG --> CMP_T_HF
+CMP_MCP_REG --> CMP_T_HW

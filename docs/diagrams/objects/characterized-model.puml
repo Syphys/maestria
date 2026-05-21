@@ -1,0 +1,89 @@
+@startuml objects-characterized-model
+!include ../_includes/style.iuml
+!include ../_includes/classes/routing-types.iuml
+
+title Object diagram — a fully characterized model in the sidecar
+
+' Concrete instance of the classes defined in
+' _includes/classes/routing-types.iuml. Demonstrates what one
+' `.ts/<model>.json` file actually contains after a full characterise
+' run with the sandbox opt-in OFF (typical default install).
+
+object "LFM2_5_1_2B : Signature" as O_SIG {
+  modelHash = "b59a…f23"
+  suite_version = "v1-30 / tree-v0"
+  characterized_at = "2026-05-21T14:32:18Z"
+  characterization_state = "complete"
+  embedder_id = "Qwen3-Embedding-0.6B-Q8_0"
+}
+
+object "structural : StructuralSignature" as O_STRUCT {
+  est_footprint_bytes = 1_300_000_000
+  tensor_count = 165
+  arch = "llama"
+  quant = "Q4_K_M"
+  ctx_max = 4096
+}
+
+object "behavioral : BehavioralSignature" as O_BEH {
+  overall = 0.62
+  scoring_scheme = "beta-laplace-v1"
+  ..R5 (16 axes)..
+  scores_per_axis.code = 0.40
+  scores_per_axis.math = 0.55
+  scores_per_axis.reasoning = 0.66
+  ..tree (slice 4c+)..
+  scores_per_leaf['math.proba'] = 0.80
+  scores_per_leaf['code.python'] = (absent — UNMEASURED,\nsandbox opt-in off)
+  passes_per_leaf['math.proba'] = 3
+  n_per_leaf['math.proba'] = 3
+  branch_scores.math = 0.70
+  ..freegen (slice 7c)..
+  topic_coverage_per_leaf['math.proba'] = 0.62
+  freegen_words = 712
+}
+
+object "qcm : QcmReliability" as O_QCM {
+  format_adherence = 0.85
+  consistency = 0.78
+  overall = 0.81
+  n = 30
+}
+
+object "run1 : DiagnosticRunEntry" as O_RUN1 {
+  id = "math-arith-01"
+  axes = ["math", "multistep"]
+  pass = true
+  score = 1.0
+  response = "Train A had a head start of…"
+}
+
+object "run2 : DiagnosticRunEntry" as O_RUN2 {
+  id = "code-debug-01"
+  axes = ["code", "multistep"]
+  pass = false
+  detail = "UNMEASURED — sandbox opt-in off"
+}
+
+O_SIG --> O_STRUCT : structural
+O_SIG --> O_BEH : behavioral
+O_SIG --> O_QCM : qcm_reliability
+O_BEH --> O_RUN1 : diagnostic_run\n['math-arith-01']
+O_BEH --> O_RUN2 : diagnostic_run\n['code-debug-01']
+
+note bottom of O_BEH
+  Beta-Laplace example:
+  3/3 climb on `math.proba`
+  ⇒ (1+3)/(2+3) = 0.80,
+  the Phase-A ceiling.
+end note
+
+note right of O_RUN2
+  Sandbox-pending items
+  appear in diagnostic_run
+  with a clear UNMEASURED
+  detail — never as a
+  false fail.
+end note
+
+@enduml

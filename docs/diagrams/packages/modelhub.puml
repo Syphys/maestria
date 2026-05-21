@@ -1,0 +1,86 @@
+@startuml packages-modelhub
+!include ../_includes/style.iuml
+
+title Package diagram — AI subsystem source layout
+
+' UML packages map 1:1 to filesystem directories. Dependencies follow
+' the actual TS imports (lighter arrows = optional / fail-soft).
+
+package "src/shared" {
+  package "RoutingTypes" as PKG_SHARED {
+    note right : Frozen contracts:\nSignature, BehavioralSignature,\nCompetenceBranch, COMPETENCE_TREE,\nDiagnosticAxis, RoutingConfig
+  }
+}
+
+package "src/main/modelhub" as PKG_MH {
+
+  package "routing" as PKG_R {
+    package "scorers" as PKG_R_SCORERS
+    package "sandbox" as PKG_R_SBX
+    package "questions" as PKG_R_QUESTIONS {
+      note right : tree-v0.json,\nv1-30.json,\nqcm-v0.json,\nprobe-anchors.json
+    }
+    component "characterizeRunner" as M_CH_RUN
+    component "characterizeTree" as M_CH_TREE
+    component "staircase" as M_STAIR
+    component "freegen" as M_FG
+    component "routeDecision\n+ routeByVectors\n+ classifyQuery" as M_ROUTE
+    component "embed / embedDetect /\nembedProject" as M_EMBED_CORE
+    component "chat\n(ChatClient)" as M_CHAT
+    component "signatureStore" as M_SIG
+    component "freeMemory" as M_MEM
+    component "routingCommon" as M_COMMON
+  }
+
+  package "mcp" as PKG_MCP {
+    package "tools" as PKG_MCP_TOOLS
+    component "server" as M_MCP_SRV
+    component "registry" as M_MCP_REG
+  }
+
+  package "runners" as PKG_RUNNERS
+  component "embedderLifecycle" as M_EMB_LC
+  component "routingConfig" as M_RC
+  component "launchModel /\nlistModelFiles /\nshardFs" as M_FILES
+}
+
+package "src/renderer/" as PKG_RND {
+  package "modelhub" as PKG_RND_MH {
+    package "radar" as PKG_RND_RADAR
+  }
+  package "components/dialogs/components" as PKG_RND_SET {
+    component "SettingsAI" as M_UI_SET
+  }
+}
+
+' Wire flow (TS import dependencies, dashed = optional/fail-soft)
+M_CH_RUN --> M_CH_TREE
+M_CH_RUN --> M_RC
+M_CH_RUN --> M_EMB_LC : ensureEmbedderReady
+M_CH_RUN ..> PKG_R_SBX : runSandbox seam
+M_CH_TREE --> M_STAIR
+M_CH_TREE ..> M_FG : when embed seam present
+M_STAIR --> PKG_R_SCORERS
+M_STAIR ..> PKG_R_SBX : runCheck → sandbox
+M_FG --> M_EMBED_CORE
+M_ROUTE --> M_EMBED_CORE
+M_ROUTE --> M_MEM
+M_ROUTE --> M_COMMON
+M_EMB_LC --> M_FILES : launchModelByPath
+M_MCP_REG --> PKG_MCP_TOOLS
+PKG_MCP_TOOLS --> M_ROUTE : models.route
+PKG_MCP_TOOLS --> M_FILES : list / spawn
+
+PKG_RND_RADAR ..> PKG_SHARED : type-only
+PKG_RND_MH ..> PKG_SHARED : type-only
+M_UI_SET ..> M_RC : (renderer-side type)
+PKG_R ..> PKG_SHARED
+PKG_MCP ..> PKG_SHARED
+
+note bottom of PKG_SHARED
+  Renderer-only AND main-process import this
+  module — keep type-only on the renderer
+  side to avoid bundling Node code.
+end note
+
+@enduml

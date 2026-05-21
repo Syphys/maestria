@@ -1,0 +1,56 @@
+@startuml states-signature-lifecycle
+!include ../_includes/style.iuml
+
+title State machine — Signature.characterization_state lifecycle
+
+' States are the literal values on disk in `.ts/<file>.json`.
+' Transitions correspond to characterizeRunner.ts outcomes.
+
+[*] --> NotCharacterized : model added\nto folder
+
+state "Not characterized" as NotCharacterized {
+  description : sidecar `modelMeta` exists\n(possibly with autoTags)\nbut no `signature` field.\nFor routing: D9 ⇒ INELIGIBLE.
+}
+
+NotCharacterized --> Running : user clicks\n"Caractériser"\nOR MCP request
+
+state "Running (in-progress)" as Running {
+  description : characterizeRunner active.\nlistRunning() shows the chat\nprocess; characterization_state\non disk still null (no partial\nwrites).
+}
+
+Running --> Complete : R5 + tree + freegen\n(if seamed)\nALL succeeded
+Running --> Incomplete : R5 OK\nbut tree OR freegen\nfailed (isolated)
+Running --> Quarantined : R5 itself failed\n(e.g. model crashed boot)\nOR catastrophic IO error
+
+state "complete" as Complete #FFFDF6 {
+  description : routing-eligible (D9).\nAll required behavioral fields\npresent: `scores_per_axis`,\n`scores_per_leaf`, `branch_scores`.\nmodels.route ranks this candidate.
+}
+
+state "incomplete" as Incomplete {
+  description : routing-eligible (D9) iff\nthe core scores_per_axis is set.\nMissing optional fields ⇒\ndegraded confidence but ranked.
+}
+
+state "quarantined" as Quarantined #E6DFD2 {
+  description : routing INELIGIBLE.\nShown in radar with a clear\nbanner. User re-characterizes\nto leave this state.
+}
+
+Complete --> Running : Re-caractériser\n(with confirm)
+Incomplete --> Running : Re-caractériser
+Quarantined --> Running : Re-caractériser
+Complete --> Stale : modelHash drift\n(file edited /\nshards changed)
+Incomplete --> Stale : modelHash drift
+
+state "Stale" as Stale {
+  description : Pseudo-state: hash on disk ≠\ncurrent file hash. Routing\nstill uses old signature but\nUI prompts re-characterization.
+}
+
+Stale --> Running : Re-caractériser
+
+note bottom of Quarantined
+  Quarantined remains permanent
+  until the user explicitly
+  re-characterizes — even if a
+  routing query comes in.
+end note
+
+@enduml

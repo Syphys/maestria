@@ -1,0 +1,49 @@
+@startuml c4-context
+!include ../_includes/style.iuml
+
+' Bonus — C4 Context diagram. Higher altitude than our component view:
+' Maestria as a black box + every external system it touches.
+'
+' (Hand-rolled — we avoid the official C4-PlantUML library so we
+' don't introduce a network include.)
+
+skinparam rectangle {
+  StereotypeFontSize 10
+}
+
+title Maestria — C4 Context
+
+actor "Human user" as USER
+rectangle "**Maestria**\n<size:10>local AI-model browser & manager</size>\n<size:10>AGPL-3.0, offline, no telemetry</size>" as SYS #FFFDF6
+
+rectangle "External MCP clients" <<system>> as MCP {
+  rectangle "Claude Code" as MCP_CC
+  rectangle "Cursor" as MCP_CUR
+  rectangle "deer-flow" as MCP_DF
+  rectangle "scripts / curl" as MCP_SH
+}
+rectangle "llama.cpp\n(`llama-server` binary)" <<system>> as LLAMA
+rectangle "Hugging Face\n(metadata API)" <<system>> as HF
+rectangle "User filesystem\n(D:\\models, .ts/ sidecars,\n~/.tagspaces/ app data)" <<storage>> as FS
+
+USER --> SYS : Open .gguf, characterize,\ntag, set up routing,\nopen-in-browser chat
+SYS --> LLAMA : Spawn child process,\nmonitor PID + URL
+SYS --> FS : Read models,\nwrite sidecars / logs
+SYS --> HF : hf.fetch metadata\n(opt-in user action)
+MCP --> SYS : HTTP+SSE on 127.0.0.1:41541\nBearer-token auth,\ntools/call
+
+note bottom of SYS
+  Nothing leaves 127.0.0.1
+  except hf.fetch (and only
+  on explicit user action).
+  No telemetry, no auto-update.
+end note
+
+note right of LLAMA
+  External binary, not bundled.
+  User installs it themselves.
+  Maestria detects + autotunes
+  per hardware.
+end note
+
+@enduml

@@ -1,0 +1,68 @@
+@startuml objects-running-models
+!include ../_includes/style.iuml
+
+title Object diagram — RunningModelsPanel snapshot\n(typical state during a routing-driven session)
+
+' A frozen view of `listRunning()` — what the user sees grouped by
+' launchedBy in the sidebar. Helpful for explaining how the same
+' ActiveEntry shape carries chat / embedder / "via MCP" provenance.
+
+object "qwen-coder-32b :\nActiveEntry" as O_E_QWEN {
+  pid = 14211
+  filePath = "D:\\models\\…\\qwen-coder-32b.gguf"
+  url = "http://127.0.0.1:8080"
+  launchedBy = "via MCP — Claude Code"
+  params = { ngl: 99, ctx: 8192, fit: true, … }
+  startedAt = "2026-05-21T14:35:02Z"
+  exited = false
+}
+
+object "Qwen3-Embedding-0.6B-Q8_0 :\nActiveEntry" as O_E_EMB {
+  pid = 14212
+  filePath = "D:\\models\\…\\Qwen3-Embedding-0.6B-Q8_0.gguf"
+  url = "http://127.0.0.1:8081"
+  launchedBy = "embedder"
+  params = { customArgs: "--embedding", port: 8081 }
+  startedAt = "2026-05-21T14:35:03Z"
+  exited = false
+}
+
+object "LFM2_5-1_2B :\nActiveEntry" as O_E_LFM {
+  pid = 14213
+  filePath = "D:\\models\\…\\LFM2_5-1_2B-Q4_K_M.gguf"
+  url = "http://127.0.0.1:8082"
+  launchedBy = null
+  params = { … (autotune defaults) }
+  startedAt = "2026-05-21T14:36:10Z"
+  exited = false
+}
+
+object "RunningModelsPanel :\nrenderer view" as O_PANEL {
+  groupBy = launchedBy ?? "Direct"
+  sortStable = true
+  groups = [
+    "Direct" → [LFM2_5-1_2B],
+    "embedder" → [Qwen3-Embedding-0.6B-Q8_0],
+    "via MCP — Claude Code" → [qwen-coder-32b]
+  ]
+}
+
+O_PANEL --> O_E_LFM : Direct group
+O_PANEL --> O_E_EMB : embedder group
+O_PANEL --> O_E_QWEN : MCP group
+
+note right of O_E_EMB
+  Singleton process. Reused by
+  characterizeTree (slice 7c probe)
+  AND routing query path (slice 7e).
+  Concurrent callers share one launch.
+end note
+
+note bottom of O_PANEL
+  Pure presentation — grouping is
+  done renderer-side from the same
+  shape served by `models.list_running`
+  to MCP callers.
+end note
+
+@enduml

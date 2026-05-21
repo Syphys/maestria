@@ -1,0 +1,9 @@
+' Partial — renderer UI components touching AI features.
+
+package "src/renderer/" <<Folder>> as PKG_UI {
+  component "ModelHubPanel\n+ Inférence tab" as CMP_UI_PANEL
+  component "CompetenceSection\n(R5 + tree radar)" as CMP_UI_RADAR
+  component "Settings ▸ AI ▸ Routing\n(.gguf picker,\nsandbox toggle)" as CMP_UI_SETTINGS
+  component "RunningModelsPanel\n(grouped by\nlaunchedBy)" as CMP_UI_RUNNING
+  component "CharacterizeAllPanel\n(bulk + force)" as CMP_UI_CHARALL
+}

@@ -1,0 +1,76 @@
+@startuml usecase-users
+!include ../_includes/style.iuml
+!include ../_includes/usecase/actors.iuml
+
+title Use cases — who does what with the AI subsystem
+
+left to right direction
+
+rectangle "Maestria — AI subsystem" {
+
+  package "Inférence tab" as UC_UI {
+    usecase "Open a .gguf model file" as UC_OPEN
+    usecase "Run a chat model (browser UI)" as UC_RUN
+    usecase "Characterize / Re-characterize" as UC_CH
+    usecase "View competence radar\n(R5 + tree)" as UC_RADAR
+    usecase "Bulk characterize\n(folder)" as UC_BULK
+  }
+
+  package "Settings ▸ AI" as UC_SET {
+    usecase "Pick embedder .gguf\n(file picker)" as UC_PICK_EMB
+    usecase "Enable code-tests\nsandbox (opt-in)" as UC_OPT_SBX
+    usecase "Start / stop MCP server" as UC_MCP
+    usecase "Copy MCP configuration" as UC_COPY_CFG
+    usecase "Override hardware" as UC_HW
+  }
+
+  package "MCP surface" as UC_MCP_SURF {
+    usecase "models.search / .get" as UC_SEARCH
+    usecase "models.run / .stop" as UC_MRUN
+    usecase "models.route\n(advice only)" as UC_ROUTE
+    usecase "models.get_run_params\nmodels.list_runner_flags" as UC_INSPECT
+    usecase "tags.add / .remove" as UC_TAGS
+    usecase "description.set / .get" as UC_DESC
+    usecase "hf.fetch (metadata)" as UC_FETCH
+    usecase "hardware.detect /\n.autotune" as UC_HW_TOOL
+  }
+}
+
+A_USER --> UC_OPEN
+A_USER --> UC_RUN
+A_USER --> UC_CH
+A_USER --> UC_RADAR
+A_USER --> UC_BULK
+A_USER --> UC_PICK_EMB
+A_USER --> UC_OPT_SBX
+A_USER --> UC_MCP
+A_USER --> UC_COPY_CFG
+A_USER --> UC_HW
+
+A_MCP_CLI --> UC_SEARCH
+A_MCP_CLI --> UC_MRUN
+A_MCP_CLI --> UC_ROUTE
+A_MCP_CLI --> UC_INSPECT
+A_MCP_CLI --> UC_TAGS
+A_MCP_CLI --> UC_DESC
+A_MCP_CLI --> UC_FETCH
+A_MCP_CLI --> UC_HW_TOOL
+
+UC_FETCH ..> A_HF : (egress)
+UC_PICK_EMB ..> A_EXT_EMB : (alternative\nto managed)
+UC_ROUTE ..> UC_MRUN : <<extends>>\nfollow-up
+UC_INSPECT ..> UC_MRUN : <<precedes>>
+
+note bottom of UC_OPT_SBX
+  Opt-in OFF by default. Unlocks
+  the 9 code-tests items in the
+  staircase; otherwise they stay
+  UNMEASURED (D12 prior).
+end note
+
+note bottom of UC_ROUTE
+  Advice only — does NOT launch.
+  Caller follows up with models.run.
+end note
+
+@enduml

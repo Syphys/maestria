@@ -1,0 +1,44 @@
+@startuml mockup-inference-tab
+!include ../_includes/style.iuml
+
+' Bonus — Salt UI mockup of the Inférence tab. Salt is PlantUML's
+' built-in mock-up language. Useful when describing UX flows to
+' contributors without a screenshot in git LFS.
+
+title UI mockup — Inférence tab (Salt)
+
+salt
+{
+  {/ Tags | Description | <b>Inférence</b> | Linked }
+  {* Model | qwen-coder-32b.gguf [Q4_K_M] | 18 GB | ctx 32768 }
+  --
+  {[ ▶ Run ▼ ] | Runner: llama.cpp (ik_llama)         | ⚙ Configure }
+  --
+  {+ <b>Run parameters</b>           |        |       }
+  {     Parameter | Estimated | Used       }
+  {     ngl       |     99    |     99     }
+  {     ctx       |   32768   |   32768    }
+  {     threads   |     8     |      8     }
+  {     batch     |    512    |    512     }
+  {     flashAttn |    on     |     on     }
+  {     mlock     |   false   |    false   }
+  {     fit       |    ✓ on   |   ✓ on     }
+  --
+  {[ Advanced parameters... (3 custom) ]                     }
+  --
+  {<b>Compétence</b> (Beta-Laplace pass-rate)                  }
+  {        radar (R5 — 16 axes)                                 }
+  {      ▸ Arbre de compétence (collapsible)                    }
+  {                                                              }
+  {<i>Suite tree-v0 · caractérisé 2026-05-21 14:32</i>          }
+  {[ ⚗ Re-caractériser ]                                       }
+}
+
+note right
+  Salt is intentionally rough — it
+  conveys layout / hierarchy, not
+  pixel-perfect rendering. For a
+  real screenshot, run the app.
+end note
+
+@enduml

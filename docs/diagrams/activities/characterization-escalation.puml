@@ -1,0 +1,83 @@
+@startuml activity-characterization-escalation
+!include ../_includes/style.iuml
+
+title Activity — characterization escalation\nR5 → tree → freegen with R5-gated deepening
+
+' Slice 6a Dββ — only R5-maximal branches are deepened on the tree.
+' This activity diagram shows the decision points + the failure
+' isolation between passes.
+
+start
+:User clicks "Caractériser"\nOR MCP request;
+:characterizeRunner ensures\nchat process live;
+
+partition "R5 pass (coarse, always)" {
+  :Iterate v1-30.json prompts;
+  repeat
+    :ask.complete(prompt);
+    :Run registered scorer;
+    :Update scores_per_axis;
+  repeat while (more prompts?) is (yes)
+  -> R5 done;
+  :Persist behavioral\n+ characterization_state = 'incomplete';
+}
+
+if (characterizeTreeFn available?) then (no)
+  :State stays 'incomplete';
+  stop
+endif
+
+partition "Tree pass (R5-gated, Dββ)" {
+  :Read scores_per_axis;
+  :branchGateFromAxes()\nmaps R5 → 9 branches;
+  fork
+    :For each branch where\n  R5 mapped score ≥ θ_open;
+    :characterizeBranch\n(Phase A: level 1 probe,\nthen climb until first fail);
+    if (passes_per_leaf > 0?) then (yes)
+      :Beta-Laplace posterior\n(1+passes)/(2+asked);
+    else (no)
+      :Mark UNMEASURED\n→ branch prior D12;
+    endif
+  fork again
+    :For each branch where R5 < θ_open;
+    :Skip (cost-bounded);
+    :Leaves stay at\nQCM-prior (qcmDiscount · pass);
+  end fork
+  :Merge into BehavioralSignature\n(scores_per_leaf, branch_scores,\npasses_per_leaf, n_per_leaf);
+  if (tree pass failed catastrophically?) then (yes)
+    :Log + KEEP R5 result;
+    :state = 'incomplete';
+    stop
+  endif
+}
+
+partition "Free-gen probe (slice 7c, optional)" {
+  if (Embedder seam present?) then (no)
+    :Skip silently;
+  else (yes)
+    if (Try probe) then (succeeds)
+      :runFreeGenProbe(\n  FREEGEN_PROMPT,\n  ~600 words,\n  embedder);
+      :Strip <think>…</think> (D11);
+      :Embed response;
+      :Project onto 32 anchors;
+      :Merge topic_coverage_per_leaf,\ntopic_coverage_per_branch,\nfreegen_words, freegen_excerpt;
+    else (throws)
+      :Log + skip (DCC §5\nisolation: tree kept);
+    endif
+  endif
+}
+
+:state = 'complete';
+:Persist signature;
+:Refresh UI radar (R5 + tree);
+stop
+
+note right
+  Three independent passes,
+  each fail-isolated from the
+  next. The strongest guarantee
+  is: a working R5 always lands
+  even if tree + freegen die.
+end note
+
+@enduml
