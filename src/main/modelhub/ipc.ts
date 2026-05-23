@@ -4,6 +4,8 @@
  */
 
 import { app, BrowserWindow, ipcMain } from 'electron';
+import path from 'path';
+import { existsSync } from 'fs';
 import {
   MODELHUB_IPC,
   ModelMeta,
@@ -41,6 +43,7 @@ import {
   type RoutingConfig,
 } from './routingConfig';
 import { listModelFiles } from './listModelFiles';
+import { readServerLog, readErrorLog } from './modelLogStore';
 import { probeFreeMemory } from './routing/freeMemory';
 import { decideRoute } from './routing/routeDecision';
 import { ensureEmbedderReady } from './embedderLifecycle';
@@ -191,11 +194,17 @@ export default function registerModelhubEvents(): void {
       rootDir: string,
       skipWrite?: boolean,
       skipExisting?: boolean,
+      freegen?: boolean,
+      // « Sans calcul vectoriel » — tests + monologue, projections deferred.
+      // Implicit when no embedder is configured (silent fallback).
+      skipProjection?: boolean,
     ) => {
       try {
         const result = await characterizeAll(rootDir, {
           skipWrite,
           skipExisting,
+          freegen,
+          skipProjection,
           onProgress: (p) =>
             broadcastToAllWindows(MODELHUB_IPC.characterizeAllProgress, p),
         });
@@ -209,6 +218,93 @@ export default function registerModelhubEvents(): void {
   ipcMain.handle(MODELHUB_IPC.characterizeAllCancel, async () => {
     cancelCharacterizeAll();
     return { ok: true };
+  });
+
+  // Absolute path of the routing-questions folder so the renderer can
+  // open it inside Maestria as a read-only location.
+  //
+  // The path depends on how Electron was launched:
+  //   - Packaged build  → `<resources>/modelhub-questions/` (copied
+  //     there by electron-builder `extraResources` in builder.json).
+  //   - `npm run dev`   → Electron uses the ROOT `package.json`
+  //     (electronmon entry `.erb/dll/main.bundle.dev.js`), so
+  //     `app.getAppPath()` returns the repo root.
+  //   - `npm run run-electron` (after `npm run build`) → Electron uses
+  //     `release/app/package.json`, so `app.getAppPath()` returns
+  //     `release/app/` and we have to walk up.
+  //
+  // Rather than guess the launch mode, probe each candidate with
+  // `existsSync` and return the first hit. Falls back with a clear
+  // error when none match — that surfaces in the renderer notification
+  // so the user knows it's a packaging / dev-config issue, not a bug
+  // in the location entry.
+  ipcMain.handle(MODELHUB_IPC.getQuestionsDir, async () => {
+    try {
+      const appPath = app.getAppPath();
+      const candidates: string[] = [];
+      if (app.isPackaged) {
+        candidates.push(path.join(process.resourcesPath, 'modelhub-questions'));
+      }
+      // `npm run dev` — appPath is the repo root.
+      candidates.push(
+        path.join(appPath, 'src', 'main', 'modelhub', 'routing', 'questions'),
+      );
+      // `npm run run-electron` — appPath is `<repo>/release/app/`, so
+      // we walk two levels up to the repo root and back down.
+      candidates.push(
+        path.resolve(
+          appPath,
+          '..',
+          '..',
+          'src',
+          'main',
+          'modelhub',
+          'routing',
+          'questions',
+        ),
+      );
+      // Some builds keep an extras dir alongside the bundled main.
+      candidates.push(path.join(appPath, '..', '..', 'modelhub-questions'));
+      for (const c of candidates) {
+        if (existsSync(c)) {
+          return { ok: true, path: c };
+        }
+      }
+      return {
+        ok: false,
+        error: `routing-questions folder not found. Tried: ${candidates.join(' | ')}`,
+      };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  // Per-model log readers — used by the CharacterizeAllPanel tabs
+  // (« Logs serveur » / « Erreurs ») to show what llama-server printed
+  // during the model's session(s) and the timestamped error journal
+  // from the bulk characterizer. Both resolve the canonical shard
+  // internally so the caller can pass any sibling.
+  ipcMain.handle(
+    MODELHUB_IPC.getServerLog,
+    async (_event, filePath: string) => {
+      try {
+        const canonical = await resolveCanonicalShardPath(filePath);
+        const content = await readServerLog(canonical);
+        return { ok: true, content };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(MODELHUB_IPC.getErrorLog, async (_event, filePath: string) => {
+    try {
+      const canonical = await resolveCanonicalShardPath(filePath);
+      const content = await readErrorLog(canonical);
+      return { ok: true, content };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
   });
 
   ipcMain.handle(

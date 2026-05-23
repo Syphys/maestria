@@ -548,6 +548,28 @@ export const MODELHUB_IPC = {
   characterizeAllProgress: 'modelhub:characterizeAllProgress',
   /** Invoke channel: request cancel — honoured after the current model. */
   characterizeAllCancel: 'modelhub:characterizeAllCancel',
+  /**
+   * Returns the absolute path of the bundled routing-questions folder
+   * (probe-anchors / tree-v0 / v1-30 / mcq-v1 / qcm-v0 / embedding-
+   * triplets). Shipped via electron-builder `extraResources` so it's a
+   * real folder on disk in production too (asar-unpacked path). Used by
+   * the « Voir les questions sources » link in the bulk + per-model
+   * panels to open the folder inside Maestria as a read-only location.
+   */
+  getQuestionsDir: 'modelhub:getQuestionsDir',
+  /**
+   * Returns the full contents of `.ts/<basename>.log` — the llama-server
+   * stdout/stderr Maestria captured during the model's last session(s).
+   * Empty string when the file doesn't exist (model never launched
+   * through Maestria, or running on a read-only location).
+   */
+  getServerLog: 'modelhub:getServerLog',
+  /**
+   * Returns the full contents of `.ts/<basename>.error` — the
+   * timestamped per-model error journal written by `characterizeAll`
+   * on every failure. Empty when there were never any errors.
+   */
+  getErrorLog: 'modelhub:getErrorLog',
   /** Returns the persisted routing config (memory reserves). */
   getRoutingConfig: 'modelhub:getRoutingConfig',
   /** Persists the routing config; pass an empty object to reset to defaults. */

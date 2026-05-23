@@ -45,13 +45,15 @@ export type ChatClientConfig = {
   /** RNG seed for reproducibility. Default 42. */
   seed?: number;
   /**
-   * Hard cap on generated tokens. Default 2048.
+   * Per-model cap on generated tokens. UNSET ⇒ no `max_tokens` sent
+   * (llama-server uses its loaded context window). The characterizer
+   * sets this to each model's effective `ctx` so every model gets its
+   * OWN ceiling — a 4k model caps at ~4k, a 32k thinking model at ~32k.
    *
-   * Why 2048: `multistep` prompts (math word problems, debug-then-fix)
-   * regularly produce 800–1500 tokens of CoT + final answer. The old
-   * 1024 cap truncated long-reasoner outputs mid-step, which then
-   * failed the rubric on `correct_arithmetic` / `fix_handles_all_edge_
-   * cases` despite the model having correct intent.
+   * Never set to a hardcoded global value: the old 1024/2048 caps
+   * truncated long reasoners mid-`<think>` and made math / reasoning
+   * prompts score 0 on an empty response. Ctx-derived gives each model
+   * the full ceiling its config allows, without any hidden limit.
    */
   maxTokens?: number;
 };
@@ -104,15 +106,22 @@ export class ChatClient implements ChatLike {
    * {@link ChatError} after exhausting retries.
    */
   async complete(prompt: string): Promise<string> {
-    const body = JSON.stringify({
+    const payload: Record<string, unknown> = {
       model: this.cfg.model ?? '',
       messages: [{ role: 'user', content: prompt }],
       temperature: this.cfg.temperature ?? 0,
       seed: this.cfg.seed ?? 42,
-      max_tokens: this.cfg.maxTokens ?? 2048,
       stream: false,
       n: 1,
-    });
+    };
+    // No `max_tokens` unless one is explicitly configured — thinking
+    // models must be free to finish their reasoning AND answer. With it
+    // absent, llama-server generates until EOS / the context window;
+    // `timeoutMs` is the only wall-clock backstop.
+    if (this.cfg.maxTokens !== undefined) {
+      payload.max_tokens = this.cfg.maxTokens;
+    }
+    const body = JSON.stringify(payload);
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };

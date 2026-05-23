@@ -13,6 +13,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { LaunchResult, RunParams } from '../../../renderer/modelhub/types';
+import { appendServerLog } from '../modelLogStore';
 
 const RING_LIMIT = 200;
 
@@ -116,6 +117,13 @@ function appendLog(p: ActiveEntry, chunk: Buffer | string): void {
   }
   if (lines.length > 0) {
     launchEvents.emit('logChunk', { pid: p.pid, lines } as LogChunkEvent);
+    // Mirror the chunk to the per-model `.log` file so the user can
+    // open a finished model later and still see what llama-server
+    // printed during its session (boot, eval, exit). Fire-and-forget:
+    // a disk error here must NEVER sink the launch path.
+    if (p.filePath) {
+      void appendServerLog(p.filePath, `${lines.join('\n')}\n`);
+    }
   }
 }
 

@@ -102,11 +102,16 @@ export async function launchModelByPath(
   const runners = await listRunners();
   const runner = pickRunnerFor(runners, canonical, meta);
   if (!runner) {
+    // `pickRunnerFor` returns undefined for TWO distinct reasons —
+    // surface which one so a non-GGUF file isn't misreported as a
+    // missing-binary problem.
     return {
       ok: false,
       params,
       error:
-        'No llama.cpp binary configured — open the Configure runners dialog first.',
+        runners.length === 0
+          ? 'No llama.cpp binary configured — open the Configure runners dialog first.'
+          : `No configured runner can launch this file format: ${fileBasename}. llama.cpp runs GGUF models.`,
     };
   }
 

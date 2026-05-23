@@ -223,31 +223,50 @@ describe('R5-gated tree (slice 6a)', () => {
 });
 
 describe('characterizeTree — free-gen probe (slice 7c)', () => {
-  test('embed absent ⇒ probe skipped, no topic_coverage fields', async () => {
+  // An `ask` that responds to the free-gen probe AND the staircase items.
+  const talkingAsk = {
+    async complete(prompt, ctx) {
+      if (ctx?.id === 'freegen-probe')
+        return 'topic-a, topic-b, topic-c\n\nA paragraph about technical things with vocabulary.';
+      const id0 = ctx.id.split('#')[0];
+      const item = treeById[id0] ?? qcmById[id0];
+      return item ? gold(item, prompt) : '';
+    },
+  };
+
+  test('embed absent ⇒ model STILL talks: freegen_text persisted, no topic_coverage', async () => {
+    // 2026-05-22 — the `if (opts.embed)` gate was removed. Phase 1
+    // (make the model talk) runs even with no embedder, so the text is
+    // captured and can be re-projected later.
     const r = await characterizeTree({
       modelFilePath: 'D:/m.gguf',
-      ask: strong,
+      ask: talkingAsk,
       branchGate: { math: 0.9 },
       loadExisting: async () => undefined,
       computeHash: async () => 'sha256:nofg',
       now: () => 't',
       persist: async () => ({ written: true, sidecarPath: '/x' }),
     });
-    expect(r.signature.behavioral.topic_coverage_per_leaf).toBeUndefined();
-    expect(r.signature.behavioral.topic_coverage_per_branch).toBeUndefined();
-    expect(r.signature.behavioral.freegen_words).toBeUndefined();
+    const beh = r.signature.behavioral;
+    // Phase 1 ran with no embedder → full text + word count persisted.
+    expect(typeof beh.freegen_text).toBe('string');
+    expect(beh.freegen_text.length).toBeGreaterThan(0);
+    expect(beh.freegen_words).toBeGreaterThan(0);
+    // Phase 2 skipped (no embedder) → no projection.
+    expect(beh.topic_coverage_per_leaf).toBeUndefined();
+    expect(beh.topic_coverage_per_branch).toBeUndefined();
   });
 
-  test('embed provided ⇒ probe runs, topic_coverage fields populated', async () => {
-    // Toy embedder: every text → all-ones (so cosines = 1 across the
-    // board). What matters here is shape: fields present, populated,
-    // numeric, indexed by the same leaves as scores_per_leaf.
-    const ones = new Float32Array([1, 1, 1, 1]);
-    const embed = async (texts) => texts.map(() => ones);
-    const freeGenAsk = {
+  test('freegen:false ⇒ probe skipped entirely, model NOT asked to talk', async () => {
+    // « Parler libre » checkbox unchecked — characterization is the QCM
+    // staircase only, no monologue, no extra generation.
+    let freegenCalls = 0;
+    const ask = {
       async complete(prompt, ctx) {
-        if (ctx?.id === 'freegen-probe')
-          return 'topic-a, topic-b, topic-c\n\nA paragraph about technical things with vocabulary.';
+        if (ctx?.id === 'freegen-probe') {
+          freegenCalls += 1;
+          return 'should not be asked';
+        }
         const id0 = ctx.id.split('#')[0];
         const item = treeById[id0] ?? qcmById[id0];
         return item ? gold(item, prompt) : '';
@@ -255,7 +274,32 @@ describe('characterizeTree — free-gen probe (slice 7c)', () => {
     };
     const r = await characterizeTree({
       modelFilePath: 'D:/m.gguf',
-      ask: freeGenAsk,
+      ask,
+      freegen: false,
+      branchGate: { math: 0.9 },
+      loadExisting: async () => undefined,
+      computeHash: async () => 'sha256:nofreegen',
+      now: () => 't',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    const beh = r.signature.behavioral;
+    expect(freegenCalls).toBe(0); // model never asked to talk
+    expect(beh.freegen_text).toBeUndefined();
+    expect(beh.freegen_words).toBeUndefined();
+    expect(beh.topic_coverage_per_leaf).toBeUndefined();
+    // Staircase still ran.
+    expect(beh.scores_per_leaf['math.generic']).toBe(0.8);
+  });
+
+  test('embed provided ⇒ probe runs, topic_coverage + freegen_text populated', async () => {
+    // Toy embedder: every text → all-ones (so cosines = 1 across the
+    // board). What matters here is shape: fields present, populated,
+    // numeric, indexed by the same leaves as scores_per_leaf.
+    const ones = new Float32Array([1, 1, 1, 1]);
+    const embed = async (texts) => texts.map(() => ones);
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask: talkingAsk,
       embed,
       branchGate: { math: 0.9 },
       loadExisting: async () => undefined,
@@ -270,9 +314,59 @@ describe('characterizeTree — free-gen probe (slice 7c)', () => {
     // every-text-is-ones ⇒ cosine ≡ 1 for every anchor pair
     expect(beh.topic_coverage_per_leaf['code.python']).toBeCloseTo(1, 5);
     expect(beh.topic_coverage_per_branch.code).toBeCloseTo(1, 5);
-    // Excerpt stored (transparency).
-    expect(typeof beh.freegen_excerpt).toBe('string');
-    expect(beh.freegen_excerpt.length).toBeGreaterThan(0);
+    // Full text stored (transparency + future re-projection).
+    expect(typeof beh.freegen_text).toBe('string');
+    expect(beh.freegen_text.length).toBeGreaterThan(0);
+  });
+
+  test('stored freegen_text re-used — re-projected, model NOT asked to talk again', async () => {
+    // Re-characterizing a model that already talked in an embedder-less
+    // pass: the stored text is re-projected, no second monologue.
+    const ones = new Float32Array([1, 1, 1, 1]);
+    const embed = async (texts) => texts.map(() => ones);
+    let freegenCalls = 0;
+    const ask = {
+      async complete(prompt, ctx) {
+        if (ctx?.id === 'freegen-probe') {
+          freegenCalls += 1;
+          return 'should not be asked';
+        }
+        const id0 = ctx.id.split('#')[0];
+        const item = treeById[id0] ?? qcmById[id0];
+        return item ? gold(item, prompt) : '';
+      },
+    };
+    const existing = {
+      modelHash: 'old',
+      structural: { est_footprint_bytes: 1 },
+      behavioral: {
+        diagnostic_run: {},
+        scores_per_axis: {},
+        behavior_centroid: [],
+        freegen_text: 'python c++ sql — a stored monologue from an earlier pass',
+        freegen_words: 10,
+      },
+      characterization_state: 'complete',
+      characterization_error: null,
+      suite_version: 'v1-30',
+    };
+    const r = await characterizeTree({
+      modelFilePath: 'D:/m.gguf',
+      ask,
+      embed,
+      branchGate: { math: 0.9 },
+      loadExisting: async () => existing,
+      computeHash: async () => 'sha256:reuse',
+      now: () => 't',
+      persist: async () => ({ written: true, sidecarPath: '/x' }),
+    });
+    const beh = r.signature.behavioral;
+    expect(freegenCalls).toBe(0); // model never asked to talk again
+    expect(beh.freegen_text).toBe(existing.behavioral.freegen_text);
+    expect(beh.freegen_words).toBe(10);
+    // Stored text was re-projected now that an embedder exists.
+    expect(beh.topic_coverage_per_leaf).toBeDefined();
+    expect(beh.topic_coverage_per_branch.code).toBeCloseTo(1, 5);
   });
 
   test('probe failure ISOLATED — tree pass kept (regression guard)', async () => {

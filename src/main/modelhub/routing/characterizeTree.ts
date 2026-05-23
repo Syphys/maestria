@@ -25,7 +25,7 @@ import type { ChatLike } from './chat';
 import { characterizeBranch, type StaircaseSeams } from './staircase';
 import { measureQcmReliability } from './qcmReliability';
 import type { EmbedFn } from './embedProject';
-import { runFreeGenProbe } from './freegen';
+import { generateFreeGenText, projectFreeGenText } from './freegen';
 import probeAnchors from './questions/probe-anchors.json';
 import type { ProbeAnchorBank } from '../../../shared/RoutingTypes';
 import {
@@ -109,15 +109,20 @@ export type CharacterizeTreeOptions = {
    */
   branchGate?: Partial<Record<CompetenceBranch, number>>;
   /**
-   * Slice 7c — Free-gen probe seam (« sonder la teuté du modèle »).
-   * When provided, after the tree pass we ask the model to write
-   * ~400 free-form words on a topic IT picks, embed the response, and
-   * persist the projection onto the 32 leaf anchors as
+   * Slice 7c — Free-gen embedder seam. When provided, the free-gen
+   * monologue is embedded and projected onto the 32 leaf anchors as
    * `topic_coverage_per_leaf` (SPEC §4 carve-out — Decision DCC).
-   * Absent ⇒ probe skipped, behavioral block stays measurement-only.
-   * A probe failure is ISOLATED (try/catch) and never sinks the run.
+   * Absent ⇒ phase 2 skipped, only `freegen_text` is persisted.
    */
   embed?: EmbedFn;
+  /**
+   * Free-gen probe master switch (« Parler libre » checkbox). Default
+   * ON (`undefined` ⇒ true) — phase 1 makes the model talk and persists
+   * `freegen_text`, phase 2 projects it if `embed` is available. Set to
+   * `false` to skip the probe entirely: characterization is then the
+   * QCM staircase only (faster, no extra ~600-800-word generation).
+   */
+  freegen?: boolean;
   /** All injectable for offline tests. */
   treeSuite?: Suite;
   qcmSuite?: Suite;
@@ -227,30 +232,53 @@ export async function characterizeTree(
     leavesFromQcmPrior++;
   }
 
-  // Slice 7c — Free-gen probe (« sonder la teuté du modèle »).
-  // When an embedder is wired in (opts.embed), ask the model to talk
-  // freely for ~400 words on a topic IT picks, embed the response, and
-  // project onto the same 32 leaf anchors. Stored as
-  // `topic_coverage_per_leaf` — additional EVIDENCE on top of the
-  // deterministic competence scores, never a replacement. Probe failure
-  // is ISOLATED (try/catch): a flaky embedder, an empty response, an
-  // over-aligned model that refuses — none of these sink the tree pass
-  // we already computed.
+  // Slice 7c — Free-gen probe (« sonder la teuté du modèle »), two-phase
+  // since 2026-05-22. Phase 1 (make the model talk for 600-800 words on
+  // a topic IT picks) needs ONLY the chat client and ALWAYS runs — we
+  // persist the FULL monologue as `freegen_text`. Phase 2 (embed +
+  // project onto the 32 leaf anchors) needs an embedder and runs only
+  // when one is wired in (`opts.embed`); it fills `topic_coverage_per_leaf`
+  // — additional EVIDENCE on top of the deterministic competence scores,
+  // never a replacement. With no embedder the text is kept verbatim so a
+  // later pass can project it WITHOUT re-running the model.
+  //
+  // Re-use: if a stored `freegen_text` already exists (re-characterizing
+  // a model that talked in an earlier, embedder-less pass), we DON'T make
+  // it talk again — we project the stored text. So configuring the
+  // embedder later and re-running costs zero extra free-gen generations.
+  //
+  // Probe failure is ISOLATED (try/catch): a flaky embedder, an empty
+  // response, an over-aligned model that refuses — none of these sink
+  // the tree pass we already computed.
   let topic_coverage_per_leaf: Record<string, number> | undefined;
   let topic_coverage_per_branch: Record<string, number> | undefined;
   let freegen_words: number | undefined;
-  let freegen_excerpt: string | undefined;
-  if (opts.embed) {
+  let freegen_text: string | undefined;
+  // `opts.freegen === false` (the « Parler libre » checkbox unchecked)
+  // skips the probe entirely — characterization is the QCM staircase
+  // only. Default ON (`undefined` ⇒ true).
+  if (opts.freegen !== false) {
     try {
-      const fg = await runFreeGenProbe(
-        opts.ask,
-        opts.embed,
-        probeAnchors as unknown as ProbeAnchorBank,
-      );
-      topic_coverage_per_leaf = fg.topic_coverage_per_leaf;
-      topic_coverage_per_branch = fg.topic_coverage_per_branch;
-      freegen_words = fg.response_words;
-      freegen_excerpt = fg.response_excerpt;
+      const priorText = base.behavioral?.freegen_text;
+      if (priorText) {
+        freegen_text = priorText;
+        freegen_words =
+          base.behavioral?.freegen_words ??
+          priorText.split(/\s+/).filter(Boolean).length;
+      } else {
+        const gen = await generateFreeGenText(opts.ask);
+        freegen_text = gen.text;
+        freegen_words = gen.words;
+      }
+      if (opts.embed) {
+        const proj = await projectFreeGenText(
+          freegen_text,
+          opts.embed,
+          probeAnchors as unknown as ProbeAnchorBank,
+        );
+        topic_coverage_per_leaf = proj.topic_coverage_per_leaf;
+        topic_coverage_per_branch = proj.topic_coverage_per_branch;
+      }
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error(
@@ -274,7 +302,7 @@ export async function characterizeTree(
     ...(topic_coverage_per_leaf ? { topic_coverage_per_leaf } : {}),
     ...(topic_coverage_per_branch ? { topic_coverage_per_branch } : {}),
     ...(freegen_words != null ? { freegen_words } : {}),
-    ...(freegen_excerpt ? { freegen_excerpt } : {}),
+    ...(freegen_text ? { freegen_text } : {}),
   };
 
   const signature: Signature = {

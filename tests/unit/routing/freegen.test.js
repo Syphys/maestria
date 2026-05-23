@@ -4,7 +4,12 @@
 // invoked once on the characterization path, but only the per-leaf
 // cosines are persisted (not a 768-d opaque vector).
 import { describe, expect, test } from '@playwright/test';
-import { runFreeGenProbe, FREEGEN_PROMPT } from '../../../src/main/modelhub/routing/freegen';
+import {
+  runFreeGenProbe,
+  generateFreeGenText,
+  projectFreeGenText,
+  FREEGEN_PROMPT,
+} from '../../../src/main/modelhub/routing/freegen';
 import anchors from '../../../src/main/modelhub/routing/questions/probe-anchors.json';
 
 const DIM = 4;
@@ -68,7 +73,9 @@ describe('runFreeGenProbe (slice 7c)', () => {
     expect(result.topic_coverage_per_leaf['code.cpp']).toBeCloseTo(1, 5);
     expect(result.topic_coverage_per_leaf['math.algebre']).toBeCloseTo(0, 5);
     expect(result.topic_coverage_per_branch.code).toBeCloseTo(1, 5);
-    expect(result.response_words).toBeGreaterThan(20);
+    expect(result.words).toBeGreaterThan(20);
+    // Full text carried through (persisted verbatim for re-projection).
+    expect(result.text).toMatch(/descriptor protocol/);
   });
 
   test('medical-LLM response ⇒ high coverage drops on code.* (zero)', async () => {
@@ -108,10 +115,58 @@ describe('runFreeGenProbe (slice 7c)', () => {
     };
     const embed = async (texts) => texts.map((t) => dirFor(t));
     const result = await runFreeGenProbe(ask, embed, anchors);
-    expect(result.response_excerpt).not.toMatch(/<think>/);
-    expect(result.response_words).toBeGreaterThan(3);
+    expect(result.text).not.toMatch(/<think>/);
+    expect(result.words).toBeGreaterThan(3);
   });
 
+});
+
+describe('generateFreeGenText — phase 1, no embedder (2026-05-22)', () => {
+  test('makes the model talk with NO embedder, returns full text + words', async () => {
+    const codeResponse =
+      'The Python descriptor protocol resolves attribute access via __get__ and __set__.';
+    const ask = {
+      async complete(prompt, ctx) {
+        expect(ctx.id).toBe('freegen-probe');
+        return codeResponse;
+      },
+    };
+    const gen = await generateFreeGenText(ask); // no `embed` argument
+    expect(gen.text).toBe(codeResponse);
+    expect(gen.words).toBeGreaterThan(5);
+  });
+
+  test('<think> stripped from the persisted text', async () => {
+    const ask = {
+      async complete() {
+        return '<think>hmm…</think>\nActual content about generics.';
+      },
+    };
+    const gen = await generateFreeGenText(ask);
+    expect(gen.text).not.toMatch(/<think>/);
+    expect(gen.text).toMatch(/Actual content/);
+  });
+
+  test('empty response ⇒ throws (caller swallows)', async () => {
+    const ask = { async complete() { return ''; } };
+    await expect(generateFreeGenText(ask)).rejects.toThrow(/freegen: empty/);
+  });
+});
+
+describe('projectFreeGenText — phase 2, re-projecting a stored text', () => {
+  test('projects a stored free-gen text onto the anchors', async () => {
+    // Simulates re-projection: the text was persisted earlier (no
+    // embedder); now an embedder exists and we project WITHOUT a model.
+    const storedText =
+      'python, c++, sql — descriptor protocol, template instantiation.';
+    const embed = async (texts) => texts.map((t) => dirFor(t));
+    const proj = await projectFreeGenText(storedText, embed, anchors);
+    expect(proj.topic_coverage_per_leaf['code.python']).toBeCloseTo(1, 5);
+    expect(proj.topic_coverage_per_branch.code).toBeCloseTo(1, 5);
+  });
+});
+
+describe('FREEGEN_PROMPT shape', () => {
   test('FREEGEN_PROMPT does NOT inject a topic (model has agency)', () => {
     // Guard against drift: the prompt MUST stay topic-agnostic. If
     // someone bakes a leading topic in, the probe biases toward that

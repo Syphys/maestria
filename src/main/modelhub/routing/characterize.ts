@@ -57,6 +57,14 @@ export type CharacterizeOptions = {
   baseUrl?: string;
   /** Model id sent to the chat API (local llama-server ignores it). */
   model?: string;
+  /**
+   * Optional per-model cap on `max_tokens` (= the model's context size,
+   * derived from its effective RunParams.ctx). When set, each chat call
+   * advertises `max_tokens = <thisModel'sCtx>` so each model gets its
+   * own natural ceiling instead of a hardcoded global value. Unset ⇒
+   * no cap (llama-server uses its loaded context window by default).
+   */
+  maxTokens?: number;
   /** Path to the model file — keys the modelHash + locates the sidecar. */
   modelFilePath: string;
   /** Pass `loc.isReadOnly` — when true the result is computed but not written. */
@@ -127,6 +135,7 @@ export async function characterize(
     new ChatClient({
       baseUrl: opts.baseUrl ?? '',
       model: opts.model,
+      maxTokens: opts.maxTokens,
     });
   const hashOf =
     opts.computeHash ??
