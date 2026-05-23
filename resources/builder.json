@@ -108,5 +108,11 @@
     "buildResources": "assets",
     "output": "../builds"
   },
-  "extraResources": ["./assets/**"]
+  "extraResources": [
+    "./assets/**",
+    {
+      "from": "src/main/modelhub/routing/questions",
+      "to": "modelhub-questions"
+    }
+  ]
 }

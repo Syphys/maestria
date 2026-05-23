@@ -34,11 +34,14 @@ import {
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ScienceIcon from '@mui/icons-material/Science';
+import QuizIcon from '@mui/icons-material/Quiz';
 import type {
   DiagnosticAxis,
   DiagnosticRunEntry,
 } from '../../../shared/RoutingTypes';
 import { useSignature } from '../useSignature';
+import { promptTextById } from '../promptText';
+import { useOpenQuestionsLocation } from '../useOpenQuestionsLocation';
 import {
   useCharacterize,
   type CharacterizeRunStatus,
@@ -80,11 +83,18 @@ export function CompetenceSection({
     filePath,
     () => setReloadNonce((n) => n + 1),
   );
+  // Opens the bundled questions/ folder as a read-only Maestria location
+  // so the user can audit the actual QCM / anchor JSON behind their score.
+  const openQuestions = useOpenQuestionsLocation();
   const [axis, setAxis] = useState<DiagnosticAxis | null>(null);
   // Slice 8b — the fine vector-routing tree is information-dense (9
   // branches × ~32 leaves + breakdown). Default closed; toggle reveals it
   // under the R5 radar so it never competes with the coarse view above.
   const [treeOpen, setTreeOpen] = useState(false);
+  // « Parler libre » — the model's free-gen monologue. Collapsible,
+  // default closed: it's long-form prose, only opened when the user
+  // wants to read what the model actually wrote (or diagnose garbage).
+  const [freegenOpen, setFreegenOpen] = useState(false);
   const [snack, setSnack] = useState<string | null>(null);
   // Slice 7d — surface the missing free-gen probe ONCE per signature load.
   // The probe is opt-in (Settings ▸ AI ▸ Routing must have an embedder
@@ -172,8 +182,13 @@ export function CompetenceSection({
 
   const axisEntries: [string, DiagnosticRunEntry][] = useMemo(() => {
     if (!beh || !axis) return [];
+    // `lang` is a synthetic presentation axis (mean of fr/en/zh) — no
+    // prompt is tagged `lang`, so expand it to its constituent axes;
+    // otherwise the drill-down would always come up empty.
+    const wanted: string[] =
+      String(axis) === 'lang' ? ['fr', 'en', 'zh'] : [String(axis)];
     return Object.entries(beh.diagnostic_run).filter(([, e]) =>
-      e.axes?.includes(axis),
+      e.axes?.some((a) => wanted.includes(a)),
     );
   }, [beh, axis]);
 
@@ -280,9 +295,30 @@ export function CompetenceSection({
         </Button>
       </span>
     );
+    // « Voir les questions sources » — next to the per-model
+    // characterize button so the user can drill into the source-of-
+    // truth QCM/anchor JSON without leaving the panel. No read-only
+    // gate: opening the questions folder is harmless even on a
+    // read-only model location (it lands on its own location entry).
+    const questionsBtn = (
+      <Tooltip title={t('core:mhSeeSourceQuestionsHint')}>
+        <Button
+          size="small"
+          variant="text"
+          startIcon={<QuizIcon />}
+          onClick={() => void openQuestions()}
+          data-tid="seeSourceQuestionsTID"
+        >
+          {t('core:mhSeeSourceQuestions')}
+        </Button>
+      </Tooltip>
+    );
     return (
       <Box sx={{ mt: 1 }}>
-        {blockedTip ? <Tooltip title={blockedTip}>{btn}</Tooltip> : btn}
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          {blockedTip ? <Tooltip title={blockedTip}>{btn}</Tooltip> : btn}
+          {questionsBtn}
+        </Stack>
         {triggerError && (
           <Alert severity="error" sx={{ mt: 1 }} variant="outlined">
             {t('core:mhCharacterizeFailed', { err: triggerError })}
@@ -315,10 +351,21 @@ export function CompetenceSection({
 
   const axisDetail = (id: string, e: DiagnosticRunEntry): string => {
     const head = `${id}  ${e.pass ? '[' + t('core:mhCompetencePass') + ']' : '[' + t('core:mhCompetenceFail') + ']'}  score=${(e.score ?? 0).toFixed(2)}`;
+    // The question that was asked — looked up by promptId from the suite
+    // packs (the signature stores only the id). Multi-line prompts are
+    // re-indented under the « ? » marker so they stay readable.
+    const q = promptTextById(id);
+    const question = q ? `\n  ? ${q.replace(/\n/g, '\n    ')}` : '';
     const detail = e.detail ? `\n  ${e.detail}` : '';
     const err = e.error ? `\n  ! ${e.error}` : '';
-    const resp = e.response ? `\n  → ${e.response.trim()}` : '';
-    return head + detail + err + resp;
+    // Always show a `→` line: an empty response is itself a finding
+    // (a thinking model that burned its budget inside <think> and never
+    // answered) — a silent gap just looks like a display bug.
+    const resp =
+      e.response && e.response.trim()
+        ? `\n  → ${e.response.trim()}`
+        : `\n  → ${t('core:mhCompetenceEmptyResponse')}`;
+    return head + question + detail + err + resp;
   };
 
   const drillText = axis
@@ -490,6 +537,82 @@ export function CompetenceSection({
                 {treeBreakdown}
               </Box>
             )}
+          </Collapse>
+        </Box>
+      )}
+
+      {/* « Parler libre » — the model's free-gen monologue, verbatim.
+          Collapsible, copyable. Shown whenever a `freegen_text` exists,
+          including degenerate output (e.g. a prover looping on "###") so
+          the user can see exactly what the model produced. */}
+      {beh.freegen_text && (
+        <Box sx={{ mt: 1.5 }}>
+          <Divider sx={{ mb: 1 }} />
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 0.5 }}
+          >
+            <ButtonBase
+              onClick={() => setFreegenOpen((v) => !v)}
+              sx={{
+                px: 0.5,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                borderRadius: 1,
+              }}
+              aria-expanded={freegenOpen}
+            >
+              {freegenOpen ? '▾ ' : '▸ '}
+              {t('core:mhFreegenTitle')}
+            </ButtonBase>
+            {freegenOpen && (
+              <Tooltip title={t('core:mhFreegenCopy')}>
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    copy(beh.freegen_text ?? '', t('core:mhFreegenCopied'))
+                  }
+                  aria-label={t('core:mhFreegenCopy')}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+          <Collapse in={freegenOpen} unmountOnExit>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 1 }}
+            >
+              {t('core:mhFreegenSubtitle', {
+                words: beh.freegen_words ?? 0,
+              })}
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                m: 0,
+                p: 1,
+                maxHeight: 320,
+                overflow: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '0.72rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                userSelect: 'text',
+                color: 'text.primary',
+                bgcolor: 'action.hover',
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
+              {beh.freegen_text}
+            </Box>
           </Collapse>
         </Box>
       )}

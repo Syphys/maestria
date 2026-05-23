@@ -12,12 +12,19 @@ import { MODELHUB_IPC } from './types';
 import type { CharacterizeRunStatus } from './useCharacterize';
 
 export interface CharacterizeAllProgress {
+  /**
+   * Single-pass protocol (2026-05-23 rev.) — `running` covers both the
+   * per-model test phase and its optional projection step. `enumerating`
+   * is the file-listing pre-step; `done` / `cancelled` are terminal.
+   */
   phase: 'enumerating' | 'running' | 'done' | 'cancelled';
   total: number;
   done: number;
   ok: number;
   errors: number;
   skipped: number;
+  /** Projections successfully written this run. */
+  projected: number;
   currentIndex: number;
   currentFile?: string;
   currentName?: string;
@@ -43,16 +50,23 @@ export interface UseCharacterizeAllState {
   running: boolean;
   progress?: CharacterizeAllProgress;
   /**
-   * Start a bulk run. `force` (slice 6b) ⇒ `skipExisting = false`, i.e.
-   * re-characterize every model, including `complete` AND `failed`
-   * (useful after a scoring-scheme bump or a llama-server update that
-   * unblocks a previously-quarantined architecture). Default false
-   * keeps the original resumable behaviour.
+   * Start a bulk run.
+   *  - `force` (slice 6b) ⇒ `skipExisting = false`, re-characterize every
+   *    model (complete + failed). Default false keeps resumable behaviour.
+   *  - `freegen` (« Parler libre ») ⇒ make each model talk for ~600-800
+   *    words. Default true; false skips both the monologue AND projection.
+   *  - `skipProjection` (« Sans calcul vectoriel ») ⇒ generate and save
+   *    the monologue but skip the embedder projection step. Useful when
+   *    the user wants the texts now and will project later, or when no
+   *    embedder is configured (the main process applies the same
+   *    fallback silently if the embedder fails to resolve).
    */
   start: (
     rootDir: string,
     skipWrite?: boolean,
     force?: boolean,
+    freegen?: boolean,
+    skipProjection?: boolean,
   ) => Promise<void>;
   cancel: () => void;
 }
@@ -83,6 +97,8 @@ export function useCharacterizeAll(): UseCharacterizeAllState {
       rootDir: string,
       skipWrite?: boolean,
       force?: boolean,
+      freegen?: boolean,
+      skipProjection?: boolean,
     ): Promise<void> => {
       const i = ipc();
       if (!i?.invoke || running) return;
@@ -95,6 +111,10 @@ export function useCharacterizeAll(): UseCharacterizeAllState {
           // Slice 6b: `force` ⇒ skipExisting=false (re-do complete + failed);
           // default keeps the resumable Slice-5 behaviour.
           !force,
+          // « Parler libre » — make each model talk. Default true.
+          freegen,
+          // « Sans calcul vectoriel » — defer the embedder step.
+          skipProjection,
         )) as StartResult;
         if (!res.ok && aliveRef.current) {
           setProgress((prev) =>
@@ -107,6 +127,7 @@ export function useCharacterizeAll(): UseCharacterizeAllState {
                   ok: 0,
                   errors: 0,
                   skipped: 0,
+                  projected: 0,
                   currentIndex: 0,
                   errorSamples: [],
                 },

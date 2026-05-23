@@ -52,6 +52,7 @@ import {
 } from '-/utils/useCancelablePerLocation';
 import useFirstRender from '-/utils/useFirstRender';
 import { isNoteFile, isSupportedModelFile } from '-/modelhub/parsers';
+import { MAESTRIA_TESTS_LOCATION_UUID } from '-/modelhub/useOpenQuestionsLocation';
 import {
   detectShardInfo,
   isCanonicalShard,
@@ -960,6 +961,14 @@ export const DirectoryContentContextProvider = ({
     entries: TS.FileSystemEntry[],
   ): TS.FileSystemEntry[] {
     if (listingMode === 'all') return entries;
+    // The auto-managed « Maestria Tests » location holds the bundled
+    // routing-questions JSON — `.json` isn't a model file and isn't in
+    // the default note extensions, so it would be filtered to empty in
+    // every non-`all` mode. Bypass the filter for this specific
+    // location so the user always sees the JSONs they came to inspect.
+    if (currentLocation?.uuid === MAESTRIA_TESTS_LOCATION_UUID) {
+      return entries;
+    }
     const root = currentLocation?.path;
     const folderSetReady = !!root && isModelHostingFoldersReady(root);
     const allowNotes = listingMode === 'modelsAndNotes';
