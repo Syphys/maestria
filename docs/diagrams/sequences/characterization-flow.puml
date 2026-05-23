@@ -1,33 +1,39 @@
 @startuml characterization-flow
 !include ../_includes/style.iuml
 
-title Characterise ONE model — full flow
+title Characterise ONE model — full flow (2026-05-23 single-pass)
 
 actor User
 participant "UI\n(Inférence tab)" as UI
 participant "characterizeRunner" as RUN
 participant "runner registry\n+ launch.ts" as LAUNCH
+participant "modelLogStore\n(.ts/<file>.log)" as LOG
 participant "llama-server\n(chat)" as CHAT
 participant "characterize.ts\n(R5 pass)" as R5
 participant "characterizeTree.ts" as TREE
 participant "staircase.ts\n+ scorers" as STAIR
 participant "sandbox\n(slice 2d)" as SBX
-participant "freegen.ts\n(slice 7c)" as FG
-participant "embedderLifecycle" as ELC
-participant "llama-server\n--embedding" as EMB
+participant "freegen.ts\n(2-phase, 2026-05-22)" as FG
+participant "embedderCli.ts\n(llama-embedding,\none-shot)" as EMB_CLI
 participant "signatureStore\n(.ts/<file>.json)" as SIG
 
 User -> UI : "Caractériser" / "Re-caractériser"
-UI -> RUN : start({filePath, skipExisting})
+UI -> RUN : start({filePath, freegen, skipProjection})
 RUN -> LAUNCH : ensure chat live (spawn if needed)
 LAUNCH -> CHAT : llama-server (8080)
+LAUNCH -> LOG : append stdout/stderr\n(append-only, 4 MiB rotation)
 RUN -> R5 : runR5(ask=chatClient)
 R5 -> CHAT : N prompts (v1-30)
 CHAT --> R5 : completions
 R5 --> RUN : behavioral (R5 vector)
 
 == Tree (slice 4c) ==
-RUN -> TREE : characterizeTree({\n  ask, embed?, seams.runSandbox\n})
+RUN -> TREE : characterizeTree({\n  ask, embed:undefined, seams.runSandbox\n})
+note right of TREE
+  Embedder NOT touched here —
+  test model is the only resident
+  process. Projection deferred.
+end note
 loop per OPENED branch (R5 ≥ θ_open)
   TREE -> STAIR : characterizeBranch(branch)
   loop per leaf, climb level 1→N until first fail
@@ -49,23 +55,41 @@ loop per OPENED branch (R5 ≥ θ_open)
 end
 TREE --> RUN : scores_per_leaf,\nbranch_scores,\npasses_per_leaf
 
-== Free-gen probe (slice 7c, optional) ==
-alt embedder configured (slice 7e)
-  TREE -> ELC : ensureEmbedderReady(filePath)
-  ELC -> EMB : spawn or reuse
-  EMB --> ELC : baseUrl ready
-  TREE -> FG : runFreeGenProbe(ask, embed)
+== Free-gen phase 1 — TEXT only (no embedder) ==
+alt freegen=true
+  TREE -> FG : generateFreeGenText(ask)
   FG -> CHAT : FREEGEN_PROMPT
-  CHAT --> FG : ~600 words
-  FG -> EMB : embed(response)
-  EMB --> FG : 1 vector
-  FG -> FG : project onto 32 anchors
-  FG --> TREE : topic_coverage_*
+  CHAT --> FG : ~600-800 words
+  FG --> TREE : { text, words }
 end
 
-TREE --> RUN : merged signature
+TREE --> RUN : signature with\nfreegen_text (no projection yet)
 RUN -> SIG : writeSignature(skipWrite?)
+RUN -> LAUNCH : stop chat server
+RUN --> UI : status:'tests done'
+
+== Free-gen phase 2 — PROJECTION (per model, deferred) ==
+note over RUN
+  characterizeAll's per-model loop:
+  test session ended ⇒ chat server stopped ⇒
+  embedder CLI is the only thing in RAM.
+end note
+alt skipProjection=false AND embedder available
+  RUN -> EMB_CLI : embed([freegen_text, ...17 anchors])
+  EMB_CLI -> EMB_CLI : spawn llama-embedding.exe\n--embd-output-format json\n--log-disable
+  EMB_CLI --> RUN : Float32Array[]\n(process exits, RAM freed)
+  RUN -> FG : projectFreeGenText(text, embed, anchors)
+  FG --> RUN : topic_coverage_*\n(per leaf + per branch)
+  RUN -> SIG : patch signature\n(topic_coverage_per_leaf,\n topic_coverage_per_branch)
+else
+  note right of RUN
+    skipProjection=true OR no embedder
+    configured ⇒ text saved, projection
+    deferred (can run later on-demand).
+  end note
+end
+
 RUN --> UI : status:'done' + signature
-UI -> UI : refresh radar (R5 + tree)
+UI -> UI : refresh radar (R5 + tree + projection)
 
 @enduml

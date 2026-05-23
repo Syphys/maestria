@@ -5,6 +5,14 @@ title State machine — Signature.characterization_state lifecycle
 
 ' States are the literal values on disk in `.ts/<file>.json`.
 ' Transitions correspond to characterizeRunner.ts outcomes.
+'
+' Companion artifacts written next to the signature JSON:
+'   - `.ts/<file>.log`   — llama-server stdout/stderr captured on
+'                          every Maestria-managed launch (append-only,
+'                          4 MiB rotation). Survives the process.
+'   - `.ts/<file>.error` — timestamped per-model error journal from
+'                          characterizeAll (one line per failure).
+' Both are best-effort writes: a disk error never sinks a run.
 
 [*] --> NotCharacterized : model added\nto folder
 
@@ -51,6 +59,16 @@ note bottom of Quarantined
   until the user explicitly
   re-characterizes — even if a
   routing query comes in.
+end note
+
+note right of Running
+  Side-effect on disk (every transition):
+  `appendServerLog(.ts/<file>.log, chunk)`
+  on every llama-server stdout/stderr chunk
+  (hooked in runners/launch.ts).
+  On Quarantined / Incomplete-with-error:
+  `appendErrorLog(.ts/<file>.error, reason)`
+  with an ISO timestamp.
 end note
 
 @enduml

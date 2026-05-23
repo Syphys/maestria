@@ -1,40 +1,73 @@
 @startuml freegen
 !include ../_includes/style.iuml
 
-title Free-gen probe — slice 7c (« sonder la teuté du modèle »)
+title Free-gen probe — slice 7c, 2-phase split (2026-05-22)
 
 state "Tree characterization\nfinished (slice 4c)" as TREE_DONE
-state "characterizeTree.ts\n  if (opts.embed) {…}" as GATE
-state "freegen.runFreeGenProbe()" as PROBE {
+state "characterizeTree.ts\n  if (opts.freegen !== false) {…}" as GATE_FG
+
+state "PHASE 1 — text only\nfreegen.generateFreeGenText(ask)" as PHASE1 {
   state "1× model call\nFREEGEN_PROMPT\n(topic-neutral,\n~600–800 words)" as ASK
   state "Strip <think>…</think>\n(D11)" as STRIP
-  state "1× embed call\n(query text)" as EMB
-  state "Project onto 32\nleaf anchors\n(probe-anchors.json)" as PROJECT
-  state "Reduce to\n• topic_coverage_per_leaf\n• topic_coverage_per_branch\n• freegen_words\n• freegen_excerpt" as REDUCE
+  state "Output:\n• freegen_text (verbatim)\n• freegen_words" as TEXT_OUT
 }
-state "merge into signature\n(`scoring_scheme` unchanged)" as MERGE
-state "skip silently\n(no embedder configured)" as SKIP_S
-state "log + skip\n(probe failure isolated)" as SKIP_E
 
-TREE_DONE --> GATE
-GATE --> PROBE : embed seam present
-GATE --> SKIP_S : opts.embed absent\n(SPEC §4 strict path)
+state "merge into signature\n(text only,\nNO projection yet)" as MERGE_TEXT
 
-PROBE --> ASK
+state "PHASE 2 — projection\nfreegen.projectFreeGenText(\n  text, embed, anchors\n)" as PHASE2 {
+  state "1× embed call\n(stored freegen_text)" as EMB_TEXT
+  state "K× embed calls\n(17 leaf anchors —\nbatched in one\nllama-embedding spawn)" as EMB_ANCHORS
+  state "Cosine projection\nonto each anchor\n(probe-anchors.json)" as PROJECT
+  state "Output:\n• topic_coverage_per_leaf\n• topic_coverage_per_branch" as PROJ_OUT
+}
+
+state "merge projection into\nsignature (additive)" as MERGE_PROJ
+
+state "freegen disabled\n(opts.freegen === false)" as SKIP_FG
+state "phase 1 throw\n(empty response, etc.) →\nisolated, tree pass kept" as SKIP_E
+
+TREE_DONE --> GATE_FG
+GATE_FG --> PHASE1 : freegen ON\n(default true)
+GATE_FG --> SKIP_FG : explicitly OFF
+PHASE1 --> ASK
 ASK --> STRIP
-STRIP --> EMB
-EMB --> PROJECT
-PROJECT --> REDUCE
-REDUCE --> MERGE
+STRIP --> TEXT_OUT
+TEXT_OUT --> MERGE_TEXT
 
-PROBE --> SKIP_E : ANY throw\n(embedder down, empty\nresponse, refusal…)
+state "characterizeAll\n(bulk per-model loop)" as BULK_LOOP
+state "skipProjection?\nOR embedder unavailable?" as PROJ_GATE
+MERGE_TEXT --> BULK_LOOP : signature saved with\nfreegen_text alone
+BULK_LOOP --> PROJ_GATE
+PROJ_GATE --> PHASE2 : embedder available\nAND !skipProjection
+PROJ_GATE --> [*] : skip projection\n(text stays, can be\nprojected later)
 
-note right of MERGE
-  Fields are **additional
-  evidence** in routing
-  (α=0.7 deterministic,
-  β=0.3 coverage blend).
-  Never replace `scores_per_leaf`.
+PHASE2 --> EMB_TEXT
+EMB_TEXT --> EMB_ANCHORS
+EMB_ANCHORS --> PROJECT
+PROJECT --> PROJ_OUT
+PROJ_OUT --> MERGE_PROJ
+
+PHASE1 --> SKIP_E : throws caught\nby characterizeTree
+
+note right of PHASE1
+  NO EMBEDDER touched here.
+  Test model is the only thing
+  in RAM during phase 1.
+end note
+
+note right of PHASE2
+  Bulk path: one llama-embedding
+  spawn per model (embedderCli.ts),
+  process exits → RAM freed.
+  Test model is NEVER coexistent
+  with the embedder.
+end note
+
+note bottom of MERGE_PROJ
+  Fields are **additional evidence**
+  in routing (α=0.7 deterministic,
+  β=0.3 coverage blend). Never
+  replace `scores_per_leaf`.
 end note
 
 note bottom of SKIP_E

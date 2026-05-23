@@ -2,40 +2,62 @@
 !include ../_includes/style.iuml
 !include ../_includes/actors.iuml
 
-title Embedder — managed lifecycle (slice 7e)
+title Embedder — dual mode: server (interactive) + CLI (bulk)
 
 package "src/main/modelhub/" {
   component "embedderLifecycle.ts\n• ensureEmbedderReady(filePath)\n• in-flight launch promise\n  (concurrency-safe)\n• stopManagedEmbedders()" as EMBED_LC
+  component "embedderCli.ts\n(2026-05-23)\n• embedViaLlamaCli(opts)\n  spawn → JSON → exit\n• resolveEmbedderCliFn()\n  derives llama-embedding\n  from llama-server runner\n• deriveLlamaEmbeddingPath" as EMBED_CLI
   component "launchModelByPath\n(via launch.ts)\nlaunchedBy: 'embedder'\ncustomArgs: '--embedding'" as LAUNCH
-  component "EmbedClient\n(routing/embed.ts)\n/v1/embeddings POST" as EMBED_CLIENT
+  component "EmbedClient\n(routing/embed.ts)\nHTTP POST /v1/embeddings" as EMBED_CLIENT
   component "routingConfig.ts\n.routingEmbedderPath /\n.routingEmbedderBaseUrl" as RC
 }
 
-component "characterizeRunner\n(slice 7c probe)" as CHARACT
-component "routeByVectors\n(slice 5b query path)" as ROUTE
+component "characterizeAll\n(bulk, per-model loop)" as CHAR_ALL
+component "routeByVectors\n(interactive query)" as ROUTE
 
-CHARACT --> RC : effectiveRoutingParams\n.embedder
-ROUTE --> RC : same
-RC --> EMBED_LC : kind:'managed'\n+ filePath
+CHAR_ALL --> EMBED_CLI : resolveEmbedderCliFn() once\nthen embed() per model
+ROUTE --> RC : effectiveRoutingParams.embedder
+
+RC --> EMBED_LC : kind:'managed'\n+ filePath\n(server-backed)
 RC ..> EMBED_CLIENT : kind:'external'\n+ baseUrl (direct)
+
 EMBED_LC --> LAUNCH : spawn if not running
-LAUNCH --> LLAMA_EMBED : llama-server\n--embedding
+LAUNCH --> LLAMA_EMBED : llama-server\n--embedding (port 8081)
 LLAMA_EMBED --> EMBED_LC : /v1/models OK\n(ready probe, 60s timeout)
 EMBED_LC --> EMBED_CLIENT : baseUrl
 EMBED_CLIENT --> LLAMA_EMBED : POST /v1/embeddings
 
+EMBED_CLI ..> LLAMA_EMBED_CLI : spawn one-shot per call
+note as N_CLI_PROC
+  llama-embedding.exe
+  (sibling of llama-server in the
+  same llama.cpp build folder).
+  Spawned per call, prints JSON
+  on stdout, exits.
+end note
+N_CLI_PROC .. LLAMA_EMBED_CLI
+component "llama-embedding.exe\n(one-shot CLI)" as LLAMA_EMBED_CLI
+
 note bottom of EMBED_LC
-  Idempotent: existing process
-  with `launchedBy: 'embedder'`
-  is reused. Concurrent callers
-  share the same launch promise.
-  Boot crash ⇒ stopProcess + return
-  null (silent fallback to R5).
+  SERVER mode (interactive routing):
+  resident process, low-latency queries,
+  reused across calls. Idempotent + crash-
+  safe (boot crash ⇒ null ⇒ R5 fallback).
+end note
+
+note bottom of EMBED_CLI
+  CLI mode (bulk characterization):
+  spawn → embed → exit per model.
+  Zero resident RAM between models —
+  test model is the only big GGUF
+  loaded at any given time.
+  Both modes use the SAME embedder
+  GGUF (routingEmbedderPath).
 end note
 
 note right of LLAMA_EMBED
-  Visible in RunningModelsPanel
-  grouped by `launchedBy: 'embedder'`
+  Visible in RunningModelsPanel,
+  grouped by `launchedBy: 'embedder'`,
   alongside chat models.
 end note
 

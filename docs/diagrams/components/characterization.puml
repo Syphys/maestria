@@ -2,14 +2,20 @@
 !include ../_includes/style.iuml
 !include ../_includes/legend.iuml
 
-title Characterization — runner → tree → staircase → scorers
+title Characterization — runner → tree → staircase → scorers (single-pass)
+
+package "src/main/modelhub/" {
+  component "modelLogStore.ts\n(2026-05-23)\n• .ts/<file>.log\n  (llama-server stdout/stderr)\n• .ts/<file>.error\n  (timestamped failures)\n• 4 MiB rotation,\n  best-effort writes" as LOG_STORE
+}
 
 package "src/main/modelhub/routing/" {
-  component "characterizeRunner.ts\n• ensureChatLive\n  (spawn llama-server\n  if needed)\n• build seams\n  (embed, runSandbox)\n• timeoutMs 600_000" as RUNNER
+  component "characterizeAll.ts\n(single-pass, 2026-05-23)\n• size-sorted enumeration\n• per model: test → if\n  freegen_text → project\n• skipProjection gate\n• silent fallback when\n  embedder unavailable" as ALL
+
+  component "characterizeRunner.ts\n• ensureChatLive\n  (spawn llama-server\n  if needed)\n• build seams\n  (embed=undefined here,\n   runSandbox)\n• timeoutMs 600_000\n• runFreeGenGenerate\n• runFreeGenProject\n• resolveEmbedderFn" as RUNNER
 
   component "characterize.ts\n(R5 pass — 16 R5 axes,\nslice 6c collapse fr/en/zh,\nQCM aptitude)" as R5_RUN
 
-  component "characterizeTree.ts\n• read R5 signature\n• gate branches\n  with θ_open\n• loop branches" as TREE
+  component "characterizeTree.ts\n• read R5 signature\n• gate branches\n  with θ_open\n• loop branches\n• free-gen TEXT only\n  (phase 1)" as TREE
 
   component "staircase.ts\n• CAT-style climb\n• early-stop on fail\n• Beta-Laplace\n  posterior mean" as STAIR
 
@@ -21,14 +27,18 @@ package "src/main/modelhub/routing/" {
     component "sandbox-pending\nscorers\n(code-debug/fim/refactor)\n→ slice 2d" as PEND_SCORERS
   }
 
-  component "freegen.ts\n(slice 7c probe)" as FREEGEN
+  component "freegen.ts\n(2-phase, 2026-05-22)\n• generateFreeGenText\n  (chat only, no embedder)\n• projectFreeGenText\n  (embedder only)" as FREEGEN
+  component "embedderCli.ts\n(2026-05-23)\n• embedViaLlamaCli\n  (spawn → JSON → exit)\n• resolveEmbedderCliFn" as EMB_CLI
   component "sandbox/\n(slice 2d)\nindex → posix |\n      windows |\n      unsafe" as SANDBOX
   component "signatureStore.ts\n(read / write\n.ts/<file>.json)" as STORE
 }
 
+ALL --> RUNNER : per model:\nfull / gen / project-only
+ALL --> EMB_CLI : resolveEmbedderCliFn()\n(once at bulk start)
+ALL --> FREEGEN : runFreeGenProject\n(per-model after test)
 RUNNER --> R5_RUN : R5 first\n(coarse pass)
 RUNNER --> TREE : then tree\n(fine pass, R5-gated)
-RUNNER --> FREEGEN : optional probe\n(slice 7c)
+TREE --> FREEGEN : generateFreeGenText\n(phase 1 only — embed undefined)
 TREE --> STAIR : per branch\n(opened only)
 STAIR --> SCORER_CORE : runCheck(item.check)
 SCORER_CORE --> DET_SCORERS
@@ -37,14 +47,20 @@ SCORER_CORE --> INFO_SCORER
 SCORER_CORE --> PEND_SCORERS
 PEND_SCORERS --> SANDBOX : `runSandbox` seam\n(slice 2d)
 RUNNER --> STORE : finalResult ↩\nsignature
-TREE --> STORE : merge tree fields\n(scores_per_leaf,\nbranch_scores,\npasses_per_leaf,\ntopic_coverage_*)
+TREE --> STORE : merge tree fields\n(scores_per_leaf,\nbranch_scores,\npasses_per_leaf,\nfreegen_text)
+FREEGEN ..> STORE : patch with\ntopic_coverage_*
+
+ALL ..> LOG_STORE : appendErrorLog(file, reason)
+RUNNER ..> LOG_STORE : appendServerLog\n(via launch.ts logChunk hook)
 
 note bottom of RUNNER
   Failure-isolated:
   R5 ✓ even if tree fails;
   tree ✓ even if freegen fails;
   staircase ✓ even if a leaf
-  goes UNMEASURED (D12 prior).
+  goes UNMEASURED (D12 prior);
+  log/error append is best-effort
+  (a disk error never sinks a run).
 end note
 
 note right of STAIR
@@ -52,6 +68,18 @@ note right of STAIR
   leaf_score = (1+passes)/(2+asked)
   3/3 ⇒ 0.80, never 1.0 in Phase A.
   Phase B saturation = deferred.
+end note
+
+note right of ALL
+  Single-pass loop, per model:
+  1. test (llama-server, no embedder)
+  2. if freegen_text present
+     AND skipProjection=false
+     AND embedder available
+     → spawn llama-embedding (CLI),
+       project, exit.
+  3. next model.
+  RAM returns to ~0 between models.
 end note
 
 @enduml

@@ -1,12 +1,20 @@
 @startuml states-embedder-process
 !include ../_includes/style.iuml
 
-title State machine — managed embedder lifecycle (slice 7e)
+title State machine — managed embedder lifecycle (server mode)
 
 ' Reflects the logic of embedderLifecycle.ts:
 '   - in-flight launch promise = concurrency guard
 '   - /v1/models polling = ready check, 60 s budget
 '   - silent fallback on any failure (returns null, never throws)
+'
+' Scope: this is the SERVER mode (resident llama-server --embedding)
+' used by interactive routing queries (routeByVectors).
+' The CLI mode used by bulk characterization (embedderCli.ts) is NOT
+' modelled here as a state machine — every call spawns a fresh
+' llama-embedding.exe that exits at the end of the call, so the only
+' meaningful states are { idle → spawned → exited } per invocation.
+' See components/embedder.puml for the dual-mode component view.
 
 [*] --> Idle
 

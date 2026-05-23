@@ -29,9 +29,28 @@ salt
   {<b>Compétence</b> (Beta-Laplace pass-rate)                  }
   {        radar (R5 — 16 axes)                                 }
   {      ▸ Arbre de compétence (collapsible)                    }
+  {      ▸ Parler libre (freegen_text + projection)             }
   {                                                              }
-  {<i>Suite tree-v0 · caractérisé 2026-05-21 14:32</i>          }
-  {[ ⚗ Re-caractériser ]                                       }
+  {<i>Suite tree-v0 · caractérisé 2026-05-23 19:17</i>          }
+  {[ ⚗ Re-caractériser ] | [ ❓ Questions sources ]            }
+}
+
+== Bulk panel (above the Console, left sidebar) ==
+
+salt
+{
+  {<b>Caractériser tous les modèles</b>                         }
+  --
+  { [ ] Forcer                |                                  }
+  { [✓] Parler libre          | [ ▶ TOUT CARACTÉRISER ]         }
+  { [ ] Sans calcul vectoriel | [ ❓ Questions sources ]        }
+  --
+  {<i>Modèle 12/52 — qwen-coder-32b.gguf</i>                     }
+  { ▇▇▇▇▇▇▇▆▁▁▁▁▁ 60%                                            }
+  --
+  { ( Erreurs (3) | Logs serveur | Interactions ) | [ 📋 Copier ] }
+  {<i>scrollable tab body (max ~220 px, infinite scroll,</i>     }
+  {<i>polling pauses while a text selection is active)</i>      }
 }
 
 note right

@@ -1,42 +1,44 @@
 @startuml embedder-startup
 !include ../_includes/style.iuml
 
-title Embedder — `ensureEmbedderReady()` (slice 7e)
+title Embedder — two routes (2026-05-23 single-pass rewrite)
 
-participant "Caller\n(routeByVectors\nOR characterizeTree)" as CALL
+== Route A — `ensureEmbedderReady()` (server, used by routeByVectors) ==
+
+participant "routeByVectors\n(interactive query)" as ROUTE
 participant "embedderLifecycle" as LC
 participant "in-flight\nlaunch promise" as INFLIGHT
 participant "listRunning()" as LIST
 participant "launchModelByPath" as LAUNCH
-participant "llama-server\n--embedding" as EMB
+participant "llama-server\n--embedding (8081)" as EMB_SRV
 
-CALL -> LC : ensureEmbedderReady(filePath, {model?})
+ROUTE -> LC : ensureEmbedderReady(filePath, {model?})
 
 alt another caller already launching
   LC -> INFLIGHT : await same promise
   INFLIGHT --> LC : result (reused)
-  LC --> CALL : {baseUrl, pid, source:'reused'}
+  LC --> ROUTE : {baseUrl, pid, source:'reused'}
 else first/only caller
   LC -> LIST : look for `launchedBy: 'embedder'`\n+ filePath match + alive
   alt already running
     LIST --> LC : {pid, url}
-    LC --> CALL : {baseUrl: url, source:'reused'}
+    LC --> ROUTE : {baseUrl: url, source:'reused'}
   else needs spawn
     LC -> LC : set INFLIGHT promise
-    LC -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy:'embedder',\n  port: 8081,\n  paramsOverride:{customArgs:'--embedding'}\n})
-    LAUNCH -> EMB : spawn (port 8081)
+    LC -> LAUNCH : launchModelByPath(\n  launchedBy:'embedder',\n  port: 8081,\n  customArgs:'--embedding'\n)
+    LAUNCH -> EMB_SRV : spawn (port 8081)
     LAUNCH --> LC : {pid, url, ok}
     alt launch failed
-      LC --> CALL : null (silent fallback to R5)
+      LC --> ROUTE : null (silent fallback to R5)
     else launched
       loop until /v1/models OK or 60s timeout
-        LC -> EMB : fetch /v1/models (4s budget)
+        LC -> EMB_SRV : fetch /v1/models (4s budget)
         alt response OK
-          EMB --> LC : 200
-          LC --> CALL : {baseUrl, pid, source:'launched'}
+          EMB_SRV --> LC : 200
+          LC --> ROUTE : {baseUrl, pid, source:'launched'}
         else process exited
           LC -> LAUNCH : stopProcess(pid)
-          LC --> CALL : null
+          LC --> ROUTE : null
         else still warming
           LC -> LC : sleep 1s
         end
@@ -47,11 +49,43 @@ else first/only caller
 end
 
 note right of LC
-  Concurrency-safe: parallel callers
-  (routing query + characterizer probe)
-  share ONE launch — never spawn twice.
-  Failure ⇒ null ⇒ caller silently
-  falls back. NEVER throws.
+  Concurrency-safe: parallel queries share
+  ONE launch — never spawn twice.
+  Server stays resident for low-latency queries.
+  Failure ⇒ null ⇒ silent fallback. NEVER throws.
+end note
+
+== Route B — `embedViaLlamaCli()` (one-shot, used by bulk characterizeAll) ==
+
+participant "characterizeAll\n(per-model loop)" as CHAR_ALL
+participant "embedderCli.ts" as EMB_CLI
+participant "tmp file\n(maestria-embed-*.txt)" as TMP
+participant "llama-embedding.exe\n(spawn → exit)" as EMB_CLI_PROC
+
+CHAR_ALL -> EMB_CLI : resolveEmbedderCliFn()\n→ EmbedFn (cached binPath + modelPath)
+note right of EMB_CLI
+  Resolved once at the start of the bulk
+  run: validates the configured GGUF + the
+  llama-embedding binary derived from the
+  llama-server runner. Throws on missing
+  config (caller silently skips projections).
+end note
+
+loop per model with freegen_text to project
+  CHAR_ALL -> EMB_CLI : embed([freegen_text, ...17 anchors])
+  EMB_CLI -> TMP : write texts joined by <#sep#>
+  EMB_CLI -> EMB_CLI_PROC : spawn:\n  -m model.gguf\n  -f tmp.txt\n  --embd-separator <#sep#>\n  --embd-output-format json\n  --embd-normalize 2\n  --log-disable
+  EMB_CLI_PROC --> EMB_CLI : JSON {data:[{embedding}]}\n(process exits, RAM freed)
+  EMB_CLI -> TMP : unlink (best-effort, finally)
+  EMB_CLI --> CHAR_ALL : Float32Array[]\n(sorted by index)
+end
+
+note right of EMB_CLI_PROC
+  Zero resident memory between calls.
+  Cost: ~3 s startup × N models, but the
+  test model never coexists with the
+  embedder in RAM — solves the bulk
+  "VRAM competing" problem.
 end note
 
 @enduml

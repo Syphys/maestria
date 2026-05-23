@@ -51,16 +51,14 @@ partition "Tree pass (R5-gated, Dββ)" {
   endif
 }
 
-partition "Free-gen probe (slice 7c, optional)" {
-  if (Embedder seam present?) then (no)
+partition "Free-gen PHASE 1 — text only (2026-05-22 split)" {
+  if (opts.freegen !== false?) then (no)
     :Skip silently;
   else (yes)
-    if (Try probe) then (succeeds)
-      :runFreeGenProbe(\n  FREEGEN_PROMPT,\n  ~600 words,\n  embedder);
+    if (generateFreeGenText) then (succeeds)
+      :ask.complete(FREEGEN_PROMPT)\n~600-800 words\nNO embedder needed;
       :Strip <think>…</think> (D11);
-      :Embed response;
-      :Project onto 32 anchors;
-      :Merge topic_coverage_per_leaf,\ntopic_coverage_per_branch,\nfreegen_words, freegen_excerpt;
+      :Persist freegen_text + freegen_words;
     else (throws)
       :Log + skip (DCC §5\nisolation: tree kept);
     endif
@@ -68,8 +66,20 @@ partition "Free-gen probe (slice 7c, optional)" {
 }
 
 :state = 'complete';
-:Persist signature;
-:Refresh UI radar (R5 + tree);
+:Persist signature (test pass done);
+:Stop test server\n(release model RAM);
+
+partition "Free-gen PHASE 2 — projection (per model, single-pass)" {
+  if (opts.skipProjection OR\nembedder unreachable?) then (yes)
+    :Defer projection\n(text already saved);
+  else (no)
+    :embedderCli.embedViaLlamaCli\n(spawn llama-embedding.exe,\nbatch text + 17 anchors,\nJSON out, process exits);
+    :projectFreeGenText\n(cosine projection);
+    :Patch signature:\ntopic_coverage_per_leaf,\ntopic_coverage_per_branch;
+  endif
+}
+
+:Refresh UI radar (R5 + tree + projection);
 stop
 
 note right
@@ -78,6 +88,12 @@ note right
   next. The strongest guarantee
   is: a working R5 always lands
   even if tree + freegen die.
+  Free-gen split (2026-05-22) lets
+  phase 1 always run (no embedder
+  dependency); phase 2 can be
+  deferred or done later on stored
+  text without re-launching the
+  test model.
 end note
 
 @enduml

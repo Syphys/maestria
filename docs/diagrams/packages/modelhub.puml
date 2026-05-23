@@ -18,12 +18,14 @@ package "src/main/modelhub" as PKG_MH {
     package "scorers" as PKG_R_SCORERS
     package "sandbox" as PKG_R_SBX
     package "questions" as PKG_R_QUESTIONS {
-      note right : tree-v0.json,\nv1-30.json,\nqcm-v0.json,\nprobe-anchors.json
+      note right : tree-v0.json,\nv1-30.json,\nqcm-v0.json,\nmcq-v1.json,\nembedding-triplets.json,\nprobe-anchors.json\n\nShipped via electron-builder\nextraResources → asar-unpacked\nin packaged builds.
     }
+    component "characterizeAll\n(single-pass bulk,\n2026-05-23)" as M_CH_ALL
     component "characterizeRunner" as M_CH_RUN
     component "characterizeTree" as M_CH_TREE
     component "staircase" as M_STAIR
-    component "freegen" as M_FG
+    component "freegen\n(2-phase split,\n2026-05-22)" as M_FG
+    component "embedderCli\n(2026-05-23)" as M_EMB_CLI
     component "routeDecision\n+ routeByVectors\n+ classifyQuery" as M_ROUTE
     component "embed / embedDetect /\nembedProject" as M_EMBED_CORE
     component "chat\n(ChatClient)" as M_CHAT
@@ -39,7 +41,8 @@ package "src/main/modelhub" as PKG_MH {
   }
 
   package "runners" as PKG_RUNNERS
-  component "embedderLifecycle" as M_EMB_LC
+  component "embedderLifecycle\n(server mode,\nrouting queries)" as M_EMB_LC
+  component "modelLogStore\n(2026-05-23)\n.ts/<file>.log\n.ts/<file>.error" as M_LOG_STORE
   component "routingConfig" as M_RC
   component "launchModel /\nlistModelFiles /\nshardFs" as M_FILES
 }
@@ -54,19 +57,24 @@ package "src/renderer/" as PKG_RND {
 }
 
 ' Wire flow (TS import dependencies, dashed = optional/fail-soft)
+M_CH_ALL --> M_CH_RUN : runCharacterization\nrunFreeGenGenerate\nrunFreeGenProject
+M_CH_ALL --> M_EMB_CLI : resolveEmbedderCliFn\n(per-bulk-run)
+M_CH_ALL ..> M_LOG_STORE : appendErrorLog
 M_CH_RUN --> M_CH_TREE
 M_CH_RUN --> M_RC
-M_CH_RUN --> M_EMB_LC : ensureEmbedderReady
 M_CH_RUN ..> PKG_R_SBX : runSandbox seam
 M_CH_TREE --> M_STAIR
-M_CH_TREE ..> M_FG : when embed seam present
+M_CH_TREE ..> M_FG : generateFreeGenText\n(phase 1, no embedder)
 M_STAIR --> PKG_R_SCORERS
 M_STAIR ..> PKG_R_SBX : runCheck → sandbox
 M_FG --> M_EMBED_CORE
+M_EMB_CLI --> PKG_RUNNERS : derive llama-embedding\nfrom llama-server runner
 M_ROUTE --> M_EMBED_CORE
 M_ROUTE --> M_MEM
 M_ROUTE --> M_COMMON
+M_ROUTE --> M_EMB_LC : ensureEmbedderReady\n(interactive queries)
 M_EMB_LC --> M_FILES : launchModelByPath
+PKG_RUNNERS ..> M_LOG_STORE : appendServerLog\n(logChunk hook in launch.ts)
 M_MCP_REG --> PKG_MCP_TOOLS
 PKG_MCP_TOOLS --> M_ROUTE : models.route
 PKG_MCP_TOOLS --> M_FILES : list / spawn

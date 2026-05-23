@@ -57,4 +57,18 @@ note over CLI, TOOL
   `models.run({path: best.id})`.
 end note
 
+note right of ELC
+  SERVER mode (resident llama-server
+  --embedding) — chosen for INTERACTIVE
+  routing because queries are repeated
+  and low latency matters.
+
+  Bulk characterization uses the CLI
+  path instead (embedderCli.ts → spawn
+  llama-embedding.exe → exit) so the
+  test model never coexists with the
+  embedder in RAM. See sequences/
+  embedder-startup.puml for both routes.
+end note
+
 @enduml
