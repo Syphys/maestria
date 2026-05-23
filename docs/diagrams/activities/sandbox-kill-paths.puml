@@ -67,14 +67,16 @@ label unavailable
 :Leaf left as branch prior\n(D12, lower confidence);
 stop
 
-note right of measured
-  REAL measurement signal —
+floating note left
+  **measured** —
+  REAL measurement signal:
   enters scores_per_leaf via
   Beta-Laplace (passes_per_leaf
   incremented if pass).
 end note
 
-note right of unavailable
+floating note left
+  **unavailable** —
   NOT a measurement —
   passes_per_leaf is NOT
   touched (only real climbs

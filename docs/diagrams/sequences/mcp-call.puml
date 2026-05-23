@@ -45,6 +45,7 @@ MCP -> TOOL : dispatch
 TOOL -> LAUNCH : stopProcess(pid)
 LAUNCH -> CHAT : SIGTERM (then SIGKILL)
 LAUNCH --> TOOL : {stopped:true}
-TOOL --> MCP --> CC
+TOOL --> MCP : ack
+MCP --> CC : {stopped:true}
 
 @enduml

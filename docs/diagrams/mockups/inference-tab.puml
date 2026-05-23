@@ -1,18 +1,16 @@
-@startuml mockup-inference-tab
-!include ../_includes/style.iuml
+' Bonus — Salt UI mockups. Salt is PlantUML's built-in mock-up
+' language. Useful when describing UX flows to contributors without
+' a screenshot in git LFS. Salt needs @startsalt/@endsalt — embedding
+' it inside @startuml + `salt { … }` no longer works as of
+' PlantUML 1.2026.x. Each mockup is a separate top-level block so
+' the renderer emits one image per panel.
 
-' Bonus — Salt UI mockup of the Inférence tab. Salt is PlantUML's
-' built-in mock-up language. Useful when describing UX flows to
-' contributors without a screenshot in git LFS.
-
-title UI mockup — Inférence tab (Salt)
-
-salt
+@startsalt mockup-inference-tab
 {
   {/ Tags | Description | <b>Inférence</b> | Linked }
   {* Model | qwen-coder-32b.gguf [Q4_K_M] | 18 GB | ctx 32768 }
   --
-  {[ ▶ Run ▼ ] | Runner: llama.cpp (ik_llama)         | ⚙ Configure }
+  {[ ▶ Run ▼ ] | Runner: llama.cpp (ik_llama) | ⚙ Configure }
   --
   {+ <b>Run parameters</b>           |        |       }
   {     Parameter | Estimated | Used       }
@@ -34,10 +32,9 @@ salt
   {<i>Suite tree-v0 · caractérisé 2026-05-23 19:17</i>          }
   {[ ⚗ Re-caractériser ] | [ ❓ Questions sources ]            }
 }
+@endsalt
 
-== Bulk panel (above the Console, left sidebar) ==
-
-salt
+@startsalt mockup-bulk-panel
 {
   {<b>Caractériser tous les modèles</b>                         }
   --
@@ -49,15 +46,7 @@ salt
   { ▇▇▇▇▇▇▇▆▁▁▁▁▁ 60%                                            }
   --
   { ( Erreurs (3) | Logs serveur | Interactions ) | [ 📋 Copier ] }
-  {<i>scrollable tab body (max ~220 px, infinite scroll,</i>     }
-  {<i>polling pauses while a text selection is active)</i>      }
+  {<i>scrollable tab body, infinite scroll,</i>                   }
+  {<i>polling pauses while a text selection is active</i>        }
 }
-
-note right
-  Salt is intentionally rough — it
-  conveys layout / hierarchy, not
-  pixel-perfect rendering. For a
-  real screenshot, run the app.
-end note
-
-@enduml
+@endsalt

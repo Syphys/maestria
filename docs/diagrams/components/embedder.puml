@@ -27,16 +27,15 @@ LLAMA_EMBED --> EMBED_LC : /v1/models OK\n(ready probe, 60s timeout)
 EMBED_LC --> EMBED_CLIENT : baseUrl
 EMBED_CLIENT --> LLAMA_EMBED : POST /v1/embeddings
 
+component "llama-embedding.exe\n(one-shot CLI)" as LLAMA_EMBED_CLI
 EMBED_CLI ..> LLAMA_EMBED_CLI : spawn one-shot per call
-note as N_CLI_PROC
-  llama-embedding.exe
-  (sibling of llama-server in the
-  same llama.cpp build folder).
+
+note right of LLAMA_EMBED_CLI
+  Sibling of llama-server in the
+  same llama.cpp build folder.
   Spawned per call, prints JSON
   on stdout, exits.
 end note
-N_CLI_PROC .. LLAMA_EMBED_CLI
-component "llama-embedding.exe\n(one-shot CLI)" as LLAMA_EMBED_CLI
 
 note bottom of EMBED_LC
   SERVER mode (interactive routing):

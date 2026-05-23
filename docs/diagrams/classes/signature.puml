@@ -13,11 +13,11 @@ title BehavioralSignature — shape on disk (`.ts/<file>.json`)
 
 ' Persistence side — kept inline because it's diagram-specific (a
 ' different composer might show signatureStore behaviour without the
-' on-disk database).
-package "src/main/modelhub/routing/" <<Folder>> {
-  component "signatureStore.ts\nloadSignature() / writeSignature()" as STORE
-}
-database ".ts/<modelfile>.json\n(per-model sidecar)" as DISK
+' on-disk database). `component` declarations would clash with the
+' class-diagram mode the routing-types include puts us in, so we
+' use the class shape here too (visually identical, parser-stable).
+class "signatureStore.ts\nloadSignature() / writeSignature()" as STORE
+class ".ts/<modelfile>.json\n(per-model sidecar)" as DISK <<file>>
 
 Signature *-- StructuralSignature
 Signature *-- BehavioralSignature

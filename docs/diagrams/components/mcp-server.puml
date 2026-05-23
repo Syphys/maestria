@@ -22,6 +22,7 @@ package "src/main/modelhub/mcp/" as MCP_PKG {
 component "launch.ts\n(runner registry)" as LAUNCH
 component "routeDecision.ts\n+ routeByVectors.ts" as ROUTE_CORE
 component "shardFs.ts\n(canonical paths)" as SHARDFS
+component "Settings, AI, MCP" as UI_SETTINGS_R
 
 MCP_CLIENT --> SERVER : GET /sse\nPOST /messages
 SERVER --> REG : dispatch tool call
@@ -42,7 +43,6 @@ T_HW ..> "Hardware\nprofiler" : detect
 
 UI_SETTINGS_R --> USE_MCP : toggle / token / copy
 USE_MCP --> SERVER : start / stop / regenerate
-component "Settings ▸ AI ▸ MCP" as UI_SETTINGS_R
 
 note bottom of REG
   Source of truth.

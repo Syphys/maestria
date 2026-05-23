@@ -24,5 +24,8 @@ package "src/main/modelhub/routing/sandbox/windows.ts" <<Frame>> as PKG_SBX_WIN 
 
   ' Runtime artefact (PowerShell script), not a class — listed here
   ' so the file-level map is complete next to the WindowsSandbox box.
-  component "win-job.ps1\n(Add-Type P/Invoke launcher)" as PS1
+  ' `class` shape used (not `component`) because the file is loaded
+  ' inside a class-diagram context (PlantUML 1.2026.x rejects mixed
+  ' shapes within a class-mode package).
+  class "win-job.ps1\n(Add-Type P/Invoke launcher)" as PS1 <<artefact>>
 }

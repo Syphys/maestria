@@ -51,9 +51,7 @@ state "Stopping" as Stopping {
 Stopping --> Exited
 
 state "Exited" as Exited {
-  description : Process gone. Ring buffer\nstill viewable for debug.
-  Removable from RunningModelsPanel
-  via "Clear exited" action.
+  description : Process gone. Ring buffer\nstill viewable for debug.\nRemovable from RunningModelsPanel\nvia "Clear exited" action.
 }
 
 Exited --> [*] : cleared

@@ -141,3 +141,9 @@ third-party
 
 # Models Hub planning docs — kept local, never committed
 MODELS_HUB*.md
+
+# Rendered PlantUML diagrams — generated from docs/diagrams/**/*.puml
+# (see docs/diagrams/README.md for the render command). Source is the
+# truth; SVGs are derived and would just create merge noise.
+docs/svg/
+plantuml.jar

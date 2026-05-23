@@ -8,18 +8,25 @@ title Package diagram — AI subsystem source layout
 
 package "src/shared" {
   package "RoutingTypes" as PKG_SHARED {
-    note right : Frozen contracts:\nSignature, BehavioralSignature,\nCompetenceBranch, COMPETENCE_TREE,\nDiagnosticAxis, RoutingConfig
+    [Signature]
+    [BehavioralSignature]
+    [CompetenceBranch]
+    [RoutingConfig]
+    [DiagnosticAxis]
+    [COMPETENCE_TREE]
   }
 }
+note right of PKG_SHARED
+  Frozen contracts — every routing /
+  characterization type lives here.
+end note
 
 package "src/main/modelhub" as PKG_MH {
 
   package "routing" as PKG_R {
-    package "scorers" as PKG_R_SCORERS
-    package "sandbox" as PKG_R_SBX
-    package "questions" as PKG_R_QUESTIONS {
-      note right : tree-v0.json,\nv1-30.json,\nqcm-v0.json,\nmcq-v1.json,\nembedding-triplets.json,\nprobe-anchors.json\n\nShipped via electron-builder\nextraResources → asar-unpacked\nin packaged builds.
-    }
+    [scorers] as PKG_R_SCORERS
+    [sandbox] as PKG_R_SBX
+    [questions] as PKG_R_QUESTIONS
     component "characterizeAll\n(single-pass bulk,\n2026-05-23)" as M_CH_ALL
     component "characterizeRunner" as M_CH_RUN
     component "characterizeTree" as M_CH_TREE
@@ -35,12 +42,12 @@ package "src/main/modelhub" as PKG_MH {
   }
 
   package "mcp" as PKG_MCP {
-    package "tools" as PKG_MCP_TOOLS
+    component "tools/" as PKG_MCP_TOOLS
     component "server" as M_MCP_SRV
     component "registry" as M_MCP_REG
   }
 
-  package "runners" as PKG_RUNNERS
+  component "runners/" as PKG_RUNNERS
   component "embedderLifecycle\n(server mode,\nrouting queries)" as M_EMB_LC
   component "modelLogStore\n(2026-05-23)\n.ts/<file>.log\n.ts/<file>.error" as M_LOG_STORE
   component "routingConfig" as M_RC
@@ -49,7 +56,7 @@ package "src/main/modelhub" as PKG_MH {
 
 package "src/renderer/" as PKG_RND {
   package "modelhub" as PKG_RND_MH {
-    package "radar" as PKG_RND_RADAR
+    component "radar/" as PKG_RND_RADAR
   }
   package "components/dialogs/components" as PKG_RND_SET {
     component "SettingsAI" as M_UI_SET
@@ -84,6 +91,14 @@ PKG_RND_MH ..> PKG_SHARED : type-only
 M_UI_SET ..> M_RC : (renderer-side type)
 PKG_R ..> PKG_SHARED
 PKG_MCP ..> PKG_SHARED
+
+note right of PKG_R_QUESTIONS
+  Shipped via electron-builder
+  extraResources, asar-unpacked
+  in packaged builds (so the
+  Tests Maestria location can
+  open them on disk).
+end note
 
 note bottom of PKG_SHARED
   Renderer-only AND main-process import this
