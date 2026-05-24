@@ -330,6 +330,17 @@ sur tous les OS dans ce mode pour que l'app ne quitte pas quand la
 fenêtre à la demande est fermée — le tray est la surface persistante,
 « Quitter » y vit.
 
+**Minimise-to-tray (mode fenêtré)** — quand l'app tourne avec la GUI,
+cliquer sur le bouton minimiser de l'OS cache complètement la fenêtre
+(elle disparaît de la barre des tâches) et ne laisse que l'icône tray.
+Cliquer sur l'entrée tray restaure la fenêtre instantanément. Le
+process renderer reste en RAM (le working-set trimmer de Windows
+pagine une partie sous pression idle) parce que détruire la fenêtre
+avec `destroy()` déclenche un crash natif d'Electron (0xC0000005 —
+le cœur chromium ne tolère pas zéro `BrowserWindow`) ; `hide()` est
+le chemin crash-safe. Distinct du mode headless : headless boote sans
+jamais créer de fenêtre, minimise-to-tray dégrade une existante.
+
 ### 9. Surfaces UI — maquettes Salt
 
 Quand la prose ne porte pas le layout, le dossier `mockups/` utilise

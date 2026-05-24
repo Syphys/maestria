@@ -308,6 +308,17 @@ auto-starts unconditionally in headless mode (the persisted
 app does not quit when the on-demand window is dismissed — the tray
 is the persistent surface, "Quit" lives there.
 
+**Minimise-to-tray (windowed mode)** — when the app is running with
+the GUI, clicking the OS minimise button hides the window entirely
+(disappears from the taskbar) and leaves only the tray icon. Clicking
+the tray entry restores the window instantly. The renderer process
+itself stays in RAM (Windows working-set trimmer pages parts of it
+out under idle pressure) because tearing the window down with
+`destroy()` triggers a native Electron crash (0xC0000005 — chromium
+core cannot run with zero `BrowserWindow`s); `hide()` is the
+crash-safe path. Distinct from headless mode: headless boots without
+ever creating a window; minimise-to-tray demotes an existing one.
+
 ### 9. UI surfaces — Salt mockups
 
 When prose doesn't carry the layout, the `mockups/` folder uses
