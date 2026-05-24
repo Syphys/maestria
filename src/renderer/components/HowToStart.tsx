@@ -193,33 +193,26 @@ function HowToStart() {
       },
     },
     {
-      label: t('htsCreatingFilesTitle'),
+      // Maestria-specific replacement for the generic "create new file"
+      // step — irrelevant when the app's purpose is browsing/launching
+      // pre-existing AI model files. Points at llama.cpp runner setup
+      // (the binary Maestria spawns to actually serve a model).
+      label: t('htsRunnerSetupTitle'),
       description: (
         <>
-          {t('htsCreatingFiles')}
+          {t('htsRunnerSetup')}
           <ul>
-            <li>{t('htsCreatingFilesMD')}</li>
-            <li>{t('htsCreatingFilesHTML')}</li>
-            <li>{t('htsCreatingFilesText')}</li>
-            <li>
-              {t('htsCreatingFilesAudio')}&nbsp;
-              <ProSign />
-            </li>
-            <li>
-              {t('htsCreatingFilesTemplates')}&nbsp;
-              <ProSign />
-            </li>
+            <li>{t('htsRunnerSetupAuto')}</li>
+            <li>{t('htsRunnerSetupManual')}</li>
+            <li>{t('htsRunnerSetupReleases')}</li>
           </ul>
-          <SlideButton
-            title={t('htsFindOutMore')}
-            link={Links.documentationLinks.creatingFiles}
-          />
         </>
       ),
       action: () => {
-        selectByTID('createNewDropdownButtonTID')?.classList.add(
-          'highlighterOn',
-        );
+        // Highlight Settings — llama.cpp runners are reachable from
+        // Settings → AI, and also from each model's Inférence tab via
+        // the "Configure" button next to the Run dropdown.
+        selectByTID('settings')?.classList.add('highlighterOn');
       },
     },
     {
