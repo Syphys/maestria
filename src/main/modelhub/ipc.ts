@@ -67,6 +67,7 @@ import {
   launchProcess,
   listRunning,
   pickFreePort,
+  startElevatedExitPoller,
   stopProcess,
   type ExitEvent,
   type LogChunkEvent,
@@ -75,12 +76,16 @@ import { openChatFor } from './runners/openChat';
 import { resolveCanonicalShardPath, sumShardBytes } from './shardFs';
 import { listModelHostingFolders } from './listModelHostingFolders';
 import {
+  getAdminToken as mcpGetAdminToken,
   getAutoStart as mcpGetAutoStart,
+  getOrCreateAdminToken as mcpGetOrCreateAdminToken,
   getOrCreateToken as mcpGetOrCreateToken,
   getStatus as mcpGetStatus,
   isRunning as mcpIsRunning,
   listTools as mcpListTools,
+  regenerateAdminToken as mcpRegenerateAdminToken,
   regenerateToken as mcpRegenerateToken,
+  revokeAdminToken as mcpRevokeAdminToken,
   setAutoStart as mcpSetAutoStart,
   start as mcpStart,
   stop as mcpStop,
@@ -125,6 +130,10 @@ export default function registerModelhubEvents(): void {
   launchEvents.on('exit', (e: ExitEvent) => {
     broadcastToAllWindows(MODELHUB_IPC.runnersExit, e);
   });
+  // Elevated processes don't fire `child.on('exit')` because we never
+  // got a handle. The poller checks each elevated pid every 10 s and
+  // emits a synthetic `exit` event so the UI converges. Idempotent.
+  startElevatedExitPoller();
 
   ipcMain.handle(MODELHUB_IPC.parseHeader, async (_event, filePath: string) => {
     return readModelHeader(filePath);
@@ -761,6 +770,45 @@ export default function registerModelhubEvents(): void {
       }
     },
   );
+
+  // ---- Admin token (separate Bearer for requiresAdmin tools) ----------
+  ipcMain.handle(MODELHUB_IPC.mcpGetAdminToken, async () => {
+    try {
+      const token = await mcpGetAdminToken();
+      // Surface null (not undefined) so the renderer can distinguish
+      // "no admin token has been generated" from "the call failed".
+      return { ok: true, token: token ?? null };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpCreateAdminToken, async () => {
+    try {
+      const token = await mcpGetOrCreateAdminToken();
+      return { ok: true, token };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpRegenerateAdminToken, async () => {
+    try {
+      const token = await mcpRegenerateAdminToken();
+      return { ok: true, token };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(MODELHUB_IPC.mcpRevokeAdminToken, async () => {
+    try {
+      await mcpRevokeAdminToken();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  });
 
   // Slice 9 — search-integrated competence routing. Same pipeline as the
   // `models.route` MCP tool, but invoked from the renderer's search bar

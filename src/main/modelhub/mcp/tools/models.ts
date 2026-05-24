@@ -171,9 +171,13 @@ register({
     'Each entry includes pid, OpenAI-compatible URL, runner label, ' +
     'model filename, startedAt, `launchedBy` (undefined for ' +
     'user-initiated launches, "via MCP — <client>" otherwise — useful ' +
-    'for an MCP caller to filter to its own children), and `params` ' +
+    'for an MCP caller to filter to its own children), `params` ' +
     '(the effective launch parameters: ngl/ctx/threads/batchSize/' +
-    'mlock/flashAttn/port/fit/customArgs).',
+    'mlock/flashAttn/port/fit/customArgs), `elevated` (true when the ' +
+    'entry was spawned with OS-level privilege elevation — stdio ' +
+    'capture is disabled for those), and `exited` (set when the ' +
+    'process has terminated; the entry sticks around until ' +
+    '`runners.dismiss` removes it).',
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   handler: async () => {
     const running = listRunning();
@@ -186,6 +190,7 @@ register({
       launchedBy: r.launchedBy,
       params: r.params,
       startedAt: r.startedAt,
+      exited: r.exited,
     }));
   },
 });
@@ -344,7 +349,12 @@ register({
     '`launchedBy = <caller>` so the in-app `RunningModelsPanel` ' +
     "groups it under the caller's session. Idempotency is not " +
     'enforced — calling twice on the same file launches two servers ' +
-    'on different ports.',
+    'on different ports. Pass `admin: true` to request OS-level ' +
+    'privilege elevation (UAC prompt on Windows, polkit on POSIX). ' +
+    'That branch requires the caller to be authenticated with the ' +
+    'admin Bearer token and loses live stdio capture (the ring buffer ' +
+    'stays empty; use llama-server --log-file via customArgs to ' +
+    'capture output in elevated mode).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -364,21 +374,53 @@ register({
           'returned in the response.',
       },
       params: RUN_PARAMS_SCHEMA,
+      admin: {
+        type: 'boolean',
+        description:
+          'Spawn the runner with OS-level privilege elevation. ' +
+          'Triggers a UAC prompt (Windows) or polkit dialog (POSIX) ' +
+          "on the user's desktop. REQUIRES the admin Bearer token — " +
+          'calls with the default user token are rejected with a ' +
+          '"forbidden" error. Default false. Useful for: pinning ' +
+          'large weights with `mlock` beyond user RLIMIT_MEMLOCK, ' +
+          'binding privileged ports, or accessing GPU queries that ' +
+          'need admin. Trade-off: stdio capture is disabled — the ' +
+          'runner.get_log tool returns nothing, and `runners.dismiss` ' +
+          'becomes the only way to remove a finished elevated entry ' +
+          'because the exit detector polls only every ~10 s.',
+      },
     },
     required: ['path'],
     additionalProperties: false,
   },
   handler: async (args: unknown, ctx) => {
-    const a = args as { path?: unknown; port?: unknown; params?: unknown };
+    const a = args as {
+      path?: unknown;
+      port?: unknown;
+      params?: unknown;
+      admin?: unknown;
+    };
     if (typeof a.path !== 'string' || !a.path) {
       throw new Error('path is required and must be a string');
     }
     const port = typeof a.port === 'number' ? a.port : undefined;
     const paramsOverride = coerceRunParamsArg(a.params);
+    const elevated = a.admin === true;
+    // Per-arg admin gate. The tool itself is NOT marked
+    // `requiresAdmin: true` (the read-only and non-elevated launch
+    // paths are safe to expose to the default token); we only gate
+    // the elevated branch.
+    if (elevated && !ctx.isAdmin) {
+      throw new Error(
+        'admin: true requires the admin Bearer token (generate one in ' +
+          'Settings ▸ AI ▸ MCP Server)',
+      );
+    }
     const result = await launchModelByPath(a.path, {
       launchedBy: ctx.callerLabel,
       port,
       paramsOverride,
+      elevated,
     });
     if (!result.ok) {
       throw new Error(result.error ?? 'launch failed');
@@ -389,6 +431,7 @@ register({
       runnerLabel: result.runner?.label,
       params: result.params,
       warnings: result.warnings,
+      elevated,
     };
   },
 });

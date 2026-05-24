@@ -6,16 +6,26 @@
  *   - GET  /sse          opens the event stream (caller → us)
  *   - POST /messages     JSON-RPC messages with `?sessionId=...`
  *
- * All requests require `Authorization: Bearer <token>` — 401 otherwise.
+ * All requests require `Authorization: Bearer <token>`. The server
+ * accepts TWO distinct tokens:
+ *
+ *  - the default ("user") token (always present, lazy created)
+ *  - the admin token (present only if the user opted in by generating
+ *    one from Settings)
+ *
+ * Both authenticate equally for non-privileged tools; the admin token
+ * additionally unlocks tools marked `requiresAdmin: true` (destructive
+ * or configuration-changing). When neither matches, the request is
+ * rejected with HTTP 401. When the user token matches but the called
+ * tool requires admin, the tool dispatcher returns an `isError: true`
+ * MCP response with a short explanation (NOT HTTP 401 — the connection
+ * itself is valid, only the specific tool is forbidden).
+ *
  * Bind address is hard-pinned to loopback; we never serve `0.0.0.0`.
  *
- * The MCP `Server` instance is wired to our Tools Registry: `tools/list`
- * iterates registry, `tools/call` dispatches by name with the caller
- * context (carrying `callerLabel` for `launchedBy` annotation).
- *
- * Lifecycle: `start()` is idempotent; calling it twice on the same port
- * is a no-op. `stop()` closes the HTTP listener and tears down active
- * SSE sessions.
+ * Lifecycle: `start()` is idempotent; calling it twice on the same
+ * port is a no-op. `stop()` closes the HTTP listener and tears down
+ * active SSE sessions.
  */
 
 import express, { Request, Response, NextFunction } from 'express';
@@ -28,7 +38,7 @@ import {
 import type { Server as HttpServer } from 'http';
 import { appendCallLog } from './logger';
 import { getTool, listTools, type McpCallContext } from './registry';
-import { getOrCreateToken } from './token';
+import { getAdminToken, getOrCreateToken } from './token';
 
 const DEFAULT_PORT = 41541;
 const HOST = '127.0.0.1';
@@ -77,7 +87,9 @@ function buildMcpServer(): McpServer {
     return {
       tools: listTools().map((t) => ({
         name: t.name,
-        description: t.description,
+        description: t.requiresAdmin
+          ? `[admin] ${t.description}`
+          : t.description,
         inputSchema: t.inputSchema,
       })),
     };
@@ -85,9 +97,8 @@ function buildMcpServer(): McpServer {
 
   // Caller context for handlers — see `register` for the contract. We
   // build it per-request inside the Express handler below (it has
-  // access to req/sessionId) and stash it on the McpServer via a
-  // request-scoped variable; the call handler reads it back.
-  // Simpler: capture via closure in the dispatcher.
+  // access to req/sessionId) and stash it on the transport; the call
+  // handler reads it back via the `extra._ctx` shim.
 
   srv.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const name = req.params.name;
@@ -102,7 +113,26 @@ function buildMcpServer(): McpServer {
     // the v1 surface (sync-ish JSON-returning handlers) we don't pipe it.
     const ctx: McpCallContext = (extra as any)?._ctx ?? {
       callerLabel: 'via MCP',
+      isAdmin: false,
     };
+    // Admin-gate enforcement. We surface as a tool-level error (not
+    // HTTP 401) so the caller's session stays alive — only the
+    // privileged call is rejected.
+    if (tool.requiresAdmin && !ctx.isAdmin) {
+      const err = `forbidden: tool "${name}" requires the admin Bearer token`;
+      void appendCallLog({
+        caller: ctx.callerLabel,
+        tool: name,
+        args: req.params.arguments ?? {},
+        durationMs: 0,
+        ok: false,
+        error: err,
+      });
+      return {
+        isError: true,
+        content: [{ type: 'text', text: err }],
+      };
+    }
     const args = req.params.arguments ?? {};
     const startedAt = Date.now();
     try {
@@ -144,7 +174,7 @@ export async function start(): Promise<{ url: string; token: string }> {
   }
 
   const port = getPort();
-  const token = await getOrCreateToken();
+  const userToken = await getOrCreateToken();
   const sessions = new Map<string, SSEServerTransport>();
 
   const app = express();
@@ -152,20 +182,39 @@ export async function start(): Promise<{ url: string; token: string }> {
 
   // Auth middleware — runs before any handler. SSE clients send the
   // Authorization header on the GET /sse upgrade; POST /messages
-  // requires it too.
-  app.use((req: Request, res: Response, next: NextFunction) => {
+  // requires it too. The admin token is read on EVERY request (not
+  // cached) so revoking it from Settings takes effect immediately
+  // without a server restart.
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
     const header = req.headers.authorization ?? '';
-    const expected = `Bearer ${token}`;
-    if (header !== expected) {
+    const match = /^Bearer (.+)$/.exec(header);
+    if (!match) {
       res.status(401).json({ error: 'unauthorized' });
       return;
     }
-    next();
+    const provided = match[1];
+    const adminToken = await getAdminToken();
+    if (provided === userToken) {
+      (req as any)._isAdmin = false;
+      next();
+      return;
+    }
+    if (adminToken && provided === adminToken) {
+      (req as any)._isAdmin = true;
+      next();
+      return;
+    }
+    res.status(401).json({ error: 'unauthorized' });
   });
 
   app.get('/sse', async (req: Request, res: Response) => {
     // SSEServerTransport opens the response stream + tracks the session.
     const transport = new SSEServerTransport('/messages', res);
+    // Remember which tier this session authenticated as. Subsequent
+    // POSTs validate the Bearer again (so revocation works) — this
+    // field just lets us default the ctx.isAdmin when /messages is
+    // dispatched before its own middleware finishes (race-free).
+    (transport as any)._defaultIsAdmin = (req as any)._isAdmin === true;
     sessions.set(transport.sessionId, transport);
     res.on('close', () => {
       sessions.delete(transport.sessionId);
@@ -187,9 +236,13 @@ export async function start(): Promise<{ url: string; token: string }> {
     }
     // Attach the caller context for this request so the CallTool handler
     // can pick it up. The SDK doesn't surface request metadata to
-    // handlers directly, so we monkey-patch onto the transport.
+    // handlers directly, so we stash on the transport.
+    const isAdmin =
+      (req as any)._isAdmin === true ||
+      (transport as any)._defaultIsAdmin === true;
     const ctx: McpCallContext = {
       callerLabel: callerLabelFor(req, sessionId),
+      isAdmin,
     };
     (transport as any)._ctx = ctx;
     await transport.handlePostMessage(req, res, req.body);
@@ -199,9 +252,9 @@ export async function start(): Promise<{ url: string; token: string }> {
     const http = app.listen(port, HOST, () => {
       state = { http, port, sessions };
       console.log(
-        `[modelhub-mcp] listening on http://${HOST}:${port}/sse (Bearer auth)`,
+        `[modelhub-mcp] listening on http://${HOST}:${port}/sse (Bearer auth, two-tier)`,
       );
-      resolve({ url: `http://${HOST}:${port}/sse`, token });
+      resolve({ url: `http://${HOST}:${port}/sse`, token: userToken });
     });
     http.on('error', (e) => {
       reject(e);

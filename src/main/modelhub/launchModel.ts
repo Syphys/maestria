@@ -21,7 +21,11 @@ import { detectHardwareProfile } from './hardware';
 import { readModelHeader } from './parseHeader';
 import { autotune } from './runners/autotune';
 import { buildCommand } from './runners/command';
-import { launchProcess, pickFreePort } from './runners/launch';
+import {
+  launchProcess,
+  launchProcessElevated,
+  pickFreePort,
+} from './runners/launch';
 import { listRunners } from './runners/registry';
 import { loadModelMeta } from './sidecar';
 import { resolveCanonicalShardPath } from './shardFs';
@@ -51,6 +55,15 @@ export interface LaunchModelOptions {
    * advanced flags (incl. disabling `--fit`, custom `customArgs`, etc.).
    */
   paramsOverride?: Partial<RunParams>;
+  /**
+   * When true, spawn the runner with OS-level privilege elevation
+   * (Windows `Start-Process -Verb RunAs` → UAC prompt; POSIX `pkexec`
+   * → polkit prompt). Loses live stdio capture — the ring buffer
+   * remains empty for these entries. Gated by the admin Bearer token
+   * upstream in the MCP `models.run` tool handler; nothing in this
+   * function checks privilege.
+   */
+  elevated?: boolean;
 }
 
 export interface LaunchModelResult extends LaunchResult {
@@ -116,14 +129,20 @@ export async function launchModelByPath(
   }
 
   const built = buildCommand(runner, canonical, params);
-  const result = launchProcess(built.command, {
+  const launchOpts = {
     url: built.url,
     runnerLabel: runner.label,
     modelName: fileBasename,
     filePath: canonical,
     launchedBy: options.launchedBy,
     params,
-  });
+  };
+  const result = options.elevated
+    ? launchProcessElevated(built.command, {
+        ...launchOpts,
+        elevated: true,
+      })
+    : launchProcess(built.command, launchOpts);
 
   return {
     ...result,

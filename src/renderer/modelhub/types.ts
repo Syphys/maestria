@@ -514,6 +514,26 @@ export const MODELHUB_IPC = {
   /** Persists the flag; if turning on while server is idle, starts it. */
   mcpSetAutoStart: 'modelhub:mcpSetAutoStart',
   /**
+   * Returns the persisted admin Bearer token, or `null` if none has
+   * been generated. Does NOT create one — admin access is strictly
+   * opt-in, the user has to click "Generate" in Settings.
+   */
+  mcpGetAdminToken: 'modelhub:mcpGetAdminToken',
+  /**
+   * Lazy-create or read the admin Bearer token. After this, MCP
+   * callers presenting it unlock every tool marked `requiresAdmin:
+   * true` (destructive sidecar / config mutators + `models.run`'s
+   * `admin: true` elevation branch).
+   */
+  mcpCreateAdminToken: 'modelhub:mcpCreateAdminToken',
+  /** Generates a fresh admin token, invalidating the previous one. */
+  mcpRegenerateAdminToken: 'modelhub:mcpRegenerateAdminToken',
+  /**
+   * Drops the admin token entirely. After this, every `requiresAdmin`
+   * tool returns "forbidden" until the user explicitly regenerates one.
+   */
+  mcpRevokeAdminToken: 'modelhub:mcpRevokeAdminToken',
+  /**
    * Reads the model's behavioral `signature` block from the sidecar
    * (resolves the canonical shard internally — same convention as
    * loadModelMeta). Read-only; returns `undefined` when not characterized

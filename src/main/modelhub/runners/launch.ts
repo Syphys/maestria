@@ -10,7 +10,7 @@
  * last few lines without unbounded memory growth on long-running servers.
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, spawnSync } from 'child_process';
 import { EventEmitter } from 'events';
 import { LaunchResult, RunParams } from '../../../renderer/modelhub/types';
 import { appendServerLog } from '../modelLogStore';
@@ -94,13 +94,26 @@ export interface ActiveEntry {
   startedAt: string;
   log: string[];
   /**
+   * True when the process was spawned with OS-level privilege
+   * elevation (Windows `Start-Process -Verb RunAs`, POSIX `pkexec`).
+   * The child handle is unavailable in that mode (the elevation
+   * shim returns only the pid), so stdio capture is disabled and
+   * `stopProcess` falls back to OS-level kill (`taskkill /F /PID`
+   * on Windows, `kill <pid>` on POSIX).
+   */
+  elevated?: boolean;
+  /**
    * Undefined while the process is alive; populated when the child
    * emits `exit`. We deliberately keep the entry around with this
    * field set instead of deleting it, so the user can still see why
    * a crashed runner died (log buffer + exit code) via the UI.
    */
   exited?: ExitInfo;
-  /** Cleared when the process exits — keeps the `entry.exited` shape clean. */
+  /**
+   * Cleared when the process exits — keeps the `entry.exited` shape
+   * clean. Always undefined for elevated launches (we don't get a
+   * `ChildProcess` handle back from the elevation shim).
+   */
   child?: ChildProcess;
 }
 
@@ -144,6 +157,8 @@ export interface LaunchOptions {
   launchedBy?: string;
   /** Effective launch params — stored on the entry for introspection. */
   params?: RunParams;
+  /** Marks the entry as launched with elevation. See ActiveEntry.elevated. */
+  elevated?: boolean;
 }
 
 /**
@@ -266,6 +281,185 @@ export function launchProcess(
   }
 }
 
+/**
+ * Spawn a child with OS-level privilege elevation. Used by the
+ * `models.run` MCP tool when `admin: true` is requested (caller must
+ * also hold the admin Bearer token; the gating happens in the tool
+ * handler, not here).
+ *
+ * Trade-offs vs `launchProcess`:
+ *  - We do NOT get a `ChildProcess` handle back — only the pid. The
+ *    elevated process runs under a separate UAC context (Windows) /
+ *    polkit session (POSIX), so stdio is not piped to us. The ring
+ *    buffer stays empty, `runners.get_log` returns nothing. The user
+ *    can still tail `.ts/<base>.log` if llama-server is launched with
+ *    `--log-file`.
+ *  - We can't detect exit via `child.on('exit')`. The entry stays
+ *    `running` until `stopProcess` is called or `pollElevatedExits`
+ *    discovers the pid is gone (best-effort, every 10 s — see below).
+ *  - Cancellation (UAC denied, polkit prompt cancelled) returns an
+ *    `ok: false` LaunchResult with the OS reason.
+ *
+ * Platform support:
+ *  - Windows: `powershell -NoProfile -Command Start-Process -Verb
+ *    RunAs -PassThru -FilePath <bin> -ArgumentList <args>` — UAC
+ *    prompt appears. The PowerShell call returns the elevated
+ *    `Process.Id`, which we parse out of stdout.
+ *  - POSIX: requires `pkexec` on PATH. We don't fall back to `sudo`
+ *    because sudo prompts in the terminal, which Electron's main
+ *    process has none of.
+ */
+export function launchProcessElevated(
+  command: string[],
+  options: LaunchOptions = {},
+): LaunchResult {
+  if (command.length < 1) {
+    const { id } = recordSpawnFailure(command, options, 'empty command');
+    return { ok: false, error: 'empty command', pid: id };
+  }
+  const [bin, ...args] = command;
+
+  let pid: number | undefined;
+  let elevationError: string | undefined;
+
+  if (process.platform === 'win32') {
+    // PowerShell sends '"' through argument quoting; we encode each
+    // arg as a single-quoted PS string and escape inner single quotes
+    // by doubling them.
+    const psQuote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+    const argList =
+      args.length > 0 ? ` -ArgumentList ${args.map(psQuote).join(',')}` : '';
+    const psScript =
+      `$ErrorActionPreference='Stop';` +
+      `$p = Start-Process -FilePath ${psQuote(bin)}` +
+      argList +
+      ` -Verb RunAs -PassThru -WindowStyle Hidden;` +
+      `Write-Output $p.Id`;
+    const r = spawnSync(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-Command', psScript],
+      { encoding: 'utf8', windowsHide: true },
+    );
+    if (r.status !== 0) {
+      elevationError =
+        (r.stderr || r.stdout || '').trim() ||
+        `powershell exited with code ${r.status ?? 'unknown'}`;
+    } else {
+      const match = /^\s*(\d+)\s*$/m.exec(r.stdout);
+      if (match) pid = parseInt(match[1], 10);
+      else elevationError = `could not parse pid from: ${r.stdout.trim()}`;
+    }
+  } else {
+    // POSIX path — pkexec only. `sudo` is ruled out because it needs
+    // a TTY for the password prompt.
+    const pkexecCheck = spawnSync('which', ['pkexec'], { encoding: 'utf8' });
+    if (pkexecCheck.status !== 0) {
+      elevationError =
+        'admin elevation requires pkexec on POSIX (sudo is not supported — no TTY)';
+    } else {
+      try {
+        const child = spawn('pkexec', [bin, ...args], {
+          stdio: ['ignore', 'ignore', 'ignore'],
+          detached: true,
+        });
+        if (child.pid) {
+          pid = child.pid;
+          child.unref();
+        } else {
+          elevationError = 'pkexec returned no pid';
+        }
+      } catch (e) {
+        elevationError = (e as Error).message;
+      }
+    }
+  }
+
+  if (!pid) {
+    const { id } = recordSpawnFailure(
+      command,
+      { ...options, elevated: true },
+      elevationError ?? 'elevation failed',
+    );
+    return {
+      ok: false,
+      error: elevationError ?? 'elevation failed',
+      pid: id,
+      command,
+    };
+  }
+
+  const entry: ActiveEntry = {
+    pid,
+    command,
+    url: options.url,
+    runnerLabel: options.runnerLabel,
+    modelName: options.modelName,
+    filePath: options.filePath,
+    launchedBy: options.launchedBy,
+    params: options.params,
+    elevated: true,
+    startedAt: new Date().toISOString(),
+    log: [
+      '[elevated] stdout/stderr unavailable — process runs under a',
+      '[elevated] separate privilege context. Add --log-file to the',
+      '[elevated] runner customArgs to capture llama-server output.',
+    ],
+    child: undefined,
+  };
+  active.set(pid, entry);
+
+  return { ok: true, pid, url: options.url, command };
+}
+
+/**
+ * Best-effort sweep that detects exits of elevated processes (which
+ * have no `child.on('exit')` handler since we never got a handle).
+ * Called every 10 s by `startElevatedExitPoller`. Marks `exited` and
+ * emits the `'exit'` event so the UI converges to the same shape it
+ * gets for non-elevated processes.
+ */
+function pollElevatedExits(): void {
+  for (const entry of active.values()) {
+    if (!entry.elevated || entry.exited) continue;
+    let alive = true;
+    try {
+      // `process.kill(pid, 0)` throws ESRCH when the pid is gone, EPERM
+      // when it exists but we can't signal it (elevated child — that
+      // counts as alive for our purposes).
+      process.kill(entry.pid, 0);
+    } catch (e: any) {
+      if (e?.code === 'ESRCH') alive = false;
+    }
+    if (alive) continue;
+    const exited: ExitInfo = {
+      code: null,
+      signal: null,
+      exitedAt: new Date().toISOString(),
+    };
+    entry.exited = exited;
+    const crashedEarly = msSinceStart(entry) < CRASH_AT_BOOT_WINDOW_MS;
+    launchEvents.emit('exit', {
+      pid: entry.pid,
+      exited,
+      crashedEarly,
+    } as ExitEvent);
+  }
+}
+
+let elevatedExitTimer: NodeJS.Timeout | undefined;
+/**
+ * Idempotent — call once at app startup. The poller is cheap (no
+ * `active.values()` work most of the time; the inner kill check is a
+ * single syscall per elevated entry).
+ */
+export function startElevatedExitPoller(intervalMs = 10_000): void {
+  if (elevatedExitTimer) return;
+  elevatedExitTimer = setInterval(pollElevatedExits, intervalMs);
+  if (typeof elevatedExitTimer.unref === 'function') {
+    elevatedExitTimer.unref();
+  }
+}
+
 export function getActiveEntry(pid: number): ActiveEntry | undefined {
   return active.get(pid);
 }
@@ -308,7 +502,48 @@ export function stopProcess(pid: number): { ok: boolean; error?: string } {
   // panel as expected because they reach the on('exit') handler with
   // the entry still in the map.
   const child = p.child;
+  const wasElevated = p.elevated === true;
   active.delete(pid);
+
+  // Elevated path — no ChildProcess handle. Use OS-level kill. On
+  // Windows we need `taskkill /F` since `process.kill(pid)` can't
+  // signal a process running in a higher integrity level.
+  if (wasElevated && !child) {
+    try {
+      if (process.platform === 'win32') {
+        const r = spawnSync('taskkill', ['/F', '/PID', String(pid), '/T'], {
+          windowsHide: true,
+        });
+        if (r.status !== 0) {
+          // Re-add the entry — kill didn't take.
+          active.set(pid, p);
+          return {
+            ok: false,
+            error: `taskkill failed (status ${r.status})`,
+          };
+        }
+        return { ok: true };
+      }
+      // POSIX: signal the elevated child directly. On most distros
+      // pkexec preserves the pid we captured, so a regular SIGTERM
+      // is enough. If permission is denied (EPERM), surface it —
+      // there is no clean recovery from "we elevated something we
+      // can't kill" without prompting the user again.
+      process.kill(pid, 'SIGTERM');
+      setTimeout(() => {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          /* swallow */
+        }
+      }, 3000);
+      return { ok: true };
+    } catch (e) {
+      active.set(pid, p);
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+
   if (!child) return { ok: true };
   try {
     child.kill(process.platform === 'win32' ? undefined : 'SIGTERM');
