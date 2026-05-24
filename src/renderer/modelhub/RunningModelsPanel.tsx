@@ -1,7 +1,7 @@
 /**
- * "Launch logs" panel — always-mounted, collapsible side-panel listing
- * every model launch attempt the user has triggered this session,
- * including:
+ * « Superviseur » panel — always-mounted, **always-open** side-panel
+ * listing every model launch attempt the user has triggered this
+ * session, including:
  *
  *   - currently running llama-server children
  *   - children that have exited (any cause: graceful Stop, crash, the
@@ -10,10 +10,10 @@
  *     negative pid, status = exited immediately with the error in the
  *     log buffer)
  *
- * Default state is **collapsed** with just a "Launch logs (N)" header,
- * so the sidebar stays compact for users who don't need it. The
- * expansion state is persisted to `localStorage` so the user's
- * preference survives across sessions.
+ * Non-collapsible (2026-05-24 user feedback): the previous chevron
+ * toggle hid info the user needed at a glance. The list is bounded
+ * by `maxHeight` + `overflowY: 'auto'` so even with a long catalog
+ * of launches the sidebar stays compact; the user scrolls.
  *
  * Per-row UX:
  *   - model name → clickable, navigates to the file's properties tab
@@ -44,8 +44,6 @@ import StopIcon from '@mui/icons-material/Stop';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
 import { useSelectedEntriesContext } from '-/hooks/useSelectedEntriesContext';
@@ -76,7 +74,6 @@ const ERROR_LINE_RE =
 const WARNING_LINE_RE = /\b(warning|warn|deprecated)\b/i;
 
 const POLL_INTERVAL_MS = 3000;
-const EXPANDED_STORAGE_KEY = 'modelhub.launchLogs.expanded';
 
 interface SnackState {
   msg: string;
@@ -100,24 +97,6 @@ export default function RunningModelsPanel(): JSX.Element {
   const [snack, setSnack] = useState<SnackState | undefined>();
   const [busyPid, setBusyPid] = useState<number | undefined>();
   const [logDialog, setLogDialog] = useState<LogDialogState | undefined>();
-  const [expanded, setExpanded] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(EXPANDED_STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const toggleExpanded = useCallback(() => {
-    setExpanded((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(EXPANDED_STORAGE_KEY, String(next));
-      } catch {
-        /* private mode / disabled storage — ignore */
-      }
-      return next;
-    });
-  }, []);
   const aliveRef = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -369,25 +348,16 @@ export default function RunningModelsPanel(): JSX.Element {
   const exitedCount = running.length - liveCount;
 
   return (
-    <Box sx={{ mt: 1 }}>
+    <Box sx={{ mt: 1 }} data-tid="modelhubSupervisorPanel">
+      {/* Non-collapsible header — the list below is bounded by
+          maxHeight + overflowY, so even with many runners the
+          sidebar stays compact via scroll (2026-05-24). */}
       <Stack
         direction="row"
         alignItems="center"
         spacing={0.25}
-        sx={{
-          cursor: 'pointer',
-          userSelect: 'none',
-          py: 0.25,
-          '&:hover': { color: 'primary.main' },
-        }}
-        onClick={toggleExpanded}
-        data-tid="modelhubLaunchLogsToggle"
+        sx={{ userSelect: 'none', py: 0.25 }}
       >
-        {expanded ? (
-          <ExpandMoreIcon sx={{ fontSize: 16 }} />
-        ) : (
-          <ChevronRightIcon sx={{ fontSize: 16 }} />
-        )}
         <Typography variant="caption" sx={{ fontWeight: 500 }}>
           {t('core:mhRunLogTitle', { count: running.length })}
         </Typography>
@@ -411,11 +381,11 @@ export default function RunningModelsPanel(): JSX.Element {
         )}
       </Stack>
 
-      {expanded && running.length === 0 && (
+      {running.length === 0 && (
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ display: 'block', pl: 2.25, mt: 0.25, fontStyle: 'italic' }}
+          sx={{ display: 'block', pl: 0.25, mt: 0.25, fontStyle: 'italic' }}
         >
           {t('core:mhRunLogEmpty')}
         </Typography>
@@ -427,8 +397,8 @@ export default function RunningModelsPanel(): JSX.Element {
           maxHeight: 260,
           overflowY: 'auto',
           pr: 0.5,
-          mt: expanded && running.length > 0 ? 0.5 : 0,
-          display: expanded && running.length > 0 ? 'flex' : 'none',
+          mt: running.length > 0 ? 0.5 : 0,
+          display: running.length > 0 ? 'flex' : 'none',
         }}
       >
         {groups.map((group) => (
