@@ -154,7 +154,12 @@ function showApp() {
   windows.forEach((win, i) => {
     if (win && i < 1) {
       if (win.isMinimized()) win.restore();
-      else win.show();
+      // `show()` is needed in addition to `restore()` because the
+      // minimise-to-tray path calls `hide()` after restoring, so the
+      // window is in the hidden+normal state — `restore()` alone is a
+      // no-op on a non-minimised window. Calling both is idempotent.
+      win.show();
+      win.focus();
     }
   });
 }
@@ -481,6 +486,27 @@ const createWindow = async (i18n: any) => {
     if (!mainWindow) throw new Error('"mainWindow" is not defined');
   });
 
+  // Minimise-to-tray: hide the window so it disappears from the
+  // taskbar and only the tray icon remains. We tried `destroy()` to
+  // also kill the renderer process and free its RAM, but Electron
+  // crashes natively (0xC0000005 STATUS_ACCESS_VIOLATION) shortly
+  // after when it ends up running with zero `BrowserWindow`s alive —
+  // the GPU / renderer cleanup races something in the chromium core.
+  // `hide()` keeps the BrowserWindow object around (renderer stays in
+  // RAM, ~250 MB pinned) but the tray works and clicking "Show
+  // TagSpaces" restores instantly via `show()`. Windows' working-set
+  // trimmer may page some of the renderer out after idle.
+  mainWindow.on('minimize', () => {
+    if (!mainWindow) return;
+    // Restore + hide rather than just hide: the OS already started the
+    // minimise animation by the time this fires; `restore()` undoes the
+    // minimise state so when the user later clicks the tray entry the
+    // window comes back to its normal position instead of materialising
+    // pre-minimised at the bottom of the screen.
+    mainWindow.restore();
+    mainWindow.hide();
+  });
+
   mainWindow.on('close', (e) => {
     // @ts-ignore
     if (mainWindow.fileChanged || mainWindow.descriptionChanged) {
@@ -562,7 +588,8 @@ app.on('window-all-closed', () => {
   // Respect the macOS convention of having the application in memory even
   // after all windows have been closed. In headless mode the tray icon is
   // the persistent surface — closing the window frees the renderer RAM
-  // (~200-300 MB) while the MCP server keeps running.
+  // (~200-300 MB) while the MCP server keeps running. Minimise-to-tray
+  // does NOT fire this event — `hide()` leaves the BrowserWindow alive.
   if (!isMacLike && !isHeadless()) {
     app.quit();
   }
