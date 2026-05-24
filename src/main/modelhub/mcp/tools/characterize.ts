@@ -2,14 +2,18 @@
  * `characterize.*` MCP tools — parity with the renderer's per-model
  * Caractériser and the bulk "Caractériser tous les modèles" panel.
  *
- * Long-running operations (`characterize.start`, `characterize.all_start`)
- * resolve only when the run completes. MCP's SSE transport handles
- * keepalive over multi-minute calls, so a synchronous tool surface is
- * fine here. Cancellation lives behind separate tools
- * (`characterize.all_cancel`) — single-model `start` is not cancellable
- * for the same reason the UI doesn't expose a cancel button on the
- * per-model Inférence tab: the suite is short enough that running it
- * to completion is always cheaper than tearing it down mid-flight.
+ * Per-model `characterize.start` is synchronous: it resolves when the
+ * single-model run completes (seconds to a few minutes — MCP's SSE
+ * keepalive is fine over that window).
+ *
+ * Bulk `characterize.all_start` is **fire-and-forget**: the call
+ * returns immediately with `{ started: true }` and the sweep continues
+ * in the background. This is deliberate — a full library sweep can
+ * take hours (Qwen3.5-397B alone can dominate), and an MCP client
+ * (Claude Desktop, deer-flow, scripts) cannot usefully await that.
+ * Poll progress with `characterize.all_status` and abort with
+ * `characterize.all_cancel`. The last progress snapshot is retained
+ * after the sweep ends so a late poller still sees the terminal state.
  *
  * `load_signature` is read-only and unrestricted.
  *
@@ -32,8 +36,20 @@ import {
   cancelCharacterizeAll,
   characterizeAll,
   isCharacterizeAllRunning,
+  type CharacterizeAllProgress,
 } from '../../routing/characterizeAll';
 import { register } from '../registry';
+
+// Latest bulk-sweep progress snapshot. Updated by the `onProgress`
+// callback we feed into `characterizeAll`. Retained across the
+// terminal phase ('done' / 'cancelled') so a late poller can read
+// the final stats even after the sweep ends. Reset only when a new
+// bulk run starts.
+let lastAllProgress: CharacterizeAllProgress | undefined;
+// Captured if the fire-and-forget sweep rejects (e.g., the directory
+// vanishes mid-flight). Surfaced through `all_status` so the client
+// is not left guessing why the run stopped without progress.
+let lastAllError: string | undefined;
 
 register({
   name: 'characterize.start',
@@ -94,14 +110,16 @@ register({
 register({
   name: 'characterize.all_start',
   description:
-    'Bulk-characterise every model under `directory`, smallest first. ' +
-    'Single-flight — rejects with "A bulk characterization is already ' +
-    'running" if one is in progress. Resolves only when the full ' +
-    'sweep finishes (can be 30+ minutes). The free-gen phase 2 ' +
-    '(embedder projection of the monologue) is run per-model AFTER ' +
-    'the chat server is stopped, so the embedder spawn never competes ' +
-    'with the test model for VRAM. Returns the final ' +
-    '`CharacterizeAllProgress` snapshot.',
+    'Fire-and-forget: kicks off a bulk characterisation sweep over ' +
+    '`directory` (smallest model first) and returns IMMEDIATELY with ' +
+    '`{ started: true, directory }`. The sweep runs in the background ' +
+    '— poll `characterize.all_status` for live progress and call ' +
+    '`characterize.all_cancel` to stop. Single-flight: rejects ' +
+    'synchronously with "A bulk characterization is already running" ' +
+    'if a sweep is already in progress (use `all_status` to inspect ' +
+    'it). The free-gen phase 2 (embedder projection of the monologue) ' +
+    'is run per-model AFTER the chat server is stopped, so the ' +
+    'embedder spawn never competes with the test model for VRAM.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -151,13 +169,57 @@ register({
     if (typeof a.directory !== 'string' || !a.directory) {
       throw new Error('directory is required and must be a string');
     }
-    const result = await characterizeAll(a.directory, {
+    // Single-flight check upfront — `characterizeAll` would throw the
+    // same error synchronously on the first tick, but doing it here
+    // keeps the surface symmetric (we always return JSON, never
+    // surface a rejection via the unhandled-promise path below).
+    if (isCharacterizeAllRunning()) {
+      throw new Error('A bulk characterization is already running');
+    }
+    // Fresh snapshot — the previous run's terminal state is replaced
+    // the instant we start a new one so `all_status` doesn't lie.
+    lastAllProgress = undefined;
+    lastAllError = undefined;
+    // Fire-and-forget. `characterizeAll` sets its internal `running`
+    // flag synchronously before its first await, so by the time this
+    // handler returns, `isCharacterizeAllRunning()` is already true.
+    void characterizeAll(a.directory, {
       skipExisting: a.skipExisting !== false,
       freegen: a.freegen !== false,
       skipProjection: a.skipProjection === true,
       skipWrite: a.skipWrite === true,
+      onProgress: (p) => {
+        lastAllProgress = p;
+      },
+    }).catch((e) => {
+      lastAllError = (e as Error).message ?? String(e);
     });
-    return result;
+    return {
+      started: true,
+      directory: a.directory,
+    };
+  },
+});
+
+register({
+  name: 'characterize.all_status',
+  description:
+    'Live snapshot of the bulk characterisation sweep started by ' +
+    '`characterize.all_start`. Returns `{ running, progress, error }`. ' +
+    '`progress` is the latest `CharacterizeAllProgress` (phase, total, ' +
+    'done, ok, errors, skipped, projected, currentIndex, currentName, ' +
+    'modelStatus, errorSamples) — null until the first onProgress ' +
+    'event fires. `running` is false after the sweep ends; the final ' +
+    'snapshot is retained so a late poller still sees the terminal ' +
+    'phase (`done` / `cancelled`). `error` is set only if the sweep ' +
+    'rejected (e.g., directory not found).',
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  handler: async () => {
+    return {
+      running: isCharacterizeAllRunning(),
+      progress: lastAllProgress ?? null,
+      error: lastAllError ?? null,
+    };
   },
 });
 
