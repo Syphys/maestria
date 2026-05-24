@@ -1,7 +1,7 @@
 @startuml objects-running-models
 !include ../_includes/style.iuml
 
-title Object diagram — RunningModelsPanel snapshot\n(typical state during a routing-driven session)
+title Object diagram — Superviseur (RunningModelsPanel) snapshot\n(typical state during a routing-driven session)\n2026-05-24: non-collapsible — always-open with bounded scroll
 
 ' A frozen view of `listRunning()` — what the user sees grouped by
 ' launchedBy in the sidebar. Helpful for explaining how the same
@@ -37,9 +37,12 @@ object "LFM2_5-1_2B :\nActiveEntry" as O_E_LFM {
   exited = false
 }
 
-object "RunningModelsPanel :\nrenderer view" as O_PANEL {
+object "Superviseur :\nrenderer view\n(RunningModelsPanel.tsx)" as O_PANEL {
+  collapsible = false   ' 2026-05-24
   groupBy = launchedBy ?? "Direct"
   sortStable = true
+  maxHeight = 260       ' bounded scroll
+  overflowY = "auto"
   groups = [
     "Direct" → [LFM2_5-1_2B],
     "embedder" → [Qwen3-Embedding-0.6B-Q8_0],
@@ -63,6 +66,11 @@ note bottom of O_PANEL
   done renderer-side from the same
   shape served by `models.list_running`
   to MCP callers.
+  Header is no longer clickable
+  (chevron + localStorage state removed
+  on 2026-05-24). The list is always
+  visible; long catalogues are
+  handled via bounded scroll.
 end note
 
 @enduml

@@ -4,6 +4,6 @@ package "src/renderer/" <<Folder>> as PKG_UI {
   component "ModelHubPanel\n+ Inférence tab" as CMP_UI_PANEL
   component "CompetenceSection\n(R5 + tree radar)" as CMP_UI_RADAR
   component "Settings ▸ AI ▸ Routing\n(.gguf picker,\nsandbox toggle)" as CMP_UI_SETTINGS
-  component "RunningModelsPanel\n(grouped by\nlaunchedBy)" as CMP_UI_RUNNING
-  component "CharacterizeAllPanel\n(bulk + force)" as CMP_UI_CHARALL
+  component "Superviseur\n(RunningModelsPanel,\nnon-collapsible,\ngrouped by launchedBy,\n2026-05-24)" as CMP_UI_RUNNING
+  component "CharacterizeAllPanel\n+ CharacterizeAllLogsTabs\n(3 tabs: Erreurs / Logs\nserveur / Interactions —\nlive prompt-by-prompt\nstream, 2026-05-24)" as CMP_UI_CHARALL
 }

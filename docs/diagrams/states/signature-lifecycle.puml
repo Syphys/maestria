@@ -7,12 +7,19 @@ title State machine — Signature.characterization_state lifecycle
 ' Transitions correspond to characterizeRunner.ts outcomes.
 '
 ' Companion artifacts written next to the signature JSON:
-'   - `.ts/<file>.log`   — llama-server stdout/stderr captured on
-'                          every Maestria-managed launch (append-only,
-'                          4 MiB rotation). Survives the process.
-'   - `.ts/<file>.error` — timestamped per-model error journal from
-'                          characterizeAll (one line per failure).
-' Both are best-effort writes: a disk error never sinks a run.
+'   - `.ts/<file>.log`              — active session: llama-server
+'                                     stdout/stderr captured on every
+'                                     Maestria-managed launch
+'                                     (append-only, 4 MiB rotation).
+'   - `.ts/<file>.<YYYYMMDDThhmmssZ>.log`
+'                                   — per-session archive (2026-05-24):
+'                                     rotated from `.log` at the start
+'                                     of each new characterization,
+'                                     keeps last 10 sessions per model.
+'   - `.ts/<file>.error`            — timestamped per-model error
+'                                     journal from characterizeAll
+'                                     (one line per failure).
+' All best-effort writes: a disk error never sinks a run.
 
 [*] --> NotCharacterized : model added\nto folder
 
@@ -28,7 +35,7 @@ state "Running (in-progress)" as Running {
 
 Running --> Complete : R5 + tree + freegen\n(if seamed)\nALL succeeded
 Running --> Incomplete : R5 OK\nbut tree OR freegen\nfailed (isolated)
-Running --> Quarantined : R5 itself failed\n(e.g. model crashed boot)\nOR catastrophic IO error
+Running --> Quarantined : R5 itself failed\n(e.g. model crashed boot)\nOR catastrophic IO error\nOR non-chat model detected\n(3-tier filter, 2026-05-24)
 
 state "complete" as Complete #FFFDF6 {
   description : routing-eligible (D9).\nAll required behavioral fields\npresent: `scores_per_axis`,\n`scores_per_leaf`, `branch_scores`.\nmodels.route ranks this candidate.
@@ -62,13 +69,17 @@ note bottom of Quarantined
 end note
 
 note right of Running
-  Side-effect on disk (every transition):
-  `appendServerLog(.ts/<file>.log, chunk)`
-  on every llama-server stdout/stderr chunk
-  (hooked in runners/launch.ts).
-  On Quarantined / Incomplete-with-error:
-  `appendErrorLog(.ts/<file>.error, reason)`
-  with an ISO timestamp.
+  Side-effects on disk:
+  • `archiveServerLog(...)` at run START
+    (renames previous `.log` →
+    `.<ISO>.log`, fresh session
+    begins clean — 2026-05-24).
+  • `appendServerLog(.log, chunk)`
+    on every llama-server stdout/stderr
+    chunk (hooked in runners/launch.ts).
+  • On Quarantined / Incomplete-with-error:
+    `appendErrorLog(.ts/<file>.error,
+    reason)` with ISO timestamp.
 end note
 
 @enduml

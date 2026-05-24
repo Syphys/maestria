@@ -9,14 +9,72 @@ title Activity — characterization escalation\nR5 → tree → freegen with R5-
 
 start
 :User clicks "Caractériser"\nOR MCP request;
+
+partition "Pre-launch non-chat filter (2026-05-24)" {
+  :Read GGUF header ONCE
+  (arch + general.name + pooling);
+  if (arch ∈ NON_GENERATIVE_ARCH?
+    whisper/clip/bert/t5/...
+    + qwen3tts/outetts/parlertts/
+    kokoro/mossttts/snactts) then (yes)
+    :throw UnsupportedModelError;
+    :state = 'failed' (quarantined);
+    stop
+  endif
+  if (general.name matches
+    /[_\W](tokenizer|codec|vocoder|
+    vq|cfm|tts)[_\W]/i ?) then (yes)
+    note right
+      Cosyvoice3 = name
+      "Llamacpp_Tokenizer"
+      → caught here, never
+      boots llama-server.
+    end note
+    :throw UnsupportedModelError;
+    :state = 'failed' (quarantined);
+    stop
+  endif
+  if (pooling_type ≥ 1?
+    Qwen3-Embedding-N etc.) then (yes)
+    :throw UnsupportedModelError
+    ("embedding model");
+    :state = 'failed' (quarantined);
+    stop
+  endif
+}
+
 :characterizeRunner ensures\nchat process live;
+:archiveServerLog
+(rotate previous .log →
+ .ts/<file>.<ISO>.log,
+ fresh session starts clean);
 
 partition "R5 pass (coarse, always)" {
   :Iterate v1-30.json prompts;
   repeat
-    :ask.complete(prompt);
+    :ask.complete(prompt)
+    (no client timeout — wait
+     as long as the model needs);
+    :emit prompt_done event
+    with FULL DiagnosticRunEntry
+    (live Interactions tab,
+     2026-05-24);
     :Run registered scorer;
     :Update scores_per_axis;
+    if (Tier 3 — adaptive quarantine?
+      response only `<|stop_…|>` tokens
+      OR 5 consecutive empties) then (yes)
+      note right
+        Catches TTS / audio-codec
+        GGUFs the arch+name filters
+        missed (e.g. a Cosyvoice
+        variant with an innocent
+        general.name).
+      end note
+      :throw 'non-chat model';
+      :state = 'failed' (quarantined);
+      stop
+    endif
   repeat while (more prompts?) is (yes)
   -> R5 done;
   :Persist behavioral\n+ characterization_state = 'incomplete';

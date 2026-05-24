@@ -19,12 +19,38 @@ participant "signatureStore\n(.ts/<file>.json)" as SIG
 
 User -> UI : "Caractériser" / "Re-caractériser"
 UI -> RUN : start({filePath, freegen, skipProjection})
-RUN -> LAUNCH : ensure chat live (spawn if needed)
-LAUNCH -> CHAT : llama-server (8080)
-LAUNCH -> LOG : append stdout/stderr\n(append-only, 4 MiB rotation)
-RUN -> R5 : runR5(ask=chatClient)
-R5 -> CHAT : N prompts (v1-30)
-CHAT --> R5 : completions
+
+== Pre-launch non-chat filter (2026-05-24) ==
+RUN -> RUN : readModelHeader(filePath) ONCE
+alt arch ∈ NON_GENERATIVE_ARCH\nOR name matches /tokenizer|codec|vocoder|vq|cfm|tts/\nOR pooling_type ≥ 1
+  RUN -> SIG : markUnsupported(reason)
+  RUN --> UI : status:'error' (state='failed', quarantined)
+  note right of RUN
+    Cosyvoice3 = name "Llamacpp_Tokenizer"
+    is caught HERE → no llama-server boot,
+    no wasted 28-prompt suite.
+  end note
+else generative chat OK
+  RUN -> LOG : archiveServerLog(filePath)\n(rotate prev .log → .ts/<file>.<ISO>.log)
+  RUN -> LAUNCH : ensure chat live (spawn if needed)\nwith --timeout 86400
+  LAUNCH -> CHAT : llama-server (8080)
+  LAUNCH -> LOG : append stdout/stderr\n(append-only, 4 MiB rotation)
+end
+RUN -> R5 : runR5(ask=chatClient,\n  no wall-clock timeout)
+loop per prompt (v1-30)
+  R5 -> CHAT : prompt
+  CHAT --> R5 : content (+ reasoning_content\n  wrapped as <think>…</think>\n  if model emits it)
+  R5 -> UI : prompt_done event\nwith FULL DiagnosticRunEntry\n(live « Interactions » tab,\n2026-05-24)
+  alt response = only `<|stop_…|>` tokens\nOR 5 consecutive empties
+    R5 --> RUN : throw 'non-chat model'
+    note right of R5
+      Tier 3 adaptive quarantine —
+      catches TTS / audio-codec
+      GGUFs that escaped the
+      pre-launch arch+name filter.
+    end note
+  end
+end
 R5 --> RUN : behavioral (R5 vector)
 
 == Tree (slice 4c) ==

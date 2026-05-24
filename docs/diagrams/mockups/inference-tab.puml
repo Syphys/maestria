@@ -42,11 +42,30 @@
   { [✓] Parler libre          | [ ▶ TOUT CARACTÉRISER ]         }
   { [ ] Sans calcul vectoriel | [ ❓ Questions sources ]        }
   --
-  {<i>Modèle 12/52 — qwen-coder-32b.gguf</i>                     }
+  {<i>Modèle 12/52 — qwen-coder-32b.gguf · 47 effectués</i>      }
   { ▇▇▇▇▇▇▇▆▁▁▁▁▁ 60%                                            }
   --
-  { ( Erreurs (3) | Logs serveur | Interactions ) | [ 📋 Copier ] }
+  { ( Erreurs (3) | Logs serveur | <b>Interactions</b> ) | [ 📋 Copier ] }
   {<i>scrollable tab body, infinite scroll,</i>                   }
-  {<i>polling pauses while a text selection is active</i>        }
+  {<i>polling pauses while a text selection is active,</i>        }
+  {<i>auto-scroll to bottom on tab switch (2026-05-24),</i>       }
+  {<i>each prompt_done event pushes a full DiagnosticRunEntry</i> }
+  {<i>(« Interactions » is live during a run, no signature poll)</i>}
+}
+@endsalt
+
+@startsalt mockup-superviseur
+{
+  {<b>Superviseur</b> (3) · 2 en cours · 1 sorti                   }
+  --
+  {| <b>Direct</b>                                                  }
+  {| LFM2.5-1.2B-Q4_K_M.gguf · llama-server · :8082 · [📋][📄][⛔]  }
+  --
+  {| <b>via MCP — Claude Code</b>                                   }
+  {| qwen-coder-32b.gguf · llama-server · :8080 · [📋][📄][⛔]      }
+  --
+  {| <b>embedder</b>                                                }
+  {| Qwen3-Embedding-0.6B-Q8_0.gguf · :8081 · [📋][📄][⛔]          }
+  ' Always-open list since 2026-05-24, bounded by maxHeight + scroll
 }
 @endsalt

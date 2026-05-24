@@ -24,7 +24,7 @@ Validating --> Spawning : runner resolved\n+ command built
 Validating --> RejectedEarly : no runner /\nport unavailable /\nbuild error
 
 state "Spawning" as Spawning {
-  description : child_process.spawn(\n  runner.path,\n  buildCommand(params)\n)\n+ append to ActiveEntry[]\n+ start log ring buffer
+  description : child_process.spawn(\n  runner.path,\n  buildCommand(params)\n)\n+ append to ActiveEntry[]\n+ start log ring buffer\n\nllama-server always gets\n--timeout 86400 (24 h,\n2026-05-24) so PR #22907\nnever cancels a long chat.\ncustomArgs override allowed.
 }
 
 Spawning --> Booting : pid received
