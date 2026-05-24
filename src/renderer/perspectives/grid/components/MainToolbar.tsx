@@ -18,7 +18,6 @@
 
 import AppConfig from '-/AppConfig';
 import {
-  AIIcon,
   CopyMoveIcon,
   DeleteIcon,
   DownloadIcon,
@@ -36,7 +35,6 @@ import {
 } from '-/components/CommonIcons';
 import TsToolbarButton from '-/components/TsToolbarButton';
 import ZoomComponent from '-/components/ZoomComponent';
-import { useAiGenerationDialogContext } from '-/components/dialogs/hooks/useAiGenerationDialogContext';
 import { useDeleteMultipleEntriesDialogContext } from '-/components/dialogs/hooks/useDeleteMultipleEntriesDialogContext';
 import { useMenuContext } from '-/components/dialogs/hooks/useMenuContext';
 import { TabNames } from '-/hooks/EntryPropsTabsContextProvider';
@@ -79,7 +77,6 @@ function MainToolbar(props: Props) {
   } = useMenuContext();
   const { showNotification } = useNotificationContext();
   const { haveLocalSetting } = usePerspectiveSettingsContext();
-  const { openAiGenerationDialog } = useAiGenerationDialogContext();
   const { nativeDragModeEnabled, setNativeDragModeEnabled } =
     useSortedDirContext();
 
@@ -222,17 +219,12 @@ function MainToolbar(props: Props) {
             <TagIcon />
           </TsToolbarButton>
         )}
-        {!currentLocation?.isReadOnly && (
-          <TsToolbarButton
-            tooltip={t('core:aiGenSelectedEntries')}
-            title={t('core:aiSettingsTab')}
-            aria-label={t('core:aiGenSelectedEntries')}
-            data-tid={prefixDataTID + 'PerspectiveAiGenTID'}
-            onClick={() => openAiGenerationDialog()}
-          >
-            <AIIcon />
-          </TsToolbarButton>
-        )}
+        {/* Maestria fork — removed the "IA" toolbar button. It opened
+            an upstream Pro feature (cloud-API tag/summary generation
+            via OpenAI / Anthropic). Without Pro it fell back to a
+            promo teaser which is noise in this fork. Maestria's own
+            AI surface is the local model launch / characterise / MCP
+            flow, not file-content generation. */}
         {!currentLocation?.isReadOnly && (
           <TsToolbarButton
             tooltip={t('core:copyMoveSelectedEntries')}
