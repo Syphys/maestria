@@ -598,6 +598,29 @@ export default function loadMainEvents() {
     }
     return false;
   });
+  // Models Hub — picker for the user's `llama-server` binary (or any
+  // fork that exposes the same CLI). On Windows we filter for .exe by
+  // default; POSIX binaries usually have no extension so we just show
+  // everything. Same return contract as the other pickers.
+  ipcMain.handle('selectLlamaServerBinaryDialog', async () => {
+    const isWindows = process.platform === 'win32';
+    const options = {
+      title: 'Select llama-server binary',
+      properties: ['openFile'],
+      filters: isWindows
+        ? [
+            { name: 'Executables', extensions: ['exe'] },
+            { name: 'All files', extensions: ['*'] },
+          ]
+        : [{ name: 'All files', extensions: ['*'] }],
+    };
+    // @ts-ignore
+    const resultObject = await dialog.showOpenDialog(options);
+    if (resultObject.filePaths && resultObject.filePaths.length) {
+      return resultObject.filePaths;
+    }
+    return false;
+  });
 
   ipcMain.on('removeExtension', (e, extensionId) => {
     try {

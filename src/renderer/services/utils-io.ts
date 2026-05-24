@@ -1129,6 +1129,23 @@ export function selectGgufFileDialog(): Promise<string[] | false> {
   return Promise.reject(new Error('selectGgufFileDialog: Electron-only'));
 }
 
+/**
+ * Models Hub — native file picker for the user's `llama-server` binary
+ * (or any fork exposing the same CLI). Returns `string[]` (single path
+ * kept as an array for symmetry) or `false` on cancel. Electron-only —
+ * the runner registry is a desktop-only feature.
+ */
+export function selectLlamaServerBinaryDialog(): Promise<string[] | false> {
+  if (AppConfig.isElectron) {
+    return window.electronIO.ipcRenderer.invoke(
+      'selectLlamaServerBinaryDialog',
+    );
+  }
+  return Promise.reject(
+    new Error('selectLlamaServerBinaryDialog: Electron-only'),
+  );
+}
+
 export function removePrefix(
   str: string | null | undefined,
   prefix: string | null | undefined,

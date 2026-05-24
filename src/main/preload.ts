@@ -53,6 +53,7 @@ export type Channels =
   | 'openUrl'
   | 'selectDirectoryDialog'
   | 'selectGgufFileDialog'
+  | 'selectLlamaServerBinaryDialog'
   | 'load-extensions'
   | 'removeExtension'
   | 'getUserDataDir'

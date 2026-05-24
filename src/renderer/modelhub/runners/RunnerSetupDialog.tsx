@@ -28,6 +28,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   Stack,
   TextField,
   Tooltip,
@@ -35,10 +36,12 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { RunnerConfig } from '../types';
 import { useRunners } from './useRunners';
+import { selectLlamaServerBinaryDialog } from '-/services/utils-io';
 
 interface Props {
   open: boolean;
@@ -102,6 +105,27 @@ function RunnerForm({
         }
         value={path}
         onChange={(e) => setPath(e.target.value)}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <Tooltip title="Browse…">
+                <IconButton
+                  size="small"
+                  edge="end"
+                  onClick={async () => {
+                    const picked = await selectLlamaServerBinaryDialog();
+                    if (Array.isArray(picked) && picked[0]) {
+                      setPath(picked[0]);
+                    }
+                  }}
+                  data-tid="browseRunnerBinaryTID"
+                >
+                  <FolderOpenIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </InputAdornment>
+          ),
+        }}
       />
       <TextField
         size="small"
@@ -204,9 +228,17 @@ export default function RunnerSetupDialog({
                   size="small"
                   variant="outlined"
                   endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
-                  onClick={() =>
-                    window.open(LLAMA_CPP_RELEASES, '_blank', 'noopener')
-                  }
+                  onClick={() => {
+                    // `window.open()` in Electron pops a blank
+                    // BrowserWindow instead of deferring to the OS
+                    // browser (the renderer's setWindowOpenHandler
+                    // path is flaky in prod builds). Go through the
+                    // explicit IPC → `shell.openExternal` route.
+                    window.electronIO?.ipcRenderer.sendMessage(
+                      'openUrl',
+                      LLAMA_CPP_RELEASES,
+                    );
+                  }}
                 >
                   llama.cpp releases
                 </Button>
