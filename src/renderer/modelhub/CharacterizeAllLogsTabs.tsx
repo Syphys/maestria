@@ -10,9 +10,13 @@
  *                        model, polled every 1 s while the bulk run
  *                        is active.
  *   - « Interactions » → prompts + responses for the currently-
- *                        processed model, read from the signature's
- *                        `behavioral.diagnostic_run`. Updates as soon
- *                        as the signature is re-saved (next poll).
+ *                        processed model. LIVE: each `prompt_done`
+ *                        event coming through `progress.modelStatus`
+ *                        carries the full DiagnosticRunEntry, which we
+ *                        accumulate into a per-model buffer. Once the
+ *                        model finishes, we fall back to the persisted
+ *                        signature so previously-completed models still
+ *                        show their full diagnostic_run.
  *
  * No interactions are persisted by this panel — they already live in
  * the signature JSON; we just visualise them. The error + server logs
@@ -22,7 +26,7 @@
  * there for inspection).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -114,11 +118,15 @@ function usePolledText(
   return text;
 }
 
-/** Poll the current model's signature so the interactions update live. */
-function usePolledSignature(
+/**
+ * Read the current model's signature once. Used as a fallback for the
+ * « Interactions » tab when no live entries are in flight (model just
+ * finished, or user is browsing a previously-characterized model).
+ * Refreshes when `filePath` changes — no polling, the live source is
+ * `progress.modelStatus` which we observe in the parent component.
+ */
+function useLoadedSignature(
   filePath: string | undefined,
-  enabled: boolean,
-  intervalMs = 1500,
 ): Signature | undefined {
   const [sig, setSig] = useState<Signature | undefined>();
   useEffect(() => {
@@ -129,7 +137,7 @@ function usePolledSignature(
     let cancelled = false;
     const i = ipc();
     if (!i?.invoke) return undefined;
-    const fetchOnce = async () => {
+    void (async () => {
       try {
         const r = (await i.invoke(MODELHUB_IPC.loadSignature, filePath)) as {
           ok: boolean;
@@ -139,15 +147,11 @@ function usePolledSignature(
       } catch {
         /* swallow */
       }
-    };
-    void fetchOnce();
-    if (!enabled) return undefined;
-    const id = setInterval(fetchOnce, intervalMs);
+    })();
     return () => {
       cancelled = true;
-      clearInterval(id);
     };
-  }, [filePath, enabled, intervalMs]);
+  }, [filePath]);
   return sig;
 }
 
@@ -182,34 +186,83 @@ function CharacterizeAllLogsTabs({ progress, running }: Props): JSX.Element {
   // across multiple lines without losing their range on the next tick.
   const selecting = useHasActiveSelection();
 
-  // Poll only the tabs the user is looking at (saves IPC churn), and
-  // only while no text selection is in progress.
+  // Server log: still polled (we don't stream it through the progress
+  // event — too noisy). Only fetch when the tab is active and the user
+  // isn't mid-selection.
   const serverPollEnabled = running && tab === 'server' && !selecting;
-  const interactionsPollEnabled =
-    running && tab === 'interactions' && !selecting;
   const serverLog = usePolledText(
     MODELHUB_IPC.getServerLog,
     progress.currentFile,
     serverPollEnabled,
   );
-  const signature = usePolledSignature(
-    progress.currentFile,
-    interactionsPollEnabled,
-  );
+  // Fallback for finished or pre-existing models — no polling, just one
+  // load per `currentFile` switch.
+  const loadedSignature = useLoadedSignature(progress.currentFile);
 
-  // Interactions are extracted from `behavioral.diagnostic_run` —
-  // ordered by `startedAt` so the user sees the chronological flow.
+  // LIVE entries — accumulated from `prompt_done` events that the main
+  // process ships through `progress.modelStatus.progress`. Resets every
+  // time the bulk run moves to a new model (`currentFile` change).
+  const [liveEntries, setLiveEntries] = useState<
+    Record<string, DiagnosticRunEntry>
+  >({});
+  const liveModelFileRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (liveModelFileRef.current !== progress.currentFile) {
+      liveModelFileRef.current = progress.currentFile;
+      setLiveEntries({});
+    }
+    const ms = progress.modelStatus;
+    if (!ms || ms.stage !== 'running') return;
+    const innerProgress = ms.progress;
+    if (!innerProgress || innerProgress.kind !== 'prompt_done') return;
+    const entry = innerProgress.entry;
+    if (!entry) return;
+    const id = innerProgress.promptId;
+    setLiveEntries((prev) => {
+      if (prev[id]?.finishedAt === entry.finishedAt) return prev; // dup
+      return { ...prev, [id]: entry };
+    });
+  }, [progress.currentFile, progress.modelStatus]);
+
+  // Source preference: live buffer (current model, in progress) overrides
+  // the loaded signature. When the current model isn't being run (idle,
+  // or browsing a previous one), fall back to the signature on disk so
+  // the tab is never empty if there's data to show.
   const interactions: [string, DiagnosticRunEntry][] = useMemo(() => {
-    const run = signature?.behavioral?.diagnostic_run;
+    const liveCount = Object.keys(liveEntries).length;
+    const run =
+      liveCount > 0 ? liveEntries : loadedSignature?.behavioral?.diagnostic_run;
     if (!run) return [];
     return Object.entries(run).sort(([, a], [, b]) =>
       (a.startedAt ?? '').localeCompare(b.startedAt ?? ''),
     );
-  }, [signature]);
+  }, [liveEntries, loadedSignature]);
 
   const errorsRef = useAutoScrollBottom([progress.errorSamples.length]);
   const serverRef = useAutoScrollBottom([serverLog]);
   const interactionsRef = useAutoScrollBottom([interactions.length]);
+
+  // When the user switches tabs, force-scroll the newly-active tab to
+  // the bottom — they want to see the LATEST entry / line, never the
+  // first one. The continuous `useAutoScrollBottom` above only fires
+  // on data changes (and respects the user's mid-scroll position),
+  // so without this extra effect a tab switch would land at the top
+  // of the freshly-mounted Box. Layout-effect so the scroll happens
+  // BEFORE the browser paints — no visible jump from top to bottom.
+  useLayoutEffect(() => {
+    const ref =
+      tab === 'errors'
+        ? errorsRef
+        : tab === 'server'
+          ? serverRef
+          : interactionsRef;
+    const el = ref.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    // Refs are stable; we deliberately key only on `tab` so this
+    // fires on the switch, not on every content update (those are
+    // already covered by useAutoScrollBottom above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   // Plain-text rendering of the active tab — what the Copy button
   // writes to the clipboard. Memoised so a copy-click after several
