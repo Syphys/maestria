@@ -49,6 +49,11 @@ const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 const testMode = process.env.NODE_ENV === 'test';
 
+// Headless mode: no main window at boot, just MCP server + tray icon.
+// The tray's "Show TagSpaces" entry lazily spawns the renderer on demand.
+// Toggled by `--headless` / `-H` CLI arg OR `MAESTRIA_HEADLESS=1` env var.
+const isHeadless = () => process.env.MAESTRIA_HEADLESS === '1';
+
 if (isDebug || testMode) {
   require('electron-debug')({ showDevTools: false });
   if (isMacLike) {
@@ -72,6 +77,8 @@ process.argv.forEach((arg, count) => {
   } else if (arg.toLowerCase() === '-p' || arg.toLowerCase() === '--portable') {
     app.setPath('userData', process.cwd() + '/tsprofile'); // making the app portable
     portableMode = true;
+  } else if (arg === '--headless' || arg === '-H') {
+    process.env.MAESTRIA_HEADLESS = '1';
   } else if (testMode || isDebug) {
     arg = '';
   } else if (
@@ -139,6 +146,11 @@ function getSpellcheckLanguage(i18n: string) {
 
 function showApp() {
   const windows = BrowserWindow.getAllWindows();
+  if (windows.length === 0) {
+    // Headless mode (or window was closed while in tray) — lazy create.
+    createWindow(appI18N);
+    return;
+  }
   windows.forEach((win, i) => {
     if (win && i < 1) {
       if (win.isMinimized()) win.restore();
@@ -548,8 +560,10 @@ if (!isDebug) {
 
 app.on('window-all-closed', () => {
   // Respect the macOS convention of having the application in memory even
-  // after all windows have been closed
-  if (!isMacLike) {
+  // after all windows have been closed. In headless mode the tray icon is
+  // the persistent surface — closing the window frees the renderer RAM
+  // (~200-300 MB) while the MCP server keeps running.
+  if (!isMacLike && !isHeadless()) {
     app.quit();
   }
 });
@@ -621,7 +635,21 @@ app
           ),
         );
       }
-      createWindow(i18n);
+      if (isHeadless()) {
+        // No main window — bind tray standalone so the user can still
+        // reach the UI on demand (or quit). MCP server auto-starts via
+        // registerModelhubEvents() further down (gated on env var).
+        try {
+          bindTrayMenu(i18n);
+        } catch (ex) {
+          console.log('headless bindTrayMenu', ex);
+        }
+        console.log(
+          '[main] Headless mode — UI hidden, tray icon active, MCP server starting',
+        );
+      } else {
+        createWindow(i18n);
+      }
 
       protocol.initialize();
 

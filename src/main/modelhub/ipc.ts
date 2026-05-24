@@ -941,12 +941,15 @@ export default function registerModelhubEvents(): void {
     },
   );
 
-  // Auto-start the MCP server if the user enabled it last session.
-  // Fire-and-forget so a binding failure (port busy, etc.) doesn't
-  // wedge the modelhub IPC bootstrap.
+  // Auto-start the MCP server if the user enabled it last session, OR
+  // when the app boots in headless mode (--headless / MAESTRIA_HEADLESS=1)
+  // since there's no UI to manually toggle the server. Fire-and-forget
+  // so a binding failure (port busy, etc.) doesn't wedge the modelhub
+  // IPC bootstrap.
   (async () => {
     try {
-      if (await mcpGetAutoStart()) {
+      const headless = process.env.MAESTRIA_HEADLESS === '1';
+      if (headless || (await mcpGetAutoStart())) {
         await mcpStart();
       }
     } catch (e) {

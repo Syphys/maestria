@@ -62,6 +62,7 @@
     "cordova-remove-ios": "cd cordova && cordova platform remove ios && cd ..",
     "create-icns": "icnsify -i assets/icon.png -o assets/icon.icns && icnsify -i tagspacespro/resources/iconpro.png -o tagspacespro/resources/iconpro.icns",
     "dev": "npm run prepare-node && npm run generate-extensions && npm run link-ext && npm run start",
+    "dev:headless": "cross-env MAESTRIA_HEADLESS=1 npm run dev",
     "dev-open-file": "git apply run-with-args.patch && npm run dev",
     "erb-link": "ln -s \"$(pwd)/.erb\" \"$(pwd)/release/app/.erb\"",
     "gen-third-party-extensions": "node -r ts-node/register scripts/generateExtensionsConfig.ts ./web/third-party/extensions",
