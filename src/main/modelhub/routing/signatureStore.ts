@@ -12,8 +12,11 @@ import type {
   Signature,
   StructuralSignature,
 } from '../../../shared/RoutingTypes';
-import { loadSidecar, patchSidecar } from '../sidecar';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { loadSidecar, patchSidecar, sidecarPathFor } from '../sidecar';
 import { resolveCanonicalShardPath } from '../shardFs';
+import { listModelFiles } from '../listModelFiles';
 
 /** Returns the stored signature for a model (canonical shard), or undefined. */
 export async function loadSignature(
@@ -143,4 +146,91 @@ export function needsCharacterization(
   expected: { modelHash: string; signatureHash: string; suiteVersion: string },
 ): boolean {
   return !isBehavioralFresh(sig, expected);
+}
+
+/**
+ * Count every model under `rootDir` that currently carries a `signature`
+ * block (regardless of `characterization_state` — `complete`, `failed`,
+ * `pending` and `running` all count). Used by the renderer's
+ * "Forcer + TOUT CARACTÉRISER" confirmation dialog to preview the
+ * destructive scope BEFORE the wipe happens.
+ *
+ * Pure read — never writes anything. Sidecar JSON read failures (corrupt
+ * file, permission denied) silently skip the file rather than throwing,
+ * since the goal is a best-effort *preview* count, not a correctness
+ * gate. Errors that matter (no models in folder, root unreadable)
+ * surface naturally via the empty / 0 result.
+ */
+export async function countSignaturesUnder(
+  rootDir: string,
+): Promise<{ scanned: number; withSignature: number }> {
+  const files = await listModelFiles(rootDir).catch(() => [] as string[]);
+  let withSignature = 0;
+  for (const f of files) {
+    try {
+      const sidecar = await loadSidecar(f);
+      if (sidecar.signature) withSignature += 1;
+    } catch {
+      /* skip — best effort */
+    }
+  }
+  return { scanned: files.length, withSignature };
+}
+
+/**
+ * Remove the `signature` block from every model sidecar under `rootDir`.
+ * Other fields (`modelMeta`, `tags`, `description`, …) are preserved
+ * untouched — only the routing/characterization layer is wiped. Used by
+ * `characterizeAll` when invoked with `skipExisting: false` so a forced
+ * bulk run starts from a clean slate AND remains resumable: an interrupt
+ * leaves the un-reached models with NO signature, so a subsequent run
+ * (with or without Forcer) re-characterizes them rather than skipping
+ * stale data.
+ *
+ * Honours `skipWrite` (read-only locations short-circuit to a no-op
+ * with the count of what *would* have been cleared).
+ */
+export async function clearSignaturesUnder(
+  rootDir: string,
+  options: { skipWrite?: boolean } = {},
+): Promise<{ scanned: number; cleared: number; skipped: number }> {
+  const files = await listModelFiles(rootDir).catch(() => [] as string[]);
+  let cleared = 0;
+  let skipped = 0;
+  for (const f of files) {
+    let sidecar;
+    try {
+      sidecar = await loadSidecar(f);
+    } catch {
+      skipped += 1;
+      continue;
+    }
+    if (!sidecar.signature) continue;
+    if (options.skipWrite) {
+      cleared += 1; // counted as "would have cleared"
+      continue;
+    }
+    try {
+      const metaPath = sidecarPathFor(f);
+      // Build a fresh object without the `signature` key — assignment
+      // to `undefined` doesn't actually delete the key from the
+      // in-memory shape (Object.keys would still surface it), and we
+      // want clean JSON on disk.
+      const { signature: _drop, ...rest } = sidecar;
+      await fs.mkdir(path.dirname(metaPath), { recursive: true });
+      await fs.writeFile(metaPath, JSON.stringify(rest, null, 2), 'utf-8');
+      cleared += 1;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      // Same fallback semantics as patchSidecar — read-only locations
+      // surface as "skipped" rather than throwing, so a partially
+      // read-only tree doesn't abort the whole sweep.
+      if (code === 'EROFS' || code === 'EACCES' || code === 'EPERM') {
+        skipped += 1;
+        continue;
+      }
+      throw e;
+    }
+  }
+  return { scanned: files.length, cleared, skipped };
 }

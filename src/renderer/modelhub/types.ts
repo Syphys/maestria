@@ -569,6 +569,13 @@ export const MODELHUB_IPC = {
   /** Invoke channel: request cancel — honoured after the current model. */
   characterizeAllCancel: 'modelhub:characterizeAllCancel',
   /**
+   * Invoke channel: pre-flight count for the « Forcer » confirmation
+   * dialog. Returns `{ scanned, withSignature }` so the user sees how
+   * many models are about to lose their existing characterization
+   * before they confirm. Pure read — does NOT modify any sidecar.
+   */
+  characterizeAllCountSignatures: 'modelhub:characterizeAllCountSignatures',
+  /**
    * Returns the absolute path of the bundled routing-questions folder
    * (probe-anchors / tree-v0 / v1-30 / mcq-v1 / qcm-v0 / embedding-
    * triplets). Shipped via electron-builder `extraResources` so it's a

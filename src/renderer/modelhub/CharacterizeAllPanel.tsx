@@ -50,6 +50,14 @@ import { useOpenQuestionsLocation } from './useOpenQuestionsLocation';
 import RunnerSetupDialog from './runners/RunnerSetupDialog';
 import CharacterizeAllLogsTabs from './CharacterizeAllLogsTabs';
 import type { CharacterizeRunStatus } from './useCharacterize';
+import { MODELHUB_IPC } from './types';
+
+interface CountSignaturesResult {
+  ok: boolean;
+  scanned?: number;
+  withSignature?: number;
+  error?: string;
+}
 
 function CharacterizeAllPanel(): JSX.Element {
   const { t } = useTranslation();
@@ -62,6 +70,12 @@ function CharacterizeAllPanel(): JSX.Element {
   // dialog that opens the runner setup directly.
   const [runnerDialogOpen, setRunnerDialogOpen] = useState(false);
   const [runnerSetupOpen, setRunnerSetupOpen] = useState(false);
+  // « Forcer » confirmation dialog — opened from handleStart only when
+  // the user actually has signatures to lose. Carries the pre-flight
+  // count so the warning text shows the exact number being wiped.
+  const [forceDialogOpen, setForceDialogOpen] = useState(false);
+  const [forceDialogCount, setForceDialogCount] = useState<number>(0);
+  const [forceDialogScanned, setForceDialogScanned] = useState<number>(0);
   // Slice 6b — force toggle: when on, skipExisting=false so the bulk run
   // re-characterizes every model (complete + failed). Local UI state only;
   // resets implicitly when the panel unmounts. No accidental persistence.
@@ -109,6 +123,13 @@ function CharacterizeAllPanel(): JSX.Element {
       ? t('core:mhCharacterizeReadOnly')
       : '';
 
+  // Actually fires the bulk run — bypasses the Forcer confirmation so
+  // the dialog's "Confirmer" button can call directly without re-asking.
+  const runStart = () => {
+    if (!rootDir) return;
+    start(rootDir, readOnly, force, freegen, noVector);
+  };
+
   const handleStart = async () => {
     if (!rootDir) return;
     // A llama.cpp runner is the prerequisite for ANY characterization —
@@ -119,7 +140,31 @@ function CharacterizeAllPanel(): JSX.Element {
       setRunnerDialogOpen(true);
       return;
     }
-    start(rootDir, readOnly, force, freegen, noVector);
+    // Forcer is destructive — it wipes every existing signature in the
+    // folder BEFORE running so an interrupt leaves the un-reached
+    // models without stale data. We confirm with the user first and
+    // show the exact count of signatures about to be lost. When the
+    // count comes back as 0 (fresh location), skip the dialog —
+    // there's nothing to warn about.
+    if (force && !readOnly) {
+      try {
+        const r = (await window.electronIO?.ipcRenderer?.invoke(
+          MODELHUB_IPC.characterizeAllCountSignatures,
+          rootDir,
+        )) as CountSignaturesResult | undefined;
+        const count = r?.ok ? (r.withSignature ?? 0) : 0;
+        const scanned = r?.ok ? (r.scanned ?? 0) : 0;
+        if (count > 0) {
+          setForceDialogCount(count);
+          setForceDialogScanned(scanned);
+          setForceDialogOpen(true);
+          return;
+        }
+      } catch {
+        /* Best effort — fall through to direct start on IPC failure. */
+      }
+    }
+    runStart();
   };
 
   const startBtn = (
@@ -387,6 +432,38 @@ function CharacterizeAllPanel(): JSX.Element {
         open={runnerSetupOpen}
         onClose={() => setRunnerSetupOpen(false)}
       />
+
+      {/* « Forcer » destructive-reset confirmation. Only opens when
+          handleStart found at least one existing signature to wipe —
+          a no-signature folder bypasses this entirely. The body text
+          carries the exact count + the count-scanned context so the
+          user knows whether they're about to lose 3 things or 300. */}
+      <Dialog open={forceDialogOpen} onClose={() => setForceDialogOpen(false)}>
+        <DialogTitle>{t('core:mhCharAllForceConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ userSelect: 'text' }}>
+            {t('core:mhCharAllForceConfirmText', {
+              count: forceDialogCount,
+              scanned: forceDialogScanned,
+            })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setForceDialogOpen(false)}>
+            {t('core:cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              setForceDialogOpen(false);
+              runStart();
+            }}
+          >
+            {t('core:mhCharAllForceConfirmAction')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

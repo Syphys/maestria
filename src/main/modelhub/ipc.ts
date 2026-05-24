@@ -15,7 +15,7 @@ import {
 import { readModelHeader } from './parseHeader';
 import { enrichLocal, EnrichLocalOptions } from './enrichLocal';
 import { loadModelMeta, patchModelMeta } from './sidecar';
-import { loadSignature } from './routing/signatureStore';
+import { countSignaturesUnder, loadSignature } from './routing/signatureStore';
 import {
   runCharacterization,
   getCurrentRun,
@@ -228,6 +228,18 @@ export default function registerModelhubEvents(): void {
     cancelCharacterizeAll();
     return { ok: true };
   });
+
+  ipcMain.handle(
+    MODELHUB_IPC.characterizeAllCountSignatures,
+    async (_event, rootDir: string) => {
+      try {
+        const counts = await countSignaturesUnder(rootDir);
+        return { ok: true, ...counts };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  );
 
   // Absolute path of the routing-questions folder so the renderer can
   // open it inside Maestria as a read-only location.

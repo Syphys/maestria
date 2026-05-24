@@ -43,7 +43,11 @@
 
 import { listModelFiles } from '../listModelFiles';
 import { sumShardBytes } from '../shardFs';
-import { loadSignature, markUnsupported } from './signatureStore';
+import {
+  clearSignaturesUnder,
+  loadSignature,
+  markUnsupported,
+} from './signatureStore';
 import { appendErrorLog, archiveServerLog } from '../modelLogStore';
 import {
   runCharacterization,
@@ -208,6 +212,42 @@ export async function characterizeAll(
 
   try {
     push();
+
+    // ── Forcer = reset BEFORE the loop ─────────────────────────────
+    // Wipe every existing `signature` block so an interrupted run
+    // leaves the un-reached models with NO signature (resumable). A
+    // subsequent invocation — whether Forcer is still ticked or not
+    // — picks up exactly where this one stopped, instead of silently
+    // skipping the half-processed library because the old signatures
+    // still look `complete`. See the user-visible confirmation dialog
+    // in CharacterizeAllPanel.tsx for the warning shown beforehand.
+    if (!skipExisting) {
+      try {
+        const cleared = await clearSignaturesUnder(rootDir, {
+          skipWrite: opts.skipWrite,
+        });
+        if (cleared.cleared > 0) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[characterizeAll] Forcer: cleared ${cleared.cleared} signature(s) ` +
+              `(scanned ${cleared.scanned}, skipped ${cleared.skipped})`,
+          );
+        }
+      } catch (e) {
+        // Reset failure is logged but does NOT block the run — the
+        // worst case is the legacy behaviour (skipExisting=false still
+        // re-does every model, just without the clean-slate guarantee).
+        const reason = (e as Error).message;
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[characterizeAll] Forcer reset failed — continuing without wipe: ${reason}`,
+        );
+        prog.errorSamples.push({
+          file: '(reset)',
+          error: `signature wipe failed: ${reason}`,
+        });
+      }
+    }
 
     // ── Enumerate + size-sort ──────────────────────────────────────
     const files = await lmf(rootDir);

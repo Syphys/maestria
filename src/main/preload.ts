@@ -95,6 +95,7 @@ export type Channels =
   | 'modelhub:characterizeAllStart'
   | 'modelhub:characterizeAllProgress'
   | 'modelhub:characterizeAllCancel'
+  | 'modelhub:characterizeAllCountSignatures'
   | 'modelhub:getRoutingConfig'
   | 'modelhub:setRoutingConfig'
   | 'modelhub:routeQuery'
