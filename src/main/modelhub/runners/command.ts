@@ -143,10 +143,23 @@ export function buildCommand(
   const isServer = runner.path.toLowerCase().includes('server');
   if (isServer) {
     args.push('--host', '127.0.0.1', '--port', String(params.port ?? 8080));
+    // Push the server-side read/write timeout to "effectively
+    // forever" (24 h) — llama.cpp PR #22907 added `--timeout N`
+    // with a 600 s default that silently cancels long completions
+    // (the response comes back 200 with empty content, surfacing
+    // as `(empty)` in the characterization tab for long reasoning
+    // prompts). The flag's semantics are `N seconds`, so `0` does
+    // NOT mean "disabled" — it means "0 seconds = immediate kill".
+    // 86 400 s = 24 h is enough for any plausible characterization
+    // chat (a 31B Q6 multistep prompt tops out around 4 min).
+    // Users can override with their own `--timeout` value via
+    // customArgs (pushed AFTER this default).
+    args.push('--timeout', '86400');
   }
   // Custom user args from the "Advanced parameters" dialog. Parsed
   // line-by-line so the user can stack arbitrary flags llama-server
-  // accepts but our editor doesn't expose as a dedicated row.
+  // accepts but our editor doesn't expose as a dedicated row. Pushed
+  // AFTER `--timeout 0` so a user-supplied `--timeout N` wins.
   if (params.customArgs) {
     const parsed = parseCustomArgs(params.customArgs);
     args.push(...parsed.args);

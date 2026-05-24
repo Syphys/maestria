@@ -21,21 +21,15 @@ export type ChatClientConfig = {
   /** Bearer token for hosted APIs. Omitted for local llama-server. */
   apiKey?: string;
   /**
-   * Per-attempt timeout (ms). Default 240000 (4 min).
-   *
-   * Why 4 min: `multistep` characterization prompts (debug-then-fix,
-   * train-meeting-time, etc.) ask the model for a multi-step CoT; on a
-   * slow local model (CPU partial, low ngl) generating ~1k tokens of
-   * reasoning can comfortably take 2–3 min. The old 2-min default was
-   * tripping early-abort on multistep specifically. AbortError is now
-   * NOT retried (see below) — a slow model stays slow.
-   */
-  timeoutMs?: number;
-  /**
    * Retry attempts after the first try. Default 2. Retries fire on
-   * network failures and 429/5xx only — AbortError (request timeout)
-   * is NOT retryable (the model is just slow; retrying wastes 2× more
-   * time waiting for the same slow generation).
+   * network failures and 429/5xx only.
+   *
+   * NO WALL-CLOCK TIMEOUT — characterization chat must run to
+   * completion no matter how slow the model. A timeout silently drops
+   * valid slow responses (a 31B Q6 on partial GPU can take 3–4 min per
+   * multistep prompt) and shows up as `(empty)` in the suite, which
+   * misleads the user about the model's competence. User feedback,
+   * 2026-05-24: « Je t'avais dit de pas mettre de time out ».
    */
   maxRetries?: number;
   /** Base backoff (ms); attempt n waits ~base·2ⁿ + jitter. Default 600. */
@@ -70,7 +64,24 @@ export class ChatError extends Error {
 }
 
 type ChatCompletionResponse = {
-  choices?: { message?: { content?: string }; text?: string }[];
+  choices?: {
+    message?: {
+      content?: string;
+      /**
+       * Thinking-model channel introduced in recent llama-server builds
+       * (and OpenAI-compat clones) for Qwen3 / DeepSeek-R1 / Gemma-It
+       * with `thinking = 1`. The model's internal reasoning lands here
+       * instead of `content`. We wrap it in `<think>…</think>` and
+       * prepend to content so:
+       *   - the UI sees the full monologue (Interactions tab);
+       *   - existing scorers (mcq, checkSpec, …) still strip
+       *     `<think>…</think>` before scoring, so the score is
+       *     unaffected by the wrap.
+       */
+      reasoning_content?: string;
+    };
+    text?: string;
+  }[];
 };
 
 const sleep = (ms: number) =>
@@ -88,15 +99,12 @@ function isRetryableStatus(status: number | undefined): boolean {
 export class ChatClient implements ChatLike {
   private readonly url: string;
 
-  private readonly timeoutMs: number;
-
   private readonly maxRetries: number;
 
   private readonly backoffBaseMs: number;
 
   constructor(private readonly cfg: ChatClientConfig) {
     this.url = cfg.baseUrl.replace(/\/+$/, '') + '/v1/chat/completions';
-    this.timeoutMs = cfg.timeoutMs ?? 240_000;
     this.maxRetries = cfg.maxRetries ?? 2;
     this.backoffBaseMs = cfg.backoffBaseMs ?? 600;
   }
@@ -104,6 +112,11 @@ export class ChatClient implements ChatLike {
   /**
    * Single-turn completion. Returns the assistant message text. Throws
    * {@link ChatError} after exhausting retries.
+   *
+   * No wall-clock timeout — `fetch` waits as long as the model and the
+   * OS keep the socket open. A slow 31B Q6 multistep prompt can take
+   * 3–4 min; the user prefers to wait rather than see fake `(empty)`
+   * responses. Real network/process failures still throw + retry.
    */
   async complete(prompt: string): Promise<string> {
     const payload: Record<string, unknown> = {
@@ -116,8 +129,7 @@ export class ChatClient implements ChatLike {
     };
     // No `max_tokens` unless one is explicitly configured — thinking
     // models must be free to finish their reasoning AND answer. With it
-    // absent, llama-server generates until EOS / the context window;
-    // `timeoutMs` is the only wall-clock backstop.
+    // absent, llama-server generates until EOS / the context window.
     if (this.cfg.maxTokens !== undefined) {
       payload.max_tokens = this.cfg.maxTokens;
     }
@@ -129,14 +141,11 @@ export class ChatClient implements ChatLike {
 
     let lastErr: ChatError | undefined;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), this.timeoutMs);
       try {
         const res = await fetch(this.url, {
           method: 'POST',
           headers,
           body,
-          signal: ac.signal,
         });
         if (!res.ok) {
           const detail = (await res.text().catch(() => '')).slice(0, 300);
@@ -158,6 +167,15 @@ export class ChatClient implements ChatLike {
               attempt + 1,
             );
           }
+          // When llama-server splits reasoning into its own channel,
+          // re-attach it as a `<think>` block so the diagnostic record
+          // and the live « Interactions » tab keep full visibility.
+          // Scorers strip `<think>…</think>` before scoring (D11), so
+          // appending it never affects deterministic scores.
+          const reasoning = choice?.message?.reasoning_content;
+          if (typeof reasoning === 'string' && reasoning.length > 0) {
+            return `<think>${reasoning}</think>\n${content}`;
+          }
           return content;
         }
       } catch (e) {
@@ -165,25 +183,16 @@ export class ChatClient implements ChatLike {
           if (!isRetryableStatus(e.status)) throw e;
           lastErr = e;
         } else {
-          const aborted = e instanceof Error && e.name === 'AbortError';
+          // Real network / process failure (DNS, ECONNREFUSED, RST,
+          // server crash). These ARE worth retrying — the model itself
+          // may have restarted in the meantime.
           const err = new ChatError(
-            aborted
-              ? `chat timed out after ${this.timeoutMs} ms`
-              : `chat request failed: ${(e as Error).message}`,
+            `chat request failed: ${(e as Error).message}`,
             undefined,
             attempt + 1,
           );
-          // A timeout means the model is too slow for the configured
-          // `timeoutMs` — retrying spends another `timeoutMs` watching
-          // the same slow generation. Surface it immediately so the
-          // user can raise the budget (or skip the model) instead of
-          // burning 2× more time. Real network/process failures
-          // (anything that isn't an AbortError) stay retryable.
-          if (aborted) throw err;
           lastErr = err;
         }
-      } finally {
-        clearTimeout(timer);
       }
 
       if (attempt < this.maxRetries) {
