@@ -19,17 +19,14 @@
 import {
   ChangeLogIcon,
   CreateFileIcon,
-  EmailIcon,
   HelpIcon,
   IssueIcon,
   KeyShortcutsIcon,
   LocalLocationIcon,
-  MastodonIcon,
   NewFeatureIcon,
   OpenLinkIcon,
   TranslationIcon,
   WebClipperIcon,
-  XIcon,
 } from '-/components/CommonIcons';
 import HowToStart from '-/components/HowToStart';
 import RenderHistory from '-/components/RenderHistory';
@@ -301,46 +298,11 @@ function WelcomePanel() {
             />
           </ListItemButton>
         </ListItem>
-        <Divider />
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.emailContact, true)}
-          >
-            <ListItemIcon>
-              <EmailIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary={t('core:emailContact')}
-              className={classes.listItem}
-            />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.mastodon, true)}
-          >
-            <ListItemIcon>
-              <MastodonIcon color="action" />
-            </ListItemIcon>
-            <ListItemText
-              primary={t('core:followOnMastodon')}
-              className={classes.listItem}
-            />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => openURLExternally(Links.links.twitter, true)}
-          >
-            <ListItemIcon>
-              <XIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary={t('core:followOnX')}
-              className={classes.listItem}
-            />
-          </ListItemButton>
-        </ListItem>
+        {/* Maestria fork — removed upstream-only items:
+            - emailContact (no Maestria support email; use GitHub issues),
+            - followOnMastodon / followOnX (no Maestria social presence).
+            The divider preceding the block goes away too since nothing
+            follows it. */}
       </List>
     );
   }

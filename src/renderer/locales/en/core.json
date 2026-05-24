@@ -561,7 +561,7 @@
   "smartTagGeoDescription": "Add custom geographical coordinates as a tag",
   "smartTagDate": "custom-date",
   "smartTagDateDescription": "Add custom date as a tag",
-  "webClipper": "Get Maestria Web Clipper",
+  "webClipper": "Get TagSpaces Web Clipper",
   "webClipperChrome": "Get Chrome Web Clipper",
   "webClipperFirefox": "Get Firefox Web Clipper",
   "helpWithTranslation": "Help with translation",
