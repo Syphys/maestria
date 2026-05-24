@@ -23,6 +23,7 @@ import { getRoutingConfig, effectiveRoutingParams } from '../routingConfig';
 import { ensureEmbedderReady } from '../embedderLifecycle';
 import { getSandbox, SandboxUnavailable } from './sandbox';
 import { loadSignature, saveSignature } from './signatureStore';
+import { archiveServerLog } from '../modelLogStore';
 import { generateFreeGenText, projectFreeGenText } from './freegen';
 import probeAnchors from './questions/probe-anchors.json';
 import type { EmbedFn } from './embedProject';
@@ -34,21 +35,56 @@ import type {
 } from '../../../shared/RoutingTypes';
 
 /**
- * Architectures llama-server can't run as a chat/completions model:
- * ASR, vision/segmentation encoders, seq2seq and embedding-only nets.
- * Characterizing them is impossible — quarantine instead of launching.
+ * Architectures llama-server can't run as a chat/completions model.
+ * Three sub-families:
+ *   - **ASR / vision / segmentation encoders** — `whisper`, `clip`,
+ *     `sam`: input is a non-text modality; no chat head.
+ *   - **Seq2seq / embedding-only nets** — `t5`, `bert` & friends:
+ *     encoder-decoder or pooled, no autoregressive chat.
+ *   - **TTS / audio-codec wrappers** — dedicated arch names that
+ *     reuse an LLM backbone but emit AUDIO codebook tokens, not
+ *     text (Cosyvoice, OuteTTS, Parler-TTS, Kokoro, MOSS-TTS,
+ *     Qwen{2,3}-TTS — see https://huggingface.co/cstr/qwen3-tts-1.7b-
+ *     customvoice-GGUF for the convention). Some TTS GGUFs DON'T
+ *     declare a tts-flavoured arch (e.g. Cosyvoice = `qwen2`); those
+ *     fall through to the `general.name` regex below or the adaptive
+ *     non-text-response quarantine after the first prompt.
  */
 const NON_GENERATIVE_ARCH = new Set([
+  // ASR / vision / segmentation
   'whisper',
   'clip',
   'sam',
+  // Seq2seq / embedding-only
   't5',
   't5encoder',
   'bert',
   'nomic-bert',
   'jina-bert-v2',
   'xlm-roberta',
+  // TTS / audio codec — dedicated arch names
+  'qwen3tts',
+  'qwen2tts',
+  'outetts',
+  'parlertts',
+  'kokoro',
+  'mossttts',
+  'snactts',
 ]);
+
+/**
+ * `general.name` regex catching repackaged TTS / audio-codec GGUFs that
+ * declare an LLM-backbone architecture (e.g. Cosyvoice =
+ * `general.architecture: qwen2` with `general.name: Llamacpp_Tokenizer`).
+ *
+ * The boundary class `[\W_]` (non-word OR underscore) instead of `\b`:
+ * JS `\b` treats `_` as part of the word, so `\btokenizer\b` does NOT
+ * match `Llamacpp_Tokenizer`. We need underscores to act as separators
+ * because that's the canonical Hugging Face naming convention.
+ * Tested 2026-05-24 against the real Cosyvoice3 GGUF.
+ */
+const NON_CHAT_NAME_RE =
+  /(?:^|[\W_])(tokenizer|codec|vocoder|vq|cfm|tts)(?:[\W_]|$)/i;
 
 /** Thrown when a model can't be characterized at all (skip, don't retry). */
 export class UnsupportedModelError extends Error {
@@ -206,6 +242,14 @@ export async function runCharacterization(
   }
   inFlight = canonical;
 
+  // Rotate the previous session's `.log` into a timestamped archive
+  // so this run starts on a clean file. No-op when no prior log
+  // exists or when called from `characterizeAll` (which has already
+  // archived it for this model). Best effort.
+  await archiveServerLog(canonical, { skipWrite: opts.skipWrite }).catch(
+    () => undefined,
+  );
+
   // Every status also lands in `currentRun` so a re-mounted panel can
   // re-attach its progress bar (queried via getCurrentRun / IPC snapshot).
   const emit = opts.onStatus ?? (() => undefined);
@@ -224,29 +268,51 @@ export async function runCharacterization(
       const ext = canonical.replace(/^.*(\.[^.\\/]+)$/, '$1') || '(none)';
       throw new UnsupportedModelError(`unsupported file format: ${ext}`);
     }
-    // Architecture pre-filter: don't even try to launch a model
-    // llama-server can't run as a chat model (ASR/vision/embedding/…).
-    const archOf =
-      d.archOf ??
-      (async (p: string) => {
-        const h = await readModelHeader(p);
-        return h.ok ? h.meta?.architecture : undefined;
-      });
-    const arch = (await archOf(canonical).catch(() => undefined))
-      ?.toString()
-      .toLowerCase();
+    // Pre-launch filters (three signals, ordered cheapest → most
+    // structural). Each one alone is enough to quarantine. See
+    // NON_GENERATIVE_ARCH / NON_CHAT_NAME_RE / `isEmbeddingKv` for the
+    // rationale of each list.
+    //
+    // We read the header ONCE (one fs read) and reuse it for all three
+    // checks; an embedded sub-arch like `qwen2` (Cosyvoice's backbone)
+    // can pass the arch check but get caught by the name check.
+    const header = await readModelHeader(canonical).catch(() => undefined);
+    const arch = header?.ok
+      ? header.meta?.architecture?.toString().toLowerCase()
+      : undefined;
+    const name = header?.ok ? header.meta?.name : undefined;
+
     if (arch && NON_GENERATIVE_ARCH.has(arch)) {
       throw new UnsupportedModelError(`unsupported architecture: ${arch}`);
+    }
+    // Repackaged TTS / audio-codec GGUFs that reuse an LLM-backbone
+    // arch (Cosyvoice: arch=qwen2, name="Llamacpp_Tokenizer"). The arch
+    // list above can't catch these. The name regex is narrow on
+    // purpose — `\btts\b` won't match arbitrary marketing strings.
+    if (name && NON_CHAT_NAME_RE.test(name)) {
+      throw new UnsupportedModelError(
+        `non-chat model — name "${name}" matches audio/codec/tokenizer pattern`,
+      );
     }
     // Embedding-model pre-filter — catches embedding GGUFs whose arch id
     // is shared with a real chat model (Qwen3-Embedding → `qwen3`), so
     // the arch name list above can't. They have no chat head ⇒ score ~0
     // on every prompt. Quarantine instead of wasting a full suite on one.
-    const isEmbedding = d.isEmbeddingModel ?? defaultIsEmbeddingModel;
+    const isEmbedding =
+      d.isEmbeddingModel ??
+      (async (_p: string) =>
+        header?.ok ? isEmbeddingKv(header.meta?.rawMetadata) : false);
     if (await isEmbedding(canonical).catch(() => false)) {
       throw new UnsupportedModelError(
         'embedding model — no chat/completion capability',
       );
+    }
+    // archOf is no longer needed inline (we read the header once above),
+    // but we still expose it as a test seam — invoke it for shape parity
+    // when an injected one was provided.
+    const archOfSeam = d.archOf;
+    if (archOfSeam) {
+      await archOfSeam(canonical).catch(() => undefined);
     }
 
     const running = (d.listRunning ?? listRunning)();

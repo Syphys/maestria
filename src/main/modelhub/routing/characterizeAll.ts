@@ -44,7 +44,7 @@
 import { listModelFiles } from '../listModelFiles';
 import { sumShardBytes } from '../shardFs';
 import { loadSignature, markUnsupported } from './signatureStore';
-import { appendErrorLog } from '../modelLogStore';
+import { appendErrorLog, archiveServerLog } from '../modelLogStore';
 import {
   runCharacterization,
   runFreeGenGenerate,
@@ -59,7 +59,7 @@ import type { EmbedFn } from './embedProject';
 function isUnsupported(e: unknown): boolean {
   if (e instanceof UnsupportedModelError) return true;
   const m = (e as Error)?.message ?? '';
-  return /unsupported architecture|unknown model architecture|failed to load model|server exited before becoming ready/i.test(
+  return /unsupported architecture|unknown model architecture|failed to load model|server exited before becoming ready|non-chat model/i.test(
     m,
   );
 }
@@ -310,6 +310,15 @@ export async function characterizeAll(
       prog.currentName = baseName(file);
       prog.modelStatus = undefined;
       push();
+
+      // Rotate the previous session's `.log` into a timestamped
+      // archive so this model's run starts on a clean file AND the
+      // prior diagnostic content is preserved (« Garde le log pour
+      // chaque modèle dans un fichier propre », 2026-05-24). Best
+      // effort: any failure here must NOT block the run.
+      await archiveServerLog(file, { skipWrite: opts.skipWrite }).catch(
+        () => undefined,
+      );
 
       const onStatus = (s: CharacterizeRunStatus) => {
         prog.modelStatus = s;

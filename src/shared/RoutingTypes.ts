@@ -542,6 +542,13 @@ export type CharacterizationProgress =
       promptId: string;
       ok: boolean;
       error?: string;
+      /**
+       * Full diagnostic entry for the prompt that just finished — used by
+       * the renderer to update the « Interactions » tab live, before the
+       * whole-model signature is persisted to disk at the end of the run.
+       * Optional for backward-compat with older emitters (smoke tests).
+       */
+      entry?: DiagnosticRunEntry;
     }
   | { kind: 'complete'; modelHash: string }
   | { kind: 'failed'; modelHash: string; error: string }

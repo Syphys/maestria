@@ -41,6 +41,26 @@ import { sumShardBytes } from '../shardFs';
 import suiteV1_30 from './questions/v1-30.json';
 import mcqV1 from './questions/mcq-v1.json';
 
+/**
+ * Adaptive quarantine signal — true when the response is non-empty BUT
+ * consists ENTIRELY of special-token sequences (`<|stop_1|>`,
+ * `<|audio_0|>`, etc.). That output shape is the universal fingerprint
+ * of a TTS / audio-codec GGUF that wraps an LLM backbone (Cosyvoice
+ * et al.) and slipped past the name/arch pre-filters.
+ *
+ * Conservative: returns false on empty responses (could be a transient
+ * server cancel) and on responses with any printable letter — those
+ * are real chat outputs we must keep scoring.
+ */
+function looksLikeNonTextResponse(response?: string): boolean {
+  if (!response) return false;
+  const trimmed = response.trim();
+  if (trimmed.length === 0) return false;
+  // Only `<|…|>` tokens with whitespace between → audio codebook stream.
+  if (/^(<\|[^|>]+\|>\s*)+$/.test(trimmed)) return true;
+  return false;
+}
+
 /** Used when no prior signature exists (ParseAll wiring not yet hooked).
  *  Real structural is filled by R0.4 at ParseAll; behavioral is our job. */
 const STUB_STRUCTURAL: StructuralSignature = {
@@ -188,6 +208,11 @@ export async function characterize(
   const diagnostic_run: Record<string, DiagnosticRunEntry> = {};
   const scored: ScoredItem[] = [];
   let errors = 0;
+  // Adaptive quarantine — count consecutive empty responses so a model
+  // that produces NOTHING for prompt after prompt (TTS / audio-codec
+  // GGUFs whose name+arch slipped past the pre-launch filters) doesn't
+  // burn the full suite before we admit it's not a chat model.
+  let consecutiveEmpty = 0;
 
   for (let i = 0; i < work.length; i++) {
     const w = work[i];
@@ -245,7 +270,36 @@ export async function characterize(
       promptId: w.id,
       ok: !entry.error,
       error: entry.error,
+      // Ship the full entry so the « Interactions » tab can render the
+      // prompt's response (and any <think> block) the moment it lands,
+      // without waiting for the whole-model signature to be persisted.
+      entry,
     });
+
+    // Adaptive quarantine: detect a non-chat model the pre-launch
+    // filters missed (Cosyvoice that ALSO renamed itself plausibly,
+    // some future audio packaging, …). Two stop conditions:
+    //   - the very first response is ONLY special tokens (e.g.
+    //     `<|stop_1|><|stop_2|>…`) — clear audio-codec output;
+    //   - the model produced strictly empty responses for the first
+    //     5 prompts in a row — no chat capability, don't waste 23 more.
+    // Throws a special-cased Error so characterizeAll can mark it
+    // `failed` and skip the rest of the suite.
+    if (looksLikeNonTextResponse(entry.response)) {
+      throw new Error(
+        `non-chat model — first response was only special tokens ("${(entry.response ?? '').slice(0, 80)}…"); quarantining`,
+      );
+    }
+    if (entry.response === undefined || entry.response.length === 0) {
+      consecutiveEmpty += 1;
+      if (consecutiveEmpty >= 5) {
+        throw new Error(
+          `non-chat model — 5 consecutive empty responses; quarantining`,
+        );
+      }
+    } else {
+      consecutiveEmpty = 0;
+    }
   }
 
   const vector = aggregateCompetence(scored);
