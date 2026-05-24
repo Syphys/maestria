@@ -48,6 +48,17 @@ main), the spawned `llama-server` instances on
 (`--headless` / `MAESTRIA_HEADLESS=1`): the tray icon stays as the only
 UI surface and lazily spawns a window on demand — see section 8.
 
+Per-location options the fork unlocks vs upstream: the
+`fullTextIndex` toggle in the location editor is no longer gated
+behind a Pro paywall — the underlying pipeline
+(`@tagspaces/tagspaces-search` for querying and the indexer's
+`extractTextContent` mode for the on-disk `tsft.jsonl`) is entirely
+open-source. The `BetaLabel` stays as a heads-up that the
+PDF/Office extractors are still being polished. For a pure
+`.gguf`/`.safetensors` model folder the fulltext payload is empty
+(binary files yield no extractable text); useful when README /
+model-card / notes files coexist alongside the model binaries.
+
 ![Deployment](svg/deployment.svg)
 
 ### 2. Who triggers what — actors and use cases
@@ -106,6 +117,17 @@ default for free-gen projection (no resident process during
 characterization).
 
 ![Embedder component](svg/embedder.svg)
+
+**Runner setup dialog** (`RunnerSetupDialog`) — manages the
+`llama-server` binaries Maestria can spawn. Auto-detects entries on
+PATH and in the usual build dirs (`~/llama.cpp/build/bin`,
+`~/ik_llama.cpp/build/bin`, …); manual add via a native file picker
+(folder icon in the binary-path field → `selectLlamaServerBinaryDialog`
+IPC → Electron `dialog.showOpenDialog` filtered for `.exe` on Windows,
+all files on POSIX). The "llama.cpp releases" button routes through
+the `openUrl` IPC → `shell.openExternal` so the link opens in the OS
+default browser (a plain `window.open` pops a blank Electron child
+window in packaged builds).
 
 ### 5. Characterising a model — the heart of Maestria
 
@@ -347,6 +369,21 @@ copy / log / stop actions per row.
 All three Salt blocks live in the single file
 `mockups/inference-tab.puml` (PlantUML emits one SVG per `@startsalt`
 block).
+
+**Welcome screen — Maestria-focused HowToStart** — the welcome panel
+ships a 9-step Get-Started stepper (`HowToStart.tsx`) walking a fresh
+user through the actual Maestria path rather than the upstream
+generic-file-organiser pitch: intro framed around .gguf/.safetensors
++ llama-server + optional MCP, location manager pointed at
+`D:\models` / `~/models`, sidecar layout under `.ts/`, GGUF-header
+auto-tags, llama.cpp runner configuration (replaces the upstream
+"Creating new files" step — irrelevant for pre-existing model
+binaries), Maestria-specific Settings (runners / MCP / hardware
+autotune), and a closing pointer at the Inférence tab and MCP
+exposure. The same panel's footer list is trimmed for the fork: no
+TagSpaces support email, no Mastodon / X follow links, and the
+"Web Clipper" entry keeps the upstream "TagSpaces" name since the
+extension wasn't forked and remains the one users would install.
 
 ## Folder layout
 

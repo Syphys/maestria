@@ -56,6 +56,18 @@ sidecars sous `.ts/`). Le renderer est **optionnel en mode headless**
 (`--headless` / `MAESTRIA_HEADLESS=1`) : l'icône du tray reste la
 seule surface UI et spawn une fenêtre à la demande — voir section 8.
 
+Options par emplacement débloquées par le fork vs upstream : la
+toggle `fullTextIndex` dans l'éditeur d'emplacement n'est plus
+gatée derrière un paywall Pro — le pipeline sous-jacent
+(`@tagspaces/tagspaces-search` pour les requêtes et le mode
+`extractTextContent` de l'indexeur pour le fichier `tsft.jsonl`
+sur disque) est entièrement open-source. Le `BetaLabel` reste pour
+signaler que les extracteurs PDF/Office sont encore en cours de
+polissage. Pour un dossier `.gguf`/`.safetensors` pur, la payload
+fulltext est vide (les fichiers binaires ne fournissent aucun texte
+extractible) ; utile quand des fichiers README / model-card / notes
+cohabitent avec les binaires de modèles.
+
 ![Déploiement](svg/deployment.svg)
 
 ### 2. Qui déclenche quoi — acteurs et cas d'usage
@@ -116,6 +128,18 @@ est désormais le défaut pour la projection free-gen (aucun processus
 résident pendant la caractérisation).
 
 ![Composant embedder](svg/embedder.svg)
+
+**Dialogue Runner setup** (`RunnerSetupDialog`) — gère les binaires
+`llama-server` que Maestria peut spawn. Auto-détecte les entrées sur
+PATH et dans les dossiers de build habituels
+(`~/llama.cpp/build/bin`, `~/ik_llama.cpp/build/bin`, …) ; ajout
+manuel via un sélecteur de fichier natif (icône dossier dans le
+champ binary-path → IPC `selectLlamaServerBinaryDialog` → Electron
+`dialog.showOpenDialog` filtré sur `.exe` sous Windows, tous
+fichiers sous POSIX). Le bouton « llama.cpp releases » passe par
+l'IPC `openUrl` → `shell.openExternal` pour que le lien s'ouvre
+dans le navigateur par défaut de l'OS (un simple `window.open`
+spawn une fenêtre Electron enfant vide dans les builds packagés).
 
 ### 5. Caractériser un modèle — le cœur de Maestria
 
@@ -371,6 +395,24 @@ borné, actions copier / log / stop par ligne.
 Les trois blocs Salt vivent dans le fichier unique
 `mockups/inference-tab.puml` (PlantUML émet un SVG par bloc
 `@startsalt`).
+
+**Écran d'accueil — HowToStart focalisé Maestria** — le panneau
+d'accueil embarque un stepper Get-Started en 9 étapes
+(`HowToStart.tsx`) qui guide un nouvel utilisateur sur le vrai
+parcours Maestria au lieu du pitch générique upstream de gestion
+de fichiers : intro recadrée sur .gguf/.safetensors + llama-server +
+MCP optionnel, gestionnaire d'emplacements pointé sur `D:\models`
+/ `~/models`, layout sidecar sous `.ts/`, auto-tags depuis les
+headers GGUF, configuration des runners llama.cpp (remplace
+l'étape upstream « Création de nouveaux fichiers » — non pertinente
+pour des binaires de modèles pré-existants), Paramètres
+spécifiques Maestria (runners / MCP / autotune matériel) et un
+pointeur final vers l'onglet Inférence et l'exposition MCP. La
+liste footer du même panneau est élaguée pour le fork : pas d'email
+de support TagSpaces, pas de liens Mastodon / X, et l'entrée
+« Web Clipper » garde le nom upstream « TagSpaces » puisque
+l'extension n'a pas été forkée et reste celle que les utilisateurs
+installeraient.
 
 ## Disposition du dossier
 
