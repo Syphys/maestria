@@ -1,51 +1,123 @@
 @startuml mcp-call
 !include ../_includes/style.iuml
 
-title `models.run` over MCP — with `launchedBy` provenance (4.1.10–11)
+title `models.run` over MCP — two-tier auth + optional elevation (2026-05-24)
 
 actor "User in Claude Code" as USR
 participant "Claude Code\nMCP client" as CC
 participant "MCP server\n(127.0.0.1:41541)" as MCP
-participant "Bearer auth\nmiddleware" as AUTH
-participant "tools registry\n+ JSON-Schema" as REG
+participant "Bearer auth\nmiddleware\n(user OR admin)" as AUTH
+participant "tools registry\n(Map<name,def>)" as REG
 participant "models.ts\n(tools/)" as TOOL
-participant "launchModelByPath" as LAUNCH
+participant "launchModelByPath\n(+ Elevated branch)" as LAUNCH
 participant "llama-server\n(chat)" as CHAT
-participant "RunningModelsPanel\n(renderer)" as PANEL
+participant "logger.ts\n(~/.tagspaces/mcp.log)" as LOG
+participant "RunningModelsPanel\n(renderer, polls\nevery 5 s)" as PANEL
 
+== Session opens (Bearer auth — user OR admin) ==
 USR -> CC : "Run model X for me"
-CC -> MCP : POST /messages\nAuthorization: Bearer <token>\ntools/call models.run {path}
-MCP -> AUTH : verify token
-AUTH --> MCP : OK
-MCP -> REG : dispatch + JSON-Schema validate args
-REG -> TOOL : handler({path, params?}, ctx)
-TOOL -> TOOL : callerLabelFor(ctx)\n← session / clientInfo (4.0.22, pending)
-TOOL -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy: 'via MCP — Claude Code',\n  paramsOverride: merge(autotune, sidecar, args.params)\n})
-LAUNCH -> CHAT : spawn (auto-port)
-CHAT --> LAUNCH : {pid, url, params}
-LAUNCH --> TOOL : ActiveEntry
-TOOL --> REG : {pid, url, runnerLabel, params}
-REG --> MCP : JSON-RPC response
-MCP --> CC : {pid, url, …}
-CC --> USR : "Started! Chat at …"
+CC -> MCP : GET /sse\nAuthorization: Bearer <user|admin>
+MCP -> AUTH : verify Bearer\n(both tokens read fresh)
+AUTH --> MCP : OK\n+ flag isAdmin = (admin token?)
+MCP -> MCP : SSEServerTransport\n(register sessionId,\n stash defaultIsAdmin)
+MCP --> CC : SSE stream open
 
-note right of LAUNCH
-  ActiveEntry carries `launchedBy`.
-  RunningModelsPanel groups by it
-  (Direct / via MCP — clientInfo).
+== Normal tool call (non-elevated) ==
+CC -> MCP : POST /messages?sessionId=…\nAuthorization: Bearer <user|admin>\ntools/call models.run {path, params?}
+MCP -> AUTH : verify Bearer
+AUTH --> MCP : OK + isAdmin
+MCP -> MCP : callerLabelFor(req, sessionId)\n  ← User-Agent head\n  ← stash ctx on transport
+MCP -> REG : dispatch CallTool(name, args, ctx)
+REG -> REG : tool.requiresAdmin?\n  short-circuit 403 here
+REG -> TOOL : handler(args, ctx)
+TOOL -> TOOL : coerceRunParamsArg(args.params)\n  ← strict per-field typecheck
+TOOL -> TOOL : args.admin ? require ctx.isAdmin\n  ← throws "forbidden" with user token
+TOOL -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy: ctx.callerLabel,\n  port, paramsOverride: merge(...),\n  elevated: false\n})
+LAUNCH -> CHAT : spawn (auto-port,\n  --timeout 86400 since 2026-05-24)
+CHAT --> LAUNCH : {pid, url, params}
+LAUNCH --> TOOL : ActiveEntry\n(launchedBy carried,\n elevated:false)
+TOOL --> REG : {pid, url, runnerLabel,\n  params, warnings,\n  elevated:false}
+REG --> MCP : content: [{type:'text',\n  text: JSON.stringify(result)}]
+MCP -> LOG : appendCallLog({caller,\n  tool, args, durationMs, ok:true})
+MCP --> CC : JSON-RPC response over SSE
+CC --> USR : "Started! Chat at <url>"
+
+== Elevated tool call (admin token + admin:true) ==
+note over CC, MCP
+  Caller is authenticated with the ADMIN Bearer
+  AND passes `admin: true` in the args. Both
+  gates must pass; failing either returns a
+  tool-level "forbidden" error (NOT HTTP 401 —
+  the session itself is still valid).
+end note
+CC -> MCP : POST .../messages\nBearer <admin>\ntools/call models.run {path, admin:true}
+MCP -> AUTH : verify Bearer (admin)
+AUTH --> MCP : OK, isAdmin=true
+MCP -> REG : dispatch (ctx.isAdmin=true)
+REG -> TOOL : handler(args, ctx)
+TOOL -> TOOL : args.admin && ctx.isAdmin ✓
+TOOL -> LAUNCH : launchModelByPath(..., elevated:true)
+alt Windows
+  LAUNCH -> LAUNCH : powershell Start-Process\n  -Verb RunAs -PassThru\n  → UAC prompt
+else POSIX
+  LAUNCH -> LAUNCH : pkexec <bin> <args>\n  → polkit prompt
+end
+LAUNCH -> CHAT : elevated spawn\n(stdio NOT piped to us)
+CHAT --> LAUNCH : pid only (no child handle)
+LAUNCH --> TOOL : ActiveEntry\n(elevated:true,\n empty ring buffer)
+TOOL --> REG : {pid, url, elevated:true,\n  warnings: ["stdio unavailable"]}
+REG --> MCP : content
+MCP -> LOG : appendCallLog(..., ok:true)
+MCP --> CC : {pid, url, elevated:true}
+
+== Admin-gated tool with user token ==
+note over CC, REG
+  Forbidden-tier example: clear_folder, set_override,
+  runners.save — caller is on the user token. The
+  registry rejects BEFORE the handler runs.
+end note
+CC -> MCP : tools/call meta.clear_folder {…}
+MCP -> AUTH : verify Bearer (user)
+AUTH --> MCP : OK, isAdmin=false
+MCP -> REG : dispatch (ctx.isAdmin=false)
+REG -> REG : tool.requiresAdmin && !ctx.isAdmin\n  → return isError:true
+REG -> LOG : appendCallLog(..., ok:false,\n  error: "forbidden: requires admin")
+REG --> MCP : isError:true,\n content:[{text:"forbidden …"}]
+MCP --> CC : MCP error (NOT HTTP 401)
+
+== Renderer reflects the new spawn ==
+PANEL -> LAUNCH : listRunning() (poll)
+LAUNCH --> PANEL : entries[] (incl. `elevated` flag)
+PANEL -> PANEL : group by launchedBy\n→ headers in sidebar\n  (badge: ⚠ admin on\n   elevated entries)
+
+== Elevated exit detection ==
+note over LAUNCH
+  Elevated processes never fire
+  child.on('exit') — we have no
+  ChildProcess handle. The poller
+  (started at app boot) calls
+  process.kill(pid, 0) every 10 s
+  on every elevated entry and emits
+  a synthetic exit event when the
+  pid is gone. UI converges within
+  ~10 s of the real exit.
 end note
 
-PANEL -> LAUNCH : listRunning() (poll)
-LAUNCH --> PANEL : entries[]
-PANEL -> PANEL : group by launchedBy\n→ headers in sidebar
-
 == Later: stop ==
-CC -> MCP : models.stop {pid}
-MCP -> TOOL : dispatch
+CC -> MCP : tools/call models.stop {pid}
+MCP -> AUTH : verify Bearer
+MCP -> REG : dispatch
+REG -> TOOL : handler
 TOOL -> LAUNCH : stopProcess(pid)
-LAUNCH -> CHAT : SIGTERM (then SIGKILL)
-LAUNCH --> TOOL : {stopped:true}
-TOOL --> MCP : ack
+alt non-elevated
+  LAUNCH -> CHAT : SIGTERM (then SIGKILL via\n  child.kill — held handle)
+else elevated
+  LAUNCH -> LAUNCH : taskkill /F /PID <pid> /T\n  (Windows) or process.kill\n  (POSIX)
+end
+LAUNCH --> TOOL : {ok:true}
+TOOL --> REG : {stopped:true}
+REG --> MCP : content
+MCP -> LOG : appendCallLog(..., ok:true)
 MCP --> CC : {stopped:true}
 
 @enduml
