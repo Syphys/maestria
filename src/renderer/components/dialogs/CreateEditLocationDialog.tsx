@@ -738,7 +738,13 @@ function CreateEditLocationDialog(props: Props) {
                 sx={{ justifyContent: 'space-between', marginLeft: 0 }}
                 control={
                   <Switch
-                    disabled={!Pro}
+                    // Maestria fork — Pro gate removed. The fulltext
+                    // pipeline (@tagspaces/tagspaces-search +
+                    // tsft.jsonl persisted by the indexer) is entirely
+                    // open-source; upstream only gated the toggle as
+                    // a paywall. Keeping the Beta label as a heads-up
+                    // that the surface area (PDF/Office extractors)
+                    // is still being polished.
                     data-tid="changeFullTextIndex"
                     name="fullTextIndex"
                     checked={fullTextIndex}
@@ -787,7 +793,10 @@ function CreateEditLocationDialog(props: Props) {
                         </div>
                       }
                     />
-                    {Pro ? <BetaLabel /> : <ProLabel />}
+                    <BetaLabel />
+                    {/* ProLabel suppressed — Maestria fork unlocks the
+                        fulltext toggle for everyone (see comment on
+                        the Switch above). */}
                   </>
                 }
               />
