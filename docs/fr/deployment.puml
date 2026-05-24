@@ -1,0 +1,69 @@
+@startuml deployment
+!include _includes/style.iuml
+!include _includes/actors.iuml
+
+title Maestria — processus runtime et ports
+
+node "Machine de l'utilisateur" as HOST {
+  node "Maestria.exe / .dmg / .AppImage\n(Electron — main + renderer)" as MAESTRIA {
+    component "Renderer\n(UI React)" as R
+    component "Processus main\n(Node.js)" as M
+  }
+
+  node "Sous-processus optionnels\n(spawnés par Maestria, PIDs enfants tracés)" as SUBS {
+    node "llama-server\n(modèle chat)\nport :auto" as P_CHAT
+    node "llama-server\n--embedding\nport 8081" as P_EMB
+    node "python3 / python.exe\n(sandboxé,\néphémère par item)" as P_PY
+  }
+
+  database "Système de fichiers utilisateur" {
+    folder "D:\\models\\\nou dossier de modèles utilisateur" as MODELS
+    folder "sidecars .ts/\nJSON par modèle" as SC
+    folder "~/.tagspaces/\nmcp.log + paramètres" as APP_DATA
+  }
+}
+
+node "Clients MCP externes\n(processus séparés)" as EXT_CLIENTS {
+  component "Claude Code" as C_CC
+  component "Cursor" as C_CUR
+  component "deer-flow" as C_DF
+  component "bash / curl" as C_SH
+}
+
+USER --> R : clavier / souris
+M --> P_CHAT : spawn / stop
+M --> P_EMB : spawn / stop\n(slice 7e)
+M --> P_PY : spawn / kill\n(slice 2d, opt-in)
+M --> SC : lit/écrit sidecars
+M --> MODELS : liste les modèles
+M --> APP_DATA : log + paramètres
+M --> HF : hf.fetch\n(via internet)
+
+EXT_CLIENTS -- M : HTTP+SSE\n127.0.0.1:41541\nBearer token
+R -- M : IPC Electron
+
+note right of P_CHAT
+  Un processus par modèle chat en cours.
+  L'utilisateur ouvre son UI web native
+  dans le navigateur (pas de chat in-app).
+end note
+
+note right of P_EMB
+  Singleton — `launchedBy: 'embedder'`.
+  Réutilisé entre routing + caractériser.
+end note
+
+note right of P_PY
+  Par-item, tué immédiatement après que
+  le bloc assert retourne.
+  rlimits POSIX / Job Object Win.
+end note
+
+note bottom of EXT_CLIENTS
+  Tous les clients externes se bindent à
+  127.0.0.1 — le serveur MCP n'écoute
+  JAMAIS sur 0.0.0.0. Même les clients
+  cross-machine doivent tunneler.
+end note
+
+@enduml

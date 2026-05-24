@@ -1,0 +1,88 @@
+@startuml states-sandbox-dispatch
+!include ../_includes/style.iuml
+
+title Machine à états — dispatch provider sandbox (slice 2d)
+
+' Un appel getSandbox({enabled}) → exactement UN état final. Puis
+' runPythonTests(code, tests) → exactement UN résultat (pass / fail /
+' SandboxUnavailable). Fail-closed : toute incertitude ⇒ chemin UNMEASURED.
+
+[*] --> Dispatch
+
+state "getSandbox({enabled})" as Dispatch {
+  description : Lit `params.enableSandbox`\net `process.platform`.
+}
+
+Dispatch --> UNSAFE_STATE : enabled:false\n(défaut)\nOU OS inconnu
+Dispatch --> POSIX_STATE : enabled:true\n+ linux/darwin
+Dispatch --> WIN_STATE : enabled:true\n+ win32
+
+state "UnsafeSandbox\n(opt-in off)" as UNSAFE_STATE {
+  description : Throw toujours\nSandboxUnavailable\nsur runPythonTests().
+}
+
+state "PosixSandbox" as POSIX_STATE {
+  state "trouve python3/python\n+ sonde module resource" as POSIX_PROBE
+  state "mkdtemp + écrit script\n(préambule + code + tests)" as POSIX_PREP
+  state "spawn -I -S -B,\npgrp détaché,\nenv vide" as POSIX_RUN
+  state "attend close /\ntimeout / overflow" as POSIX_WAIT
+
+  [*] --> POSIX_PROBE
+  POSIX_PROBE --> POSIX_PREP : sonde OK
+  POSIX_PROBE --> POSIX_UNAVAIL : pas de python\nOU pas de resource
+  POSIX_PREP --> POSIX_RUN : script écrit
+  POSIX_PREP --> POSIX_UNAVAIL : mkdtemp échoue\nOU écriture échoue
+  POSIX_RUN --> POSIX_WAIT
+  POSIX_WAIT --> POSIX_PASS : exit 0
+  POSIX_WAIT --> POSIX_FAIL_EXIT : exit ≠ 0
+  POSIX_WAIT --> POSIX_FAIL_TO : wall clock ≥ timeoutMs\n→ kill -pgid
+  POSIX_WAIT --> POSIX_FAIL_OV : stdout+stderr ≥ max\n→ kill -pgid
+
+  state "{pass:true}" as POSIX_PASS #FFFDF6
+  state "{pass:false,\nreason:exit-nonzero}" as POSIX_FAIL_EXIT
+  state "{pass:false,\nreason:timeout}" as POSIX_FAIL_TO
+  state "{pass:false,\nreason:output-overflow}" as POSIX_FAIL_OV
+  state "throw\nSandboxUnavailable" as POSIX_UNAVAIL #E6DFD2
+}
+
+state "WindowsSandbox" as WIN_STATE {
+  state "trouve py/python/python3" as WIN_PROBE
+  state "mkdtemp + écrit script\nvérifie win-job.ps1 présent" as WIN_PREP
+  state "spawn powershell.exe\n-File win-job.ps1" as WIN_RUN
+  state "PS1 : CreateJobObject\n+ SetInformationJobObject\n+ Start python\n+ AssignProcessToJobObject" as WIN_JOB
+  state "WaitForExit(innerTimeoutMs)" as WIN_WAIT
+
+  [*] --> WIN_PROBE
+  WIN_PROBE --> WIN_PREP : sonde OK
+  WIN_PROBE --> WIN_UNAVAIL : pas de python.exe\nOU PS1 manquant
+  WIN_PREP --> WIN_RUN
+  WIN_PREP --> WIN_UNAVAIL : mkdtemp échoue
+  WIN_RUN --> WIN_JOB
+  WIN_JOB --> WIN_WAIT : assigné\n(petite fenêtre de race)
+  WIN_JOB --> WIN_UNAVAIL : échec CreateJobObject /\nSetInformationJobObject /\nAdd-Type
+  WIN_WAIT --> WIN_PASS : exit 0
+  WIN_WAIT --> WIN_FAIL_EXIT : exit ≠ 0,124
+  WIN_WAIT --> WIN_FAIL_TO : exit 124\n(TerminateJobObject de PS1)
+
+  state "{pass:true}" as WIN_PASS #FFFDF6
+  state "{pass:false,\nreason:exit-nonzero}" as WIN_FAIL_EXIT
+  state "{pass:false,\nreason:timeout}" as WIN_FAIL_TO
+  state "throw\nSandboxUnavailable" as WIN_UNAVAIL #E6DFD2
+}
+
+note bottom of Dispatch
+  Source de vérité unique — seule cette
+  machine à états connaît la plateforme
+  / l'opt-in. Les appelants (characterizeRunner)
+  voient juste une instance SandboxProvider.
+end note
+
+note right of POSIX_UNAVAIL
+  Fail-closed (Dαα §3) : chaque
+  transition SandboxUnavailable
+  dans l'escalier ⇒ UNMEASURED
+  (prior de branche D12), jamais
+  un faux pass.
+end note
+
+@enduml

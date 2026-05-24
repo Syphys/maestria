@@ -1,5 +1,7 @@
 # Maestria — architecture diagrams (PlantUML)
 
+🌐 **Language** : 🇬🇧 english · [🇫🇷 français](../fr/README.md)
+
 Full UML conceptual space of Maestria's AI / routing / sandbox / MCP /
 embedder / characterization stack. PlantUML source kept in git so it
 diffs like code. Strictly DRY: every class / actor / component is
@@ -42,7 +44,9 @@ live" without leaving one page.
 main), the spawned `llama-server` instances on
 `127.0.0.1:8080/8081/8082`, the MCP HTTP+SSE listener on
 `127.0.0.1:41541`, and the on-disk layout (`D:\models`, sidecars under
-`.ts/`).
+`.ts/`). The renderer is **optional in headless mode**
+(`--headless` / `MAESTRIA_HEADLESS=1`): the tray icon stays as the only
+UI surface and lazily spawns a window on demand — see section 8.
 
 ![Deployment](svg/deployment.svg)
 
@@ -276,6 +280,20 @@ renderer (polling every 5 s) groups the resulting `ActiveEntry` by
 
 ![MCP call sequence](svg/mcp-call.svg)
 
+**Headless / tray-only mode** — when Maestria is used purely as an MCP
+backend (no human reading the Inférence tab), the renderer Chromium
+process is dead weight. Launch with `--headless` / `-H` or set
+`MAESTRIA_HEADLESS=1` (or `npm run dev:headless`) and the app boots
+with **only** the Electron main process + WS server + MCP server +
+tray icon — saving ~250 MB of RAM. The tray entry "Show TagSpaces"
+lazily creates a renderer window on demand; closing it returns to the
+tray-only state and releases the renderer RAM. The MCP server
+auto-starts unconditionally in headless mode (the persisted
+`autoStart` setting is ignored since there is no UI to toggle it).
+`window-all-closed` is intercepted on every OS in this mode so the
+app does not quit when the on-demand window is dismissed — the tray
+is the persistent surface, "Quit" lives there.
+
 ### 9. UI surfaces — Salt mockups
 
 When prose doesn't carry the layout, the `mockups/` folder uses
@@ -307,8 +325,14 @@ block).
 
 ## Folder layout
 
+The repo now ships **two language-mirrored trees** —
+[`docs/en/`](.) (this one) and [`docs/fr/`](../fr/) — with the same
+file layout. Every `.puml` / `.iuml` exists in both copies; pick the
+one that matches your reading language. The English copy is the
+canonical source — French is translated from it.
+
 ```
-docs/diagrams/
+docs/en/
 ├── README.md                         ← this file
 ├── svg/                              ← rendered output (gitignored)
 ├── _includes/                        ← DRY partials — definitions live ONLY here
@@ -420,14 +444,17 @@ bundled JBR works fine on Windows.
 1. **VS Code extension** (recommended for one-off edits) — install
    `jebbs.plantuml`, then `Alt+D` on a `.puml`. The extension picks
    up `_includes/*.iuml` automatically.
-2. **CLI — batch the whole tree into `docs/diagrams/svg/`**:
+2. **CLI — batch the whole tree into `docs/en/svg/`**:
 
    PowerShell (Windows):
    ```powershell
    $java = "C:\Program Files\Android\Android Studio\jbr\bin\java.exe"
-   $files = (Get-ChildItem docs\diagrams -Filter *.puml -Recurse).FullName
-   & $java -jar plantuml.jar -tsvg -charset UTF-8 `
-     -o "$PWD\docs\diagrams\svg" $files
+   # English copy
+   $en = (Get-ChildItem docs\en -Filter *.puml -Recurse).FullName
+   & $java -jar plantuml.jar -tsvg -charset UTF-8 -o "$PWD\docs\en\svg" $en
+   # French copy
+   $fr = (Get-ChildItem docs\fr -Filter *.puml -Recurse).FullName
+   & $java -jar plantuml.jar -tsvg -charset UTF-8 -o "$PWD\docs\fr\svg" $fr
    ```
 
    bash (macOS / Linux / Git Bash):
@@ -435,19 +462,20 @@ bundled JBR works fine on Windows.
    curl -fsSL -o plantuml.jar \
      https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
    java -jar plantuml.jar -tsvg -charset UTF-8 \
-     -o "$(pwd)/docs/diagrams/svg" \
-     $(find docs/diagrams -name '*.puml')
+     -o "$(pwd)/docs/en/svg" $(find docs/en -name '*.puml')
+   java -jar plantuml.jar -tsvg -charset UTF-8 \
+     -o "$(pwd)/docs/fr/svg" $(find docs/fr -name '*.puml')
    ```
 
    The single-output-dir form is intentional — `-o "../svg"` (the old
    convention) scattered output across `docs/svg/` and
-   `docs/diagrams/svg/` depending on the source file's depth.
+   `docs/en/svg/` depending on the source file's depth.
 3. **PlantUML web** — paste a SINGLE `.puml` body into
    <https://www.plantuml.com/plantuml/uml/>. ⚠️ Files using `!include`
    relative paths only render locally (the web service can't reach
    our `_includes/`).
 
-`docs/diagrams/svg/` should be gitignored (the SVGs are derived and
+`docs/en/svg/` should be gitignored (the SVGs are derived and
 would just create merge noise — re-render on demand).
 
 ## Conventions

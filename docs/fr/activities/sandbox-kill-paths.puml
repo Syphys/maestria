@@ -1,0 +1,86 @@
+@startuml activity-sandbox-kill-paths
+!include ../_includes/style.iuml
+
+title Activité — chemins de kill sandbox (POSIX)\nce qui fail l'assert vs ce qui invalide la mesure
+
+' Désambigüise les QUATRE raisons pour lesquelles runPythonTests() retourne {pass:false}
+' vs les SIX raisons pour lesquelles ça throw SandboxUnavailable. Le premier est un
+' vrai signal de caractérisation (le code du modèle n'a pas marché) ; le second
+' est "on ne peut pas faire confiance à cette mesure" ⇒ UNMEASURED.
+
+start
+:characterizeRunner construit\nle seam runSandbox;
+:staircase.evaluateItem appelle\nrunSandbox({codeLang, code, tests});
+
+if (Provider) then (UnsafeSandbox)
+  :throw SandboxUnavailable\n("opt-in off");
+  -> unavailable;
+elseif (PosixSandbox / WindowsSandbox)
+  if (trouve python OK ?) then (non)
+    :throw SandboxUnavailable\n("pas de python");
+    -> unavailable;
+  endif
+  if (mkdtemp + writeFile OK ?) then (non)
+    :throw SandboxUnavailable\n("mkdtemp" / "write");
+    -> unavailable;
+  endif
+  if (POSIX : setrlimit réussit dans le child ?) then (non)
+    note right : Les échecs rlimit dans\nPython sont silencieusement passés ;\nle vrai échec surface via\nRLIMIT_FSIZE = 0\nou le timer wall-clock.
+  endif
+  :spawn child (Python -I -S -B,\npgrp détaché, env vide);
+  if (événement erreur spawn ?) then (oui)
+    :throw SandboxUnavailable\n("erreur spawn");
+    -> unavailable;
+  endif
+  fork
+    :Attend `close`;
+  fork again
+    :Timer wall-clock\n(timeoutMs défaut 10 s);
+    if (Écoulé ?) then (oui)
+      :kill(-pgid, SIGKILL);
+      :reason = 'timeout';
+    endif
+  fork again
+    :Watcher d'output\n(maxOutputBytes défaut 1 MB);
+    if (Seuil atteint ?) then (oui)
+      :kill(-pgid, SIGKILL);
+      :reason = 'output-overflow';
+    endif
+  end fork
+  if (Code d'exit 0 ?) then (oui)
+    :retourne {pass:true};
+  elseif (Tué par nous) then (oui)
+    :retourne {pass:false, reason};
+  else (autre non-zéro)
+    :retourne {pass:false,\nreason:'exit-nonzero'};
+  endif
+  -> measured;
+endif
+
+label measured
+:Item enregistré avec\n{status: pass/fail};
+stop
+
+label unavailable
+:L'appelant (staircase) catch\nSandboxUnavailable;
+:Item enregistré comme\n{status:'unmeasured',\nreason:'sandbox-pending'};
+:Feuille laissée au prior de branche\n(D12, confiance plus faible);
+stop
+
+floating note left
+  **measured** —
+  VRAI signal de mesure :
+  entre dans scores_per_leaf via
+  Beta-Laplace (passes_per_leaf
+  incrémenté si pass).
+end note
+
+floating note left
+  **unavailable** —
+  PAS une mesure —
+  passes_per_leaf n'est PAS
+  touché (seules les vraies
+  montées comptent vers la saturation).
+end note
+
+@enduml

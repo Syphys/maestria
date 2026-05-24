@@ -1,0 +1,91 @@
+@startuml embedder-startup
+!include ../_includes/style.iuml
+
+title Embedder — deux routes (réécriture single-pass 2026-05-23)
+
+== Route A — `ensureEmbedderReady()` (serveur, utilisé par routeByVectors) ==
+
+participant "routeByVectors\n(query interactive)" as ROUTE
+participant "embedderLifecycle" as LC
+participant "promesse de\nlancement in-flight" as INFLIGHT
+participant "listRunning()" as LIST
+participant "launchModelByPath" as LAUNCH
+participant "llama-server\n--embedding (8081)" as EMB_SRV
+
+ROUTE -> LC : ensureEmbedderReady(filePath, {model?})
+
+alt un autre appelant lance déjà
+  LC -> INFLIGHT : await la même promesse
+  INFLIGHT --> LC : résultat (réutilisé)
+  LC --> ROUTE : {baseUrl, pid, source:'reused'}
+else premier/seul appelant
+  LC -> LIST : cherche `launchedBy: 'embedder'`\n+ match filePath + vivant
+  alt déjà en cours
+    LIST --> LC : {pid, url}
+    LC --> ROUTE : {baseUrl: url, source:'reused'}
+  else doit spawn
+    LC -> LC : pose promesse INFLIGHT
+    LC -> LAUNCH : launchModelByPath(\n  launchedBy:'embedder',\n  port: 8081,\n  customArgs:'--embedding'\n)
+    LAUNCH -> EMB_SRV : spawn (port 8081)
+    LAUNCH --> LC : {pid, url, ok}
+    alt lancement échoué
+      LC --> ROUTE : null (fallback silencieux vers R5)
+    else lancé
+      loop jusqu'à /v1/models OK ou timeout 60 s
+        LC -> EMB_SRV : fetch /v1/models (budget 4 s)
+        alt réponse OK
+          EMB_SRV --> LC : 200
+          LC --> ROUTE : {baseUrl, pid, source:'launched'}
+        else processus exited
+          LC -> LAUNCH : stopProcess(pid)
+          LC --> ROUTE : null
+        else encore en chauffe
+          LC -> LC : sleep 1 s
+        end
+      end
+    end
+    LC -> LC : clear INFLIGHT
+  end
+end
+
+note right of LC
+  Concurrency-safe : les queries parallèles
+  partagent UN lancement — jamais spawn deux fois.
+  Le serveur reste résident pour queries basse-latence.
+  Échec ⇒ null ⇒ fallback silencieux. NE throw JAMAIS.
+end note
+
+== Route B — `embedViaLlamaCli()` (one-shot, utilisé par characterizeAll bulk) ==
+
+participant "characterizeAll\n(boucle par modèle)" as CHAR_ALL
+participant "embedderCli.ts" as EMB_CLI
+participant "fichier tmp\n(maestria-embed-*.txt)" as TMP
+participant "llama-embedding.exe\n(spawn → exit)" as EMB_CLI_PROC
+
+CHAR_ALL -> EMB_CLI : resolveEmbedderCliFn()\n→ EmbedFn (binPath + modelPath en cache)
+note right of EMB_CLI
+  Résolu une fois au début du run bulk :
+  valide le GGUF configuré + le binaire
+  llama-embedding dérivé du runner
+  llama-server. Throw sur config manquante
+  (l'appelant skip silencieusement les projections).
+end note
+
+loop par modèle avec freegen_text à projeter
+  CHAR_ALL -> EMB_CLI : embed([freegen_text, ...17 ancres])
+  EMB_CLI -> TMP : écrit les textes joints par <#sep#>
+  EMB_CLI -> EMB_CLI_PROC : spawn :\n  -m model.gguf\n  -f tmp.txt\n  --embd-separator <#sep#>\n  --embd-output-format json\n  --embd-normalize 2\n  --log-disable
+  EMB_CLI_PROC --> EMB_CLI : JSON {data:[{embedding}]}\n(processus exit, RAM libérée)
+  EMB_CLI -> TMP : unlink (best-effort, finally)
+  EMB_CLI --> CHAR_ALL : Float32Array[]\n(trié par index)
+end
+
+note right of EMB_CLI_PROC
+  Zéro mémoire résidente entre appels.
+  Coût : ~3 s de démarrage × N modèles, mais
+  le modèle de test ne coexiste jamais avec
+  l'embedder en RAM — résout le problème
+  "concurrence VRAM" du bulk.
+end note
+
+@enduml

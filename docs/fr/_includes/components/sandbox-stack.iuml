@@ -1,0 +1,12 @@
+' Partial — vue FICHIER de la sandbox (composants). La vue CLASSE des
+' mêmes fichiers vit sous _includes/classes/sandbox-*.iuml.
+' Deux perspectives complémentaires sur le même arbre source.
+
+package "src/main/modelhub/routing/sandbox/" <<Folder>> as PKG_SBX {
+  component "index.ts\ngetSandbox({enabled})" as CMP_SBX_IDX
+  component "types.ts\nSandboxProvider ABC,\nResult, Options,\nUnavailable" as CMP_SBX_TYPES
+  component "unsafe.ts\nUnsafeSandbox" as CMP_SBX_UNSAFE
+  component "posix.ts\nPosixSandbox" as CMP_SBX_POSIX
+  component "windows.ts\nWindowsSandbox" as CMP_SBX_WIN
+  component "win-job.ps1\nlauncher PowerShell\nP/Invoke" as CMP_SBX_PS1
+}

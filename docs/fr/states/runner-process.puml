@@ -1,0 +1,68 @@
+@startuml states-runner-process
+!include ../_includes/style.iuml
+
+title Machine à états — processus runner ActiveEntry / llama-server
+
+' Tracke une ActiveEntry à travers son cycle de vie dans runners/launch.ts.
+' Même machine à états pour les modèles chat ET pour l'embedder managé —
+' la seule différence est `launchedBy` et `customArgs`.
+
+[*] --> Requested
+
+state "Requested" as Requested {
+  description : launchModelByPath(path, opts)\nappelé par :\n• bouton UI Run (launchedBy:null)\n• MCP models.run (launchedBy:'via MCP — …')\n• embedderLifecycle (launchedBy:'embedder')
+}
+
+Requested --> Validating : args + path OK
+Requested --> RejectedEarly : args invalides /\nfichier manquant /\nemplacement read-only
+
+state "Validating" as Validating {
+  description : resolveCanonicalShardPath()\n+ pickRunnerFor(filePath, sidecar)\n+ sélection de port (scan free-port)\n+ autotune + merge override sidecar
+}
+
+Validating --> Spawning : runner résolu\n+ commande construite
+Validating --> RejectedEarly : pas de runner /\nport indisponible /\nerreur de build
+
+state "Spawning" as Spawning {
+  description : child_process.spawn(\n  runner.path,\n  buildCommand(params)\n)\n+ append à ActiveEntry[]\n+ démarre ring buffer de log\n\nllama-server reçoit toujours\n--timeout 86400 (24 h,\n2026-05-24) pour que la PR #22907\nn'annule jamais un long chat.\nOverride customArgs autorisé.
+}
+
+Spawning --> Booting : pid reçu
+Spawning --> CrashedEarly : ENOENT / EACCES /\nerreur spawn
+
+state "Booting" as Booting {
+  description : Processus vivant. Stdout/stderr\nstreamé dans le ring buffer\n(peut-être surfacé live à l'UI).\nlistRunning() le montre mais l'UI\nweb n'est pas encore joignable.
+}
+
+Booting --> Live : (impl. par polling)\nport répond
+Booting --> CrashedEarly : exited en quelques\nsecondes\n→ auto-ouverture dialog log\n(4.0.15, futur)
+
+state "Live" as Live #FFFDF6 {
+  description : llama-server répond.\nURL navigateur ouverte automatiquement\npour le chat. Les appelants routing/embedder\ncontinuent avec des appels API.
+}
+
+Live --> Live : models.list_running\n(lecture snapshot)
+Live --> Stopping : stopProcess(pid)\nOU quit app\nOU appel MCP models.stop
+
+state "Stopping" as Stopping {
+  description : SIGTERM puis SIGKILL\naprès grâce. ActiveEntry reste\ndans la liste avec exited=true\njusqu'à clear par l'utilisateur / redémarrage.
+}
+
+Stopping --> Exited
+
+state "Exited" as Exited {
+  description : Processus parti. Ring buffer\nencore visible pour debug.\nRetirable de RunningModelsPanel\nvia l'action "Clear exited".
+}
+
+Exited --> [*] : cleared
+RejectedEarly --> [*]
+CrashedEarly --> Exited
+
+note bottom of Live
+  Trois appelants distincts atteignent ce
+  même état avec la même forme :
+  Direct (Utilisateur), via MCP — Claude
+  Code (provenance), embedder.
+end note
+
+@enduml

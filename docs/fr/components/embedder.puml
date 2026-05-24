@@ -1,0 +1,64 @@
+@startuml embedder
+!include ../_includes/style.iuml
+!include ../_includes/actors.iuml
+
+title Embedder — double mode : serveur (interactif) + CLI (bulk)
+
+package "src/main/modelhub/" {
+  component "embedderLifecycle.ts\n• ensureEmbedderReady(filePath)\n• promesse de lancement\n  in-flight (concurrency-safe)\n• stopManagedEmbedders()" as EMBED_LC
+  component "embedderCli.ts\n(2026-05-23)\n• embedViaLlamaCli(opts)\n  spawn → JSON → exit\n• resolveEmbedderCliFn()\n  dérive llama-embedding\n  depuis le runner llama-server\n• deriveLlamaEmbeddingPath" as EMBED_CLI
+  component "launchModelByPath\n(via launch.ts)\nlaunchedBy: 'embedder'\ncustomArgs: '--embedding'" as LAUNCH
+  component "EmbedClient\n(routing/embed.ts)\nHTTP POST /v1/embeddings" as EMBED_CLIENT
+  component "routingConfig.ts\n.routingEmbedderPath /\n.routingEmbedderBaseUrl" as RC
+}
+
+component "characterizeAll\n(bulk, boucle par modèle)" as CHAR_ALL
+component "routeByVectors\n(query interactive)" as ROUTE
+
+CHAR_ALL --> EMBED_CLI : resolveEmbedderCliFn() une fois\npuis embed() par modèle
+ROUTE --> RC : effectiveRoutingParams.embedder
+
+RC --> EMBED_LC : kind:'managed'\n+ filePath\n(server-backed)
+RC ..> EMBED_CLIENT : kind:'external'\n+ baseUrl (direct)
+
+EMBED_LC --> LAUNCH : spawn si pas en cours
+LAUNCH --> LLAMA_EMBED : llama-server\n--embedding (port 8081)
+LLAMA_EMBED --> EMBED_LC : /v1/models OK\n(sonde readiness, timeout 60 s)
+EMBED_LC --> EMBED_CLIENT : baseUrl
+EMBED_CLIENT --> LLAMA_EMBED : POST /v1/embeddings
+
+component "llama-embedding.exe\n(CLI one-shot)" as LLAMA_EMBED_CLI
+EMBED_CLI ..> LLAMA_EMBED_CLI : spawn one-shot par appel
+
+note right of LLAMA_EMBED_CLI
+  Sibling de llama-server dans le
+  même dossier de build llama.cpp.
+  Spawné par appel, imprime JSON
+  sur stdout, exit.
+end note
+
+note bottom of EMBED_LC
+  Mode SERVEUR (routing interactif) :
+  processus résident, queries basse-latence,
+  réutilisé entre appels. Idempotent +
+  crash-safe (boot crash ⇒ null ⇒
+  fallback R5).
+end note
+
+note bottom of EMBED_CLI
+  Mode CLI (caractérisation bulk) :
+  spawn → embed → exit par modèle.
+  Zéro RAM résidente entre modèles —
+  le modèle de test est le seul gros
+  GGUF chargé à un moment donné.
+  Les deux modes utilisent le MÊME GGUF
+  d'embedder (routingEmbedderPath).
+end note
+
+note right of LLAMA_EMBED
+  Visible dans RunningModelsPanel,
+  groupé par `launchedBy: 'embedder'`,
+  à côté des modèles chat.
+end note
+
+@enduml

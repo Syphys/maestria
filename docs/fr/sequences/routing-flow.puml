@@ -1,0 +1,74 @@
+@startuml routing-flow
+!include ../_includes/style.iuml
+
+title `models.route` — chemin vecteur avec fallback R5
+
+actor "Client MCP" as CLI
+participant "Serveur MCP\n+ registry" as MCP
+participant "route.ts\n(tool MCP)" as TOOL
+participant "routingConfig" as CFG
+participant "embedderLifecycle" as ELC
+participant "llama-server\n--embedding" as EMB
+participant "embedDetect\n+ reliability" as REL
+participant "routeByVectors" as VEC
+participant "classifyQuery\n(R5)" as R5
+participant "routeDecision\n(rank + score)" as RANK
+participant "signatureStore\n(.ts/ sur disque)" as SIG
+
+CLI -> MCP : models.route\n{query, directory, limit, weights}
+MCP -> TOOL : dispatch + validation JSON-Schema
+TOOL -> CFG : effectiveRoutingParams(cfg)
+CFG --> TOOL : {thetaQ, embedder, …}
+TOOL -> SIG : liste candidats (signatures complètes seulement — D9)
+SIG --> TOOL : RouteCandidate[]
+TOOL -> TOOL : probeFreeMemory()
+
+alt embedder configuré
+  TOOL -> ELC : ensureEmbedderReady(filePath)\nOU baseUrl external
+  ELC -> EMB : spawn si managed
+  ELC --> TOOL : baseUrl
+  TOOL -> REL : mesure fiabilité\n(par langue)
+  REL --> TOOL : cosinus {fr, zh, en}
+  alt toutes langues ≥ seuil
+    TOOL -> VEC : routeByVectors({\n  embedder, candidates,\n  query, params})
+    VEC -> EMB : embed(query)
+    EMB --> VEC : vecteur query
+    VEC -> VEC : projette sur 32 ancres\n+ blend α/β avec topic_coverage
+    VEC --> TOOL : routedBy:'vector',\nlevel, ranked
+  else une langue sous le seuil
+    TOOL -> R5 : classifyQuery(query)\n(fallback)
+    R5 --> TOOL : axisWeights
+    TOOL -> RANK : score par poids R5\n+ fit + hot
+    RANK --> TOOL : routedBy:'r5',\nranked
+  end
+else pas d'embedder
+  TOOL -> R5 : classifyQuery(query)\n(fallback par défaut)
+  R5 --> TOOL : axisWeights
+  TOOL -> RANK : score
+  RANK --> TOOL : routedBy:'r5'
+end
+
+TOOL --> MCP : {best, ranked, resources,\nrouting, gateReason}
+MCP --> CLI : réponse JSON
+
+note over CLI, TOOL
+  Conseil seul : ce tool NE lance RIEN.
+  L'appelant fait typiquement suivre par
+  `models.run({path: best.id})`.
+end note
+
+note right of ELC
+  Mode SERVEUR (llama-server résident
+  --embedding) — choisi pour le routing
+  INTERACTIF parce que les queries sont
+  répétées et la basse latence compte.
+
+  La caractérisation bulk utilise plutôt
+  le chemin CLI (embedderCli.ts → spawn
+  llama-embedding.exe → exit) pour que
+  le modèle de test ne coexiste jamais
+  avec l'embedder en RAM. Voir sequences/
+  embedder-startup.puml pour les deux routes.
+end note
+
+@enduml

@@ -1,0 +1,110 @@
+@startuml packages-modelhub
+!include ../_includes/style.iuml
+
+title Diagramme de package — disposition source du sous-système IA
+
+' Les packages UML mappent 1:1 vers les répertoires du filesystem. Les
+' dépendances suivent les vrais imports TS (flèches plus légères = optionnel / fail-soft).
+
+package "src/shared" {
+  package "RoutingTypes" as PKG_SHARED {
+    [Signature]
+    [BehavioralSignature]
+    [CompetenceBranch]
+    [RoutingConfig]
+    [DiagnosticAxis]
+    [COMPETENCE_TREE]
+  }
+}
+note right of PKG_SHARED
+  Contrats figés — chaque type routing /
+  caractérisation vit ici.
+end note
+
+package "src/main/modelhub" as PKG_MH {
+
+  package "routing" as PKG_R {
+    [scorers] as PKG_R_SCORERS
+    [sandbox] as PKG_R_SBX
+    [questions] as PKG_R_QUESTIONS
+    component "characterizeAll\n(bulk single-pass,\n2026-05-23)\n+ archiveServerLog\nsession par modèle\n(2026-05-24)" as M_CH_ALL
+    component "characterizeRunner\n+ filtre non-chat 3 niveaux\n(arch / nom /\nadaptatif, 2026-05-24)" as M_CH_RUN
+    component "characterizeTree" as M_CH_TREE
+    component "staircase" as M_STAIR
+    component "freegen\n(split 2 phases,\n2026-05-22)" as M_FG
+    component "embedderCli\n(2026-05-23)" as M_EMB_CLI
+    component "routeDecision\n+ routeByVectors\n+ classifyQuery" as M_ROUTE
+    component "embed / embedDetect /\nembedProject" as M_EMBED_CORE
+    component "chat\n(ChatClient,\npas de timeout\nwall-clock +\ncapture\nreasoning_content,\n2026-05-24)" as M_CHAT
+    component "signatureStore" as M_SIG
+    component "freeMemory" as M_MEM
+    component "routingCommon" as M_COMMON
+  }
+
+  package "mcp" as PKG_MCP {
+    component "tools/" as PKG_MCP_TOOLS
+    component "server" as M_MCP_SRV
+    component "registry" as M_MCP_REG
+  }
+
+  component "runners/" as PKG_RUNNERS
+  component "embedderLifecycle\n(mode serveur,\nqueries routing)" as M_EMB_LC
+  component "modelLogStore\n(2026-05-23,\narchive par session\n2026-05-24)\n.ts/<fichier>.log\n.ts/<fichier>.<ISO>.log\n.ts/<fichier>.error" as M_LOG_STORE
+  component "routingConfig" as M_RC
+  component "launchModel /\nlistModelFiles /\nshardFs" as M_FILES
+}
+
+package "src/renderer/" as PKG_RND {
+  package "modelhub" as PKG_RND_MH {
+    component "radar/" as PKG_RND_RADAR
+  }
+  package "components/dialogs/components" as PKG_RND_SET {
+    component "SettingsAI" as M_UI_SET
+  }
+}
+
+' Flux câblé (dépendances d'imports TS, dashed = optionnel/fail-soft)
+M_CH_ALL --> M_CH_RUN : runCharacterization\nrunFreeGenGenerate\nrunFreeGenProject
+M_CH_ALL --> M_EMB_CLI : resolveEmbedderCliFn\n(par run bulk)
+M_CH_ALL ..> M_LOG_STORE : appendErrorLog\narchiveServerLog\n(rotation par modèle)
+M_CH_RUN ..> M_LOG_STORE : archiveServerLog\n(CARACTÉRISER unique)
+M_CH_RUN --> M_CH_TREE
+M_CH_RUN --> M_RC
+M_CH_RUN ..> PKG_R_SBX : seam runSandbox
+M_CH_TREE --> M_STAIR
+M_CH_TREE ..> M_FG : generateFreeGenText\n(phase 1, pas d'embedder)
+M_STAIR --> PKG_R_SCORERS
+M_STAIR ..> PKG_R_SBX : runCheck → sandbox
+M_FG --> M_EMBED_CORE
+M_EMB_CLI --> PKG_RUNNERS : dérive llama-embedding\ndepuis le runner llama-server
+M_ROUTE --> M_EMBED_CORE
+M_ROUTE --> M_MEM
+M_ROUTE --> M_COMMON
+M_ROUTE --> M_EMB_LC : ensureEmbedderReady\n(queries interactives)
+M_EMB_LC --> M_FILES : launchModelByPath
+PKG_RUNNERS ..> M_LOG_STORE : appendServerLog\n(hook logChunk dans launch.ts)
+M_MCP_REG --> PKG_MCP_TOOLS
+PKG_MCP_TOOLS --> M_ROUTE : models.route
+PKG_MCP_TOOLS --> M_FILES : list / spawn
+
+PKG_RND_RADAR ..> PKG_SHARED : type-only
+PKG_RND_MH ..> PKG_SHARED : type-only
+M_UI_SET ..> M_RC : (type côté renderer)
+PKG_R ..> PKG_SHARED
+PKG_MCP ..> PKG_SHARED
+
+note right of PKG_R_QUESTIONS
+  Embarqué via electron-builder
+  extraResources, asar-unpacked
+  dans les builds packagés (pour
+  que l'emplacement Tests Maestria
+  puisse les ouvrir sur disque).
+end note
+
+note bottom of PKG_SHARED
+  Le renderer ET le processus main importent
+  ce module — garde type-only côté renderer
+  pour éviter de bundler du code Node.
+end note
+
+@enduml

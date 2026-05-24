@@ -1,0 +1,36 @@
+@startuml competence-tree
+!include ../_includes/style.iuml
+
+' Composeur DRY — la taxonomie d'arbre (type CompetenceBranch +
+' constante COMPETENCE_TREE + le visuel 9 branches) vit dans
+' _includes/classes/competence-tree.iuml pour que tout autre diagramme
+' qui veut la référencer puisse `!include` le partial.
+
+!include ../_includes/classes/competence-tree.iuml
+
+title COMPETENCE_TREE — taxonomie figée\nsource : `src/shared/RoutingTypes.ts` (include DRY)
+
+note right of B_SAFE
+  Safety reste **binaire** 0/1
+  (item unique, pas de lissage
+  Beta-Laplace — user 2026-05-19).
+end note
+
+note right of B_INFO
+  Slice 7a — domaine de connaissance
+  au-delà de la programmation.
+end note
+
+note right of B_TOOLS
+  Slice 7b — function-call /
+  abstention / résumé avec
+  source citée, niveau arbre.
+end note
+
+note bottom of B_LANG
+  Collapse affichage seul dans le radar
+  R5 (slice 6c) — le routing utilise
+  les feuilles par-langue intactes.
+end note
+
+@enduml

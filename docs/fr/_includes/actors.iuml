@@ -1,0 +1,11 @@
+' Définitions partagées d'acteurs / systèmes externes, référencées par
+' plusieurs diagrammes. Les garder à un seul endroit rend les renames
+' atomiques sur tout le set.
+
+actor "Utilisateur" as USER
+actor "Client MCP\n(Claude Code,\nCursor,\ndeer-flow, …)" as MCP_CLIENT
+node "llama-server\n(modèle chat)" as LLAMA_CHAT
+node "llama-server\n--embedding\n(embedder de routing)" as LLAMA_EMBED
+node "python3\n(sandboxé, slice 2d)" as PYTHON_SANDBOX
+database "sidecars .ts/\n(signatures,\nautoTags)" as SIDECARS
+database "Hugging Face\n(métadonnées seules)" as HF

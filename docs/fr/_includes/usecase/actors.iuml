@@ -1,0 +1,8 @@
+' Partial — acteurs style use-case. Distinct de _includes/actors.iuml
+' (qui utilise les formes node/database génériques pour les diagrammes
+' de composants).
+
+actor "Utilisateur humain\n(onglet Inférence)" as A_USER
+actor "Client MCP\n(Claude Code,\nCursor, deer-flow,\nscripts bash)" as A_MCP_CLI
+actor "Embedder externe\n(setup avancé)" as A_EXT_EMB
+actor "Hugging Face\n(API métadonnées)" as A_HF

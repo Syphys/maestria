@@ -1,0 +1,121 @@
+@startuml characterization-flow
+!include ../_includes/style.iuml
+
+title Caractériser UN modèle — flux complet (2026-05-23 single-pass)
+
+actor Utilisateur
+participant "UI\n(onglet Inférence)" as UI
+participant "characterizeRunner" as RUN
+participant "runner registry\n+ launch.ts" as LAUNCH
+participant "modelLogStore\n(.ts/<fichier>.log)" as LOG
+participant "llama-server\n(chat)" as CHAT
+participant "characterize.ts\n(passe R5)" as R5
+participant "characterizeTree.ts" as TREE
+participant "staircase.ts\n+ scorers" as STAIR
+participant "sandbox\n(slice 2d)" as SBX
+participant "freegen.ts\n(2 phases, 2026-05-22)" as FG
+participant "embedderCli.ts\n(llama-embedding,\none-shot)" as EMB_CLI
+participant "signatureStore\n(.ts/<fichier>.json)" as SIG
+
+Utilisateur -> UI : "Caractériser" / "Re-caractériser"
+UI -> RUN : start({filePath, freegen, skipProjection})
+
+== Filtre non-chat pré-lancement (2026-05-24) ==
+RUN -> RUN : readModelHeader(filePath) UNE FOIS
+alt arch ∈ NON_GENERATIVE_ARCH\nOU nom matche /tokenizer|codec|vocoder|vq|cfm|tts/\nOU pooling_type ≥ 1
+  RUN -> SIG : markUnsupported(raison)
+  RUN --> UI : status:'error' (state='failed', quarantined)
+  note right of RUN
+    Cosyvoice3 = nom "Llamacpp_Tokenizer"
+    est catché ICI → pas de boot llama-server,
+    pas de suite 28-prompts gaspillée.
+  end note
+else chat génératif OK
+  RUN -> LOG : archiveServerLog(filePath)\n(rotate prev .log → .ts/<fichier>.<ISO>.log)
+  RUN -> LAUNCH : assure chat vivant (spawn si besoin)\navec --timeout 86400
+  LAUNCH -> CHAT : llama-server (8080)
+  LAUNCH -> LOG : append stdout/stderr\n(append-only, rotation 4 MiB)
+end
+RUN -> R5 : runR5(ask=chatClient,\n  pas de timeout wall-clock)
+loop par prompt (v1-30)
+  R5 -> CHAT : prompt
+  CHAT --> R5 : content (+ reasoning_content\n  wrappé comme <think>…</think>\n  si le modèle l'émet)
+  R5 -> UI : événement prompt_done\navec DiagnosticRunEntry COMPLET\n(onglet « Interactions » live,\n2026-05-24)
+  alt réponse = uniquement tokens `<|stop_…|>`\nOU 5 vides consécutifs
+    R5 --> RUN : throw 'non-chat model'
+    note right of R5
+      Quarantaine adaptative Tier 3 —
+      attrape les GGUFs TTS / audio-codec
+      qui ont échappé au filtre
+      pré-lancement arch+nom.
+    end note
+  end
+end
+R5 --> RUN : behavioral (vecteur R5)
+
+== Arbre (slice 4c) ==
+RUN -> TREE : characterizeTree({\n  ask, embed:undefined, seams.runSandbox\n})
+note right of TREE
+  Embedder NON touché ici —
+  le modèle de test est le seul
+  processus résident. Projection différée.
+end note
+loop par branche OUVERTE (R5 ≥ θ_open)
+  TREE -> STAIR : characterizeBranch(branch)
+  loop par feuille, monte niveau 1→N jusqu'au 1er fail
+    STAIR -> CHAT : item.prompt
+    CHAT --> STAIR : réponse
+    alt check est un scorer enregistré
+      STAIR -> STAIR : runCheck(response)
+    else check est requête sandbox (tests code)
+      STAIR -> SBX : runSandbox({code, tests})
+      alt opt-in OFF ou boundary échoue
+        SBX --> STAIR : throw SandboxUnavailable
+        STAIR -> STAIR : marque UNMEASURED\n(prior de branche D12)
+      else
+        SBX -> SBX : spawn python (rlimits POSIX / Job Win)
+        SBX --> STAIR : {pass:true|false}
+      end
+    end
+  end
+end
+TREE --> RUN : scores_per_leaf,\nbranch_scores,\npasses_per_leaf
+
+== Free-gen phase 1 — TEXTE seul (pas d'embedder) ==
+alt freegen=true
+  TREE -> FG : generateFreeGenText(ask)
+  FG -> CHAT : FREEGEN_PROMPT
+  CHAT --> FG : ~600-800 mots
+  FG --> TREE : { text, words }
+end
+
+TREE --> RUN : signature avec\nfreegen_text (pas encore de projection)
+RUN -> SIG : writeSignature(skipWrite?)
+RUN -> LAUNCH : stop chat server
+RUN --> UI : status:'tests done'
+
+== Free-gen phase 2 — PROJECTION (par modèle, différée) ==
+note over RUN
+  Boucle par-modèle de characterizeAll :
+  session de test terminée ⇒ chat server stoppé ⇒
+  embedder CLI est la seule chose en RAM.
+end note
+alt skipProjection=false ET embedder disponible
+  RUN -> EMB_CLI : embed([freegen_text, ...17 ancres])
+  EMB_CLI -> EMB_CLI : spawn llama-embedding.exe\n--embd-output-format json\n--log-disable
+  EMB_CLI --> RUN : Float32Array[]\n(processus exit, RAM libérée)
+  RUN -> FG : projectFreeGenText(text, embed, anchors)
+  FG --> RUN : topic_coverage_*\n(par feuille + par branche)
+  RUN -> SIG : patch signature\n(topic_coverage_per_leaf,\n topic_coverage_per_branch)
+else
+  note right of RUN
+    skipProjection=true OU pas d'embedder
+    configuré ⇒ texte sauvé, projection
+    différée (peut tourner plus tard à la demande).
+  end note
+end
+
+RUN --> UI : status:'done' + signature
+UI -> UI : rafraîchit radar (R5 + arbre + projection)
+
+@enduml

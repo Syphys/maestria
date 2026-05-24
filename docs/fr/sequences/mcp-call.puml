@@ -1,0 +1,123 @@
+@startuml mcp-call
+!include ../_includes/style.iuml
+
+title `models.run` via MCP — auth deux-niveaux + élévation optionnelle (2026-05-24)
+
+actor "Utilisateur dans Claude Code" as USR
+participant "Client MCP\nClaude Code" as CC
+participant "Serveur MCP\n(127.0.0.1:41541)" as MCP
+participant "Middleware Bearer\n(user OU admin)" as AUTH
+participant "registry des tools\n(Map<name,def>)" as REG
+participant "models.ts\n(tools/)" as TOOL
+participant "launchModelByPath\n(+ branche Elevated)" as LAUNCH
+participant "llama-server\n(chat)" as CHAT
+participant "logger.ts\n(~/.tagspaces/mcp.log)" as LOG
+participant "RunningModelsPanel\n(renderer, poll\nchaque 5 s)" as PANEL
+
+== La session s'ouvre (auth Bearer — user OU admin) ==
+USR -> CC : "Lance le modèle X pour moi"
+CC -> MCP : GET /sse\nAuthorization: Bearer <user|admin>
+MCP -> AUTH : vérifie Bearer\n(les deux tokens lus à chaque fois)
+AUTH --> MCP : OK\n+ flag isAdmin = (token admin ?)
+MCP -> MCP : SSEServerTransport\n(enregistre sessionId,\n stash defaultIsAdmin)
+MCP --> CC : stream SSE ouvert
+
+== Appel tool normal (non-élevé) ==
+CC -> MCP : POST /messages?sessionId=…\nAuthorization: Bearer <user|admin>\ntools/call models.run {path, params?}
+MCP -> AUTH : vérifie Bearer
+AUTH --> MCP : OK + isAdmin
+MCP -> MCP : callerLabelFor(req, sessionId)\n  ← tête User-Agent\n  ← stash ctx sur transport
+MCP -> REG : dispatch CallTool(name, args, ctx)
+REG -> REG : tool.requiresAdmin ?\n  court-circuit 403 ici
+REG -> TOOL : handler(args, ctx)
+TOOL -> TOOL : coerceRunParamsArg(args.params)\n  ← typecheck strict par champ
+TOOL -> TOOL : args.admin ? exige ctx.isAdmin\n  ← throw "forbidden" avec token user
+TOOL -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy: ctx.callerLabel,\n  port, paramsOverride: merge(...),\n  elevated: false\n})
+LAUNCH -> CHAT : spawn (auto-port,\n  --timeout 86400 depuis 2026-05-24)
+CHAT --> LAUNCH : {pid, url, params}
+LAUNCH --> TOOL : ActiveEntry\n(launchedBy porté,\n elevated:false)
+TOOL --> REG : {pid, url, runnerLabel,\n  params, warnings,\n  elevated:false}
+REG --> MCP : content: [{type:'text',\n  text: JSON.stringify(result)}]
+MCP -> LOG : appendCallLog({caller,\n  tool, args, durationMs, ok:true})
+MCP --> CC : réponse JSON-RPC sur SSE
+CC --> USR : "Lancé ! Chat à <url>"
+
+== Appel tool élevé (token admin + admin:true) ==
+note over CC, MCP
+  L'appelant est authentifié avec le Bearer ADMIN
+  ET passe `admin: true` dans les args. Les deux
+  gates doivent passer ; si l'un échoue, retourne
+  une erreur niveau-tool "forbidden" (PAS HTTP 401 —
+  la session elle-même reste valide).
+end note
+CC -> MCP : POST .../messages\nBearer <admin>\ntools/call models.run {path, admin:true}
+MCP -> AUTH : vérifie Bearer (admin)
+AUTH --> MCP : OK, isAdmin=true
+MCP -> REG : dispatch (ctx.isAdmin=true)
+REG -> TOOL : handler(args, ctx)
+TOOL -> TOOL : args.admin && ctx.isAdmin ✓
+TOOL -> LAUNCH : launchModelByPath(..., elevated:true)
+alt Windows
+  LAUNCH -> LAUNCH : powershell Start-Process\n  -Verb RunAs -PassThru\n  → prompt UAC
+else POSIX
+  LAUNCH -> LAUNCH : pkexec <bin> <args>\n  → prompt polkit
+end
+LAUNCH -> CHAT : spawn élevé\n(stdio PAS pipé vers nous)
+CHAT --> LAUNCH : pid seul (pas de handle enfant)
+LAUNCH --> TOOL : ActiveEntry\n(elevated:true,\n ring buffer vide)
+TOOL --> REG : {pid, url, elevated:true,\n  warnings: ["stdio indisponible"]}
+REG --> MCP : content
+MCP -> LOG : appendCallLog(..., ok:true)
+MCP --> CC : {pid, url, elevated:true}
+
+== Tool admin-gated avec token user ==
+note over CC, REG
+  Exemple tier-forbidden : clear_folder, set_override,
+  runners.save — l'appelant est sur le token user. Le
+  registry refuse AVANT que le handler tourne.
+end note
+CC -> MCP : tools/call meta.clear_folder {…}
+MCP -> AUTH : vérifie Bearer (user)
+AUTH --> MCP : OK, isAdmin=false
+MCP -> REG : dispatch (ctx.isAdmin=false)
+REG -> REG : tool.requiresAdmin && !ctx.isAdmin\n  → retourne isError:true
+REG -> LOG : appendCallLog(..., ok:false,\n  error: "forbidden: requires admin")
+REG --> MCP : isError:true,\n content:[{text:"forbidden …"}]
+MCP --> CC : erreur MCP (PAS HTTP 401)
+
+== Le renderer reflète le nouveau spawn ==
+PANEL -> LAUNCH : listRunning() (poll)
+LAUNCH --> PANEL : entries[] (incl. flag `elevated`)
+PANEL -> PANEL : groupe par launchedBy\n→ headers en sidebar\n  (badge : ⚠ admin sur\n   entrées élevées)
+
+== Détection d'exit pour les élevés ==
+note over LAUNCH
+  Les processus élevés ne déclenchent
+  jamais child.on('exit') — on n'a pas
+  de handle ChildProcess. Le poller
+  (démarré au boot de l'app) appelle
+  process.kill(pid, 0) toutes les 10 s
+  sur chaque entrée élevée et émet
+  un événement exit synthétique quand
+  le pid est parti. L'UI converge en
+  ~10 s après l'exit réel.
+end note
+
+== Plus tard : stop ==
+CC -> MCP : tools/call models.stop {pid}
+MCP -> AUTH : vérifie Bearer
+MCP -> REG : dispatch
+REG -> TOOL : handler
+TOOL -> LAUNCH : stopProcess(pid)
+alt non-élevé
+  LAUNCH -> CHAT : SIGTERM (puis SIGKILL via\n  child.kill — handle gardé)
+else élevé
+  LAUNCH -> LAUNCH : taskkill /F /PID <pid> /T\n  (Windows) ou process.kill\n  (POSIX)
+end
+LAUNCH --> TOOL : {ok:true}
+TOOL --> REG : {stopped:true}
+REG --> MCP : content
+MCP -> LOG : appendCallLog(..., ok:true)
+MCP --> CC : {stopped:true}
+
+@enduml

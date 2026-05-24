@@ -1,0 +1,82 @@
+@startuml states-embedder-process
+!include ../_includes/style.iuml
+
+title Machine à états — cycle de vie embedder managé (mode serveur)
+
+' Reflète la logique de embedderLifecycle.ts :
+'   - promesse de lancement in-flight = garde de concurrence
+'   - polling /v1/models = check readiness, budget 60 s
+'   - fallback silencieux sur tout échec (retourne null, ne throw jamais)
+'
+' Périmètre : c'est le mode SERVEUR (llama-server --embedding résident)
+' utilisé par les queries de routing interactif (routeByVectors).
+' Le mode CLI utilisé par la caractérisation bulk (embedderCli.ts) N'EST PAS
+' modélisé ici en machine à états — chaque appel spawn un llama-embedding.exe
+' frais qui exit à la fin de l'appel, donc les seuls états significatifs
+' sont { idle → spawned → exited } par invocation.
+' Voir components/embedder.puml pour la vue composant double-mode.
+
+[*] --> Idle
+
+state "Idle (non configuré)" as Idle {
+  description : routingEmbedderPath vide\nET routingEmbedderBaseUrl vide.\nLe routing fallback vers R5 silencieusement.
+}
+
+Idle --> Probing : ensureEmbedderReady(filePath)\nappelé par routeByVectors\nou characterizeTree
+
+state "Sonde existant" as Probing {
+  description : check listRunning() pour un\nprocessus en cours avec\n`launchedBy: 'embedder'`\n+ même filePath canonique.
+}
+
+Probing --> Reused : trouvé vivant
+Probing --> Launching : pas trouvé,\npose promesse in-flight
+
+state "Réutilisé" as Reused #FFFDF6 {
+  description : retourne {baseUrl, pid,\nsource:'reused'}.\nL'appelant continue immédiatement.
+}
+
+state "Lancement" as Launching {
+  description : launchModelByPath(\n  launchedBy:'embedder',\n  customArgs:'--embedding'\n)
+}
+
+Launching --> Waiting : spawn OK\n(pid reçu)
+Launching --> Failed : spawn a retourné !ok\nOU pas de pid
+
+state "Attente /v1/models" as Waiting {
+  description : boucle jusqu'à\n• response.ok ⇒ Ready\n• entry.exited ⇒ Crashed\n• deadline 60 s ⇒ Timeout\nPoll chaque 1 s avec budget 4 s par sonde.
+}
+
+Waiting --> Ready : 200 OK
+Waiting --> Crashed : processus exited\npendant le boot
+Waiting --> TimedOut : deadline 60 s
+
+state "Ready" as Ready #FFFDF6 {
+  description : retourne {baseUrl, pid,\nsource:'launched'}.\nVisible dans RunningModelsPanel\nsous le groupe "embedder".
+}
+
+state "Crashed" as Crashed {
+  description : stopProcess(pid),\nretourne null,\nclear promesse in-flight.\nL'appelant fallback silencieusement vers R5.
+}
+
+state "Timed out" as TimedOut {
+  description : stopProcess(pid),\nretourne null,\nclear promesse in-flight.\nL'appelant fallback silencieusement vers R5.
+}
+
+state "Failed" as Failed {
+  description : log + retourne null,\nclear promesse in-flight.\nL'appelant fallback silencieusement vers R5.
+}
+
+Ready --> Idle : stopManagedEmbedders()\nou processus tué manuellement
+Crashed --> Idle
+TimedOut --> Idle
+Failed --> Idle
+Reused --> Reused : ensureEmbedderReady\nsubséquent\n(idempotent)
+
+note bottom of Launching
+  Les appelants concurrents partagent la MÊME
+  promesse in-flight — jamais spawn deux fois.
+  C'est la seule section critique dans
+  embedderLifecycle.ts.
+end note
+
+@enduml

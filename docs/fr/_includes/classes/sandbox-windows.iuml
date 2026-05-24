@@ -1,0 +1,32 @@
+' Partial — WindowsSandbox + l'artefact launcher PS1.
+' Source : src/main/modelhub/routing/sandbox/windows.ts (+ win-job.ps1).
+
+package "src/main/modelhub/routing/sandbox/windows.ts" <<Frame>> as PKG_SBX_WIN {
+
+  class WindowsSandbox {
+    + kind = 'windows'
+    - spawner : Spawner
+    - pythonBin? : string
+    - ps1Path : string
+    --
+    + runPythonTests(...)
+    - findPython()
+    - spawnIsolated(...)
+    --
+    Spawn powershell.exe -File win-job.ps1.
+    Limites kernel via Job Object :
+    • ActiveProcessLimit = 1   (T2/T7)
+    • ProcessMemoryLimit = 512 MiB   (T6)
+    • KILL_ON_JOB_CLOSE
+    Plus : env vidé, protocole de stream
+    par lignes marqueurs, exit 124 sur
+    timeout interne.
+  }
+
+  ' Artefact runtime (script PowerShell), pas une classe — listé ici
+  ' pour que la map au niveau fichier soit complète à côté de la boîte
+  ' WindowsSandbox. Forme `class` (et non `component`) parce que le
+  ' fichier est chargé dans un contexte class-diagram (PlantUML
+  ' 1.2026.x refuse les formes mixtes dans un package class-mode).
+  class "win-job.ps1\n(launcher Add-Type P/Invoke)" as PS1 <<artefact>>
+}

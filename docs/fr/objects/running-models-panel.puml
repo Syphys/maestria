@@ -1,0 +1,76 @@
+@startuml objects-running-models
+!include ../_includes/style.iuml
+
+title Diagramme d'objet — snapshot Superviseur (RunningModelsPanel)\n(état typique pendant une session pilotée par routing)\n2026-05-24 : non-escamotable — toujours ouvert avec scroll borné
+
+' Vue figée de `listRunning()` — ce que l'utilisateur voit groupé par
+' launchedBy en sidebar. Utile pour expliquer comment la même
+' shape ActiveEntry porte la provenance chat / embedder / "via MCP".
+
+object "qwen-coder-32b :\nActiveEntry" as O_E_QWEN {
+  pid = 14211
+  filePath = "D:\\models\\…\\qwen-coder-32b.gguf"
+  url = "http://127.0.0.1:8080"
+  launchedBy = "via MCP — Claude Code"
+  params = { ngl: 99, ctx: 8192, fit: true, … }
+  startedAt = "2026-05-21T14:35:02Z"
+  exited = false
+}
+
+object "Qwen3-Embedding-0.6B-Q8_0 :\nActiveEntry" as O_E_EMB {
+  pid = 14212
+  filePath = "D:\\models\\…\\Qwen3-Embedding-0.6B-Q8_0.gguf"
+  url = "http://127.0.0.1:8081"
+  launchedBy = "embedder"
+  params = { customArgs: "--embedding", port: 8081 }
+  startedAt = "2026-05-21T14:35:03Z"
+  exited = false
+}
+
+object "LFM2_5-1_2B :\nActiveEntry" as O_E_LFM {
+  pid = 14213
+  filePath = "D:\\models\\…\\LFM2_5-1_2B-Q4_K_M.gguf"
+  url = "http://127.0.0.1:8082"
+  launchedBy = null
+  params = { … (défauts autotune) }
+  startedAt = "2026-05-21T14:36:10Z"
+  exited = false
+}
+
+object "Superviseur :\nvue renderer\n(RunningModelsPanel.tsx)" as O_PANEL {
+  collapsible = false   ' 2026-05-24
+  groupBy = launchedBy ?? "Direct"
+  sortStable = true
+  maxHeight = 260       ' scroll borné
+  overflowY = "auto"
+  groups = [
+    "Direct" → [LFM2_5-1_2B],
+    "embedder" → [Qwen3-Embedding-0.6B-Q8_0],
+    "via MCP — Claude Code" → [qwen-coder-32b]
+  ]
+}
+
+O_PANEL --> O_E_LFM : groupe Direct
+O_PANEL --> O_E_EMB : groupe embedder
+O_PANEL --> O_E_QWEN : groupe MCP
+
+note right of O_E_EMB
+  Processus singleton. Réutilisé par
+  characterizeTree (sonde slice 7c)
+  ET le chemin de query routing (slice 7e).
+  Les appelants concurrents partagent un lancement.
+end note
+
+note bottom of O_PANEL
+  Présentation pure — le groupement est
+  fait côté renderer depuis la même
+  shape servie par `models.list_running`
+  aux appelants MCP.
+  Le header n'est plus cliquable
+  (chevron + état localStorage retirés
+  le 2026-05-24). La liste est toujours
+  visible ; les longs catalogues sont
+  gérés via scroll borné.
+end note
+
+@enduml

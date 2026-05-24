@@ -1,0 +1,66 @@
+@startuml activity-routing-decision
+!include ../_includes/style.iuml
+
+title Activité — flux de décision `models.route`
+
+' Diagramme d'activité pour la logique de décision routing. Distinct de
+' la séquence (qui montre QUI appelle QUI) — ici on montre les
+' BRANCHEMENTS (si embedder, si fiable, si blend α/β, …).
+
+start
+
+:Charge `routingConfig`\n+ `effectiveRoutingParams`;
+:Liste candidats éligibles\n(D9 : signature complète seulement);
+:Sonde mémoire libre\n(VRAM/RAM);
+
+if (Embedder configuré\n(managed ou external) ?) then (non)
+  :Utilise le classifieur\ndéterministe R5;
+  note right
+    classifyQuery() retourne
+    axisWeights depuis analyse
+    regex / keyword.
+  end note
+  -> r5_path;
+else (oui)
+  :ensureEmbedderReady()\nOU lit URL external;
+  if (Embedder vivant ?) then (non)
+    :Fallback silencieux vers R5\n(gateReason:'embedder-down');
+    -> r5_path;
+  else (oui)
+    :Mesure la fiabilité\nd'embedding par langue\n(triplets fr/zh/en);
+    if (Toutes langues ≥ seuil ?) then (non)
+      :Fallback vers R5\n(gateReason:\n'reliability-below-threshold');
+      -> r5_path;
+    else (oui)
+      :Embed query;
+      :Projette sur 32 ancres feuilles;
+      if (Confiance par-feuille\nq[i] ≥ θ_q ?) then (oui)
+        :Descend au niveau FEUILLE\n(level:'leaf');
+      else (non)
+        :Reste au niveau BRANCHE\n(level:'branch');
+      endif
+      :Blend v = α·v_déterministe\n+ β·max(0, topic_coverage)\n(α=0.7, β=0.3);
+      :score_m = Σ q[i]·v_m[i]\n+ w_fit·fit_m + w_hot·hot_m;
+      -> vector_done;
+    endif
+  endif
+endif
+
+label r5_path
+:axisWeights → priors de branche;
+:score_m avec les poids R5;
+label vector_done
+:Filtre aux éligibles D9\nclasse par score (desc);
+:Construit la réponse\n{routedBy, gateReason,\nbest, ranked, resources,\nembeddingReliability?,\nlevel?, axisWeights?};
+
+stop
+
+note right
+  routedBy est **toujours** explicite
+  dans la réponse : 'vector' (pipeline
+  complet) ou 'r5' (fallback).
+  gateReason explique pourquoi pour
+  chaque résultat non-vector.
+end note
+
+@enduml

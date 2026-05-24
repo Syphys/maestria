@@ -1,0 +1,85 @@
+@startuml states-signature-lifecycle
+!include ../_includes/style.iuml
+
+title Machine à états — cycle de vie de Signature.characterization_state
+
+' Les états sont les valeurs littérales sur disque dans `.ts/<fichier>.json`.
+' Les transitions correspondent aux résultats de characterizeRunner.ts.
+'
+' Artefacts compagnons écrits à côté du JSON de signature :
+'   - `.ts/<fichier>.log`           — session active : stdout/stderr de
+'                                     llama-server capturé à chaque
+'                                     lancement managed par Maestria
+'                                     (append-only, rotation 4 MiB).
+'   - `.ts/<fichier>.<YYYYMMDDThhmmssZ>.log`
+'                                   — archive par session (2026-05-24) :
+'                                     roté depuis `.log` au début de
+'                                     chaque nouvelle caractérisation,
+'                                     garde les 10 dernières sessions par modèle.
+'   - `.ts/<fichier>.error`         — journal d'erreurs par modèle
+'                                     timestampé de characterizeAll
+'                                     (une ligne par échec).
+' Toutes les écritures best-effort : une erreur disque ne coule jamais un run.
+
+[*] --> NotCharacterized : modèle ajouté\nau dossier
+
+state "Non caractérisé" as NotCharacterized {
+  description : sidecar `modelMeta` existe\n(peut-être avec autoTags)\nmais pas de champ `signature`.\nPour le routing : D9 ⇒ INÉLIGIBLE.
+}
+
+NotCharacterized --> Running : l'utilisateur clique\n"Caractériser"\nOU requête MCP
+
+state "Running (en cours)" as Running {
+  description : characterizeRunner actif.\nlistRunning() montre le processus\nchat ; characterization_state\nsur disque encore null (pas d'écriture\npartielle).
+}
+
+Running --> Complete : R5 + arbre + freegen\n(si seamé)\nTOUS réussis
+Running --> Incomplete : R5 OK\nmais arbre OU freegen\néchoué (isolé)
+Running --> Quarantined : R5 lui-même échoué\n(ex. modèle crashé au boot)\nOU erreur IO catastrophique\nOU modèle non-chat détecté\n(filtre 3 niveaux, 2026-05-24)
+
+state "complete" as Complete #FFFDF6 {
+  description : éligible au routing (D9).\nTous les champs comportementaux\nrequis présents : `scores_per_axis`,\n`scores_per_leaf`, `branch_scores`.\nmodels.route classe ce candidat.
+}
+
+state "incomplete" as Incomplete {
+  description : éligible au routing (D9) ssi\nle scores_per_axis core est posé.\nChamps optionnels manquants ⇒\nconfiance dégradée mais classé.
+}
+
+state "quarantined" as Quarantined #E6DFD2 {
+  description : routing INÉLIGIBLE.\nMontré dans le radar avec une\nbannière claire. L'utilisateur\nre-caractérise pour quitter cet état.
+}
+
+Complete --> Running : Re-caractériser\n(avec confirm)
+Incomplete --> Running : Re-caractériser
+Quarantined --> Running : Re-caractériser
+Complete --> Stale : drift modelHash\n(fichier édité /\nshards changés)
+Incomplete --> Stale : drift modelHash
+
+state "Stale" as Stale {
+  description : Pseudo-état : hash sur disque ≠\nhash fichier courant. Le routing\nutilise encore l'ancienne signature mais\nl'UI prompt une re-caractérisation.
+}
+
+Stale --> Running : Re-caractériser
+
+note bottom of Quarantined
+  Quarantined reste permanent
+  jusqu'à ce que l'utilisateur
+  re-caractérise explicitement — même
+  si une query de routing arrive.
+end note
+
+note right of Running
+  Effets de bord sur disque :
+  • `archiveServerLog(...)` au DÉBUT du run
+    (renomme le `.log` précédent →
+    `.<ISO>.log`, session fraîche
+    commence propre — 2026-05-24).
+  • `appendServerLog(.log, chunk)`
+    sur chaque chunk stdout/stderr de
+    llama-server (hooké dans runners/launch.ts).
+  • Sur Quarantined / Incomplete-avec-erreur :
+    `appendErrorLog(.ts/<fichier>.error,
+    raison)` avec timestamp ISO.
+end note
+
+@enduml

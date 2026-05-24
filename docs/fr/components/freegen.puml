@@ -1,0 +1,81 @@
+@startuml freegen
+!include ../_includes/style.iuml
+
+title Sonde free-gen — slice 7c, séparation 2 phases (2026-05-22)
+
+state "Caractérisation arbre\nterminée (slice 4c)" as TREE_DONE
+state "characterizeTree.ts\n  if (opts.freegen !== false) {…}" as GATE_FG
+
+state "PHASE 1 — texte seul\nfreegen.generateFreeGenText(ask)" as PHASE1 {
+  state "1× appel modèle\nFREEGEN_PROMPT\n(topic-neutre,\n~600–800 mots)" as ASK
+  state "Strip <think>…</think>\n(D11)" as STRIP
+  state "Sortie :\n• freegen_text (verbatim)\n• freegen_words" as TEXT_OUT
+}
+
+state "merge dans signature\n(texte seul,\nPAS de projection encore)" as MERGE_TEXT
+
+state "PHASE 2 — projection\nfreegen.projectFreeGenText(\n  text, embed, anchors\n)" as PHASE2 {
+  state "1× appel embed\n(freegen_text stocké)" as EMB_TEXT
+  state "K× appels embed\n(17 ancres feuilles —\nbatched dans un seul\nspawn llama-embedding)" as EMB_ANCHORS
+  state "Projection cosinus\nsur chaque ancre\n(probe-anchors.json)" as PROJECT
+  state "Sortie :\n• topic_coverage_per_leaf\n• topic_coverage_per_branch" as PROJ_OUT
+}
+
+state "merge projection dans\nsignature (additif)" as MERGE_PROJ
+
+state "freegen désactivé\n(opts.freegen === false)" as SKIP_FG
+state "phase 1 throw\n(réponse vide, etc.) →\nisolé, passe arbre conservée" as SKIP_E
+
+TREE_DONE --> GATE_FG
+GATE_FG --> PHASE1 : freegen ON\n(défaut true)
+GATE_FG --> SKIP_FG : explicitement OFF
+PHASE1 --> ASK
+ASK --> STRIP
+STRIP --> TEXT_OUT
+TEXT_OUT --> MERGE_TEXT
+
+state "characterizeAll\n(bulk, boucle par modèle)" as BULK_LOOP
+state "skipProjection ?\nOU embedder indisponible ?" as PROJ_GATE
+MERGE_TEXT --> BULK_LOOP : signature sauvée avec\nfreegen_text seul
+BULK_LOOP --> PROJ_GATE
+PROJ_GATE --> PHASE2 : embedder disponible\nET !skipProjection
+PROJ_GATE --> [*] : skip projection\n(texte reste, projetable\nplus tard)
+
+PHASE2 --> EMB_TEXT
+EMB_TEXT --> EMB_ANCHORS
+EMB_ANCHORS --> PROJECT
+PROJECT --> PROJ_OUT
+PROJ_OUT --> MERGE_PROJ
+
+PHASE1 --> SKIP_E : throw catché\npar characterizeTree
+
+note right of PHASE1
+  AUCUN EMBEDDER touché ici.
+  Le modèle de test est la seule
+  chose en RAM pendant la phase 1.
+end note
+
+note right of PHASE2
+  Chemin bulk : un spawn llama-embedding
+  par modèle (embedderCli.ts), le
+  processus exit → RAM libérée.
+  Le modèle de test n'est JAMAIS
+  coexistant avec l'embedder.
+end note
+
+note bottom of MERGE_PROJ
+  Les champs sont une **évidence
+  supplémentaire** dans le routing
+  (blend α=0.7 déterministe,
+  β=0.3 coverage). Ne remplacent
+  jamais `scores_per_leaf`.
+end note
+
+note bottom of SKIP_E
+  DECISIONS.md DCC §5 —
+  échec de sonde NE coule JAMAIS
+  la passe arbre qui a déjà calculé
+  scores_per_leaf.
+end note
+
+@enduml

@@ -1,0 +1,9 @@
+' Partial — composants UI renderer touchant aux fonctionnalités IA.
+
+package "src/renderer/" <<Folder>> as PKG_UI {
+  component "ModelHubPanel\n+ onglet Inférence" as CMP_UI_PANEL
+  component "CompetenceSection\n(radar R5 + arbre)" as CMP_UI_RADAR
+  component "Paramètres ▸ IA ▸ Routing\n(sélecteur .gguf,\ntoggle sandbox)" as CMP_UI_SETTINGS
+  component "Superviseur\n(RunningModelsPanel,\nnon-escamotable,\ngroupé par launchedBy,\n2026-05-24)" as CMP_UI_RUNNING
+  component "CharacterizeAllPanel\n+ CharacterizeAllLogsTabs\n(3 onglets : Erreurs / Logs\nserveur / Interactions —\nstream prompt-par-prompt\nlive, 2026-05-24)" as CMP_UI_CHARALL
+}
