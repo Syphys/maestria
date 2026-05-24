@@ -270,6 +270,14 @@ function HowToStart() {
       steps[nextStep].action();
     }
     setActiveStep((nextActiveStep) => nextActiveStep + 1);
+    // Last "Suivant" on the final step (which renders as "Terminer")
+    // means the user has read through the whole guide — persist that
+    // so the next launch doesn't dump them back at step 1. The local
+    // `activeStep` is per-mount React state, so without this dispatch
+    // a restart looks like the guide was reset.
+    if (nextStep >= steps.length) {
+      dispatch(SettingsActions.setHideHowToStart(true));
+    }
   };
 
   const handleBack = () => {
