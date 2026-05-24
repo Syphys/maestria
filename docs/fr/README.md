@@ -266,8 +266,8 @@ opt-in/regénérer/révoquer). ~40 tools sur 11 familles couvrant la
 **`models.*`** (search / get / list_running / run [+élévation admin]
 / stop / get_run_params / list_runner_flags),
 **`models.route`** (R5 + projection vectorielle embedder-gated),
-**`characterize.*`** (start / status / all_start / all_cancel /
-load_signature / get_questions_dir),
+**`characterize.*`** (start / status / all_start [fire-and-forget] /
+all_status / all_cancel / load_signature / get_questions_dir),
 **logs** (`models.get_server_log` / `get_error_log` /
 `list_server_log_archives` / `runners.get_log`),
 **`meta.*`** (patch / enrich + admin `enrich.folder_start` /
@@ -284,6 +284,21 @@ user fait tourner tous les autres. La branche `admin: true` de
 `Start-Process -Verb RunAs`, POSIX via `pkexec`) — la capture
 stdio est perdue dans ce mode, un poller d'exit check toutes les
 10 s.
+
+**Les tools long-running sont fire-and-forget.** `characterize.all_start`
+rend la main immédiatement avec `{ started: true, directory }` au
+lieu d'attendre le sweep multi-heures — les appelants (Claude
+Desktop, deer-flow, sous-agents) ne peuvent pas utilement bloquer
+une session aussi longtemps, et router via un sous-agent Claude Code
+heurte le problème inverse (le scope de permissions restreint ne
+peut pas surfacer le prompt d'approbation par tool). La progression
+est exposée par un tool frère `characterize.all_status` qui renvoie
+`{ running, progress, error }` ; le snapshot terminal est retenu
+après la fin du sweep pour qu'un poller tardif voie les stats
+finales. Le single-flight est appliqué synchroniquement upfront pour
+que `all_start` rejette proprement quand un sweep est déjà en cours.
+Le même pattern s'applique à tout futur tool dont l'opération peut
+dépasser environ une minute.
 
 ![Composant serveur MCP](svg/mcp-server.svg)
 

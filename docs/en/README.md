@@ -248,8 +248,8 @@ renderer:
 **`models.*`** (search / get / list_running / run [+admin elevation] /
 stop / get_run_params / list_runner_flags),
 **`models.route`** (R5 + embedder-gated vector projection),
-**`characterize.*`** (start / status / all_start / all_cancel /
-load_signature / get_questions_dir),
+**`characterize.*`** (start / status / all_start [fire-and-forget] /
+all_status / all_cancel / load_signature / get_questions_dir),
 **logs** (`models.get_server_log` / `get_error_log` /
 `list_server_log_archives` / `runners.get_log`),
 **`meta.*`** (patch / enrich + admin `enrich.folder_start` /
@@ -265,6 +265,20 @@ runs every other tool. The `admin: true` branch of `models.run`
 triggers OS-level elevation (Windows UAC via `Start-Process
 -Verb RunAs`, POSIX via `pkexec`) — stdio capture is lost in that
 mode, an exit poller checks every 10 s.
+
+**Long-running tools are fire-and-forget.** `characterize.all_start`
+returns immediately with `{ started: true, directory }` instead of
+awaiting the multi-hour sweep — callers (Claude Desktop, deer-flow,
+sub-agents) cannot usefully block a session for that long, and
+routing through a Claude Code sub-agent hits the inverse problem
+(restricted permission scope cannot surface the per-tool approval
+prompt). Progress is exposed through a sibling `characterize.all_status`
+tool returning `{ running, progress, error }`; the terminal snapshot
+is retained after the sweep ends so a late poller still sees the
+final stats. Single-flight is enforced synchronously upfront so
+`all_start` still rejects cleanly when a sweep is already in flight.
+The same shape applies to any future tool whose backing operation
+can exceed roughly a minute.
 
 ![MCP server component](svg/mcp-server.svg)
 
