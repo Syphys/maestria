@@ -606,7 +606,6 @@ function EntryProperties({ tileServer }: Props) {
         tagMode="default"
         handleChange={handleChange}
         selectedEntry={openedEntry}
-        generateButton={true}
       />
     </TagDropContainer>
   );

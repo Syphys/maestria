@@ -22,7 +22,6 @@ import LoadingLazy from '-/components/LoadingLazy';
 import TooltipTS from '-/components/Tooltip';
 import TsTabPanel from '-/components/TsTabPanel';
 import { TabItem, TabNames } from '-/hooks/EntryPropsTabsContextProvider';
-import { useChatContext } from '-/hooks/useChatContext';
 import { useEntryPropsTabsContext } from '-/hooks/useEntryPropsTabsContext';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { AppDispatch } from '-/reducers/app';
@@ -44,9 +43,6 @@ const TabDescription = React.lazy(
 );
 const TabRevisions = React.lazy(
   () => import(/* webpackChunkName: "Revisions" */ './Revisions'),
-);
-const TabAI = React.lazy(
-  () => import(/* webpackChunkName: "ChatView" */ './chat/ChatView'),
 );
 const TabLinks = React.lazy(
   () => import(/* webpackChunkName: "LinksTab" */ './LinksTab'),
@@ -71,7 +67,6 @@ function EntryContainerTabs(props: EntryContainerTabsProps) {
     isSavingInProgress,
     savingFile,
   } = props;
-  const { initHistory, checkOllamaModels } = useChatContext();
   const { getTabsArray } = useEntryPropsTabsContext();
   const theme = useTheme();
   const selectedTab: (typeof TabNames)[keyof typeof TabNames] =
@@ -112,12 +107,8 @@ function EntryContainerTabs(props: EntryContainerTabsProps) {
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     if (tabsArray.current.length > 0) {
       const tab = tabsArray.current[newValue];
-      if (tab && tab.name === TabNames.aiTab) {
-        checkOllamaModels().then(() => initHistory());
-      }
       dispatch(SettingsActions.setEntryContainerTab(tab.name));
       openPanel();
-      // console.log('tab changed to:' + newValue);
     }
   };
 
@@ -157,8 +148,6 @@ function EntryContainerTabs(props: EntryContainerTabsProps) {
       return <TabDescription />;
     } else if (tabName === TabNames.revisionsTab) {
       return <TabRevisions />;
-    } else if (tabName === TabNames.aiTab) {
-      return <TabAI />;
     } else if (tabName === TabNames.linksTab) {
       return <TabLinks />;
     }

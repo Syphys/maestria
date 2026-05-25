@@ -17,7 +17,16 @@
  */
 
 import AppConfig from '-/AppConfig';
-import { AIProvider } from '-/components/chat/ChatTypes';
+// Local fallback for the now-removed Chat/Ollama AIProvider type. The
+// AI-provider state slice is kept dormant (no UI surface left) so the
+// existing user settings file stays loadable; the type is just a shape
+// hint here.
+type AIProvider = {
+  id?: string;
+  name?: string;
+  enable?: boolean;
+  [key: string]: unknown;
+};
 import { TabNames } from '-/hooks/EntryPropsTabsContextProvider';
 import {
   getDefaultEditor,

@@ -200,6 +200,63 @@ async function detectGpuMac(): Promise<GpuInfo | undefined> {
   }
 }
 
+/**
+ * AMD ROCm VRAM probe. `rocm-smi --showmeminfo vram --json` outputs
+ * `{"card0":{"VRAM Total Memory (B)":"25753026560",…}}`. Works on
+ * the AMD ROCm/HIP stack (RX 6000/7000, MI series).
+ */
+async function detectAmdVramViaRocm(): Promise<number | undefined> {
+  try {
+    const { stdout } = await execAsync('rocm-smi --showmeminfo vram --json', {
+      timeout: EXEC_TIMEOUT_MS,
+    });
+    const parsed = JSON.parse(stdout);
+    for (const card of Object.values(parsed) as Record<string, string>[]) {
+      const raw = card?.['VRAM Total Memory (B)'];
+      const n = raw ? parseInt(raw, 10) : NaN;
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Generic Vulkan VRAM probe. `vulkaninfo --summary` lists device-local
+ * heaps under "deviceMemoryReport" / "memoryHeaps"; the largest
+ * DEVICE_LOCAL heap is the discrete GPU VRAM. Works on AMD (RADV),
+ * NVIDIA (proprietary), Intel (Arc, integrated). Requires the
+ * `vulkan-tools` package + a working ICD.
+ */
+async function detectGpuVramViaVulkan(): Promise<number | undefined> {
+  try {
+    const { stdout } = await execAsync('vulkaninfo --summary', {
+      timeout: EXEC_TIMEOUT_MS,
+    });
+    // The summary block lists heaps like:
+    //   memoryHeaps:
+    //     ...
+    //     memoryHeaps[0]:
+    //         size   = 25753026560 (0x5fee00000)
+    //         budget = 0
+    //         usage  = 0
+    //         flags: count = 1
+    //             MEMORY_HEAP_DEVICE_LOCAL_BIT
+    // Walk heaps, keep the biggest with DEVICE_LOCAL_BIT.
+    const heapRe =
+      /memoryHeaps\[\d+\][^}]*?size\s*=\s*(\d+)[^}]*?DEVICE_LOCAL_BIT/g;
+    let max = 0;
+    for (const m of stdout.matchAll(heapRe)) {
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return max > 0 ? max : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function detectGpuLinux(): Promise<GpuInfo | undefined> {
   try {
     // 0300 is the PCI class for VGA-compatible controllers.
@@ -211,12 +268,19 @@ async function detectGpuLinux(): Promise<GpuInfo | undefined> {
     // -mm output: "01:00.0 "VGA compatible controller" "NVIDIA Corporation" "TU102 [GeForce RTX 2080 Ti]" ...
     const fields = line.match(/"([^"]*)"/g)?.map((s) => s.slice(1, -1));
     if (!fields || fields.length < 3) return undefined;
-    return {
-      vendor: fields[1],
-      name: fields[2],
-      // No reliable VRAM source without nvidia-smi or rocm-smi.
-      vramBytes: undefined,
-    };
+    const vendor = fields[1];
+    const name = fields[2];
+    // VRAM: try rocm-smi for AMD first (most accurate), then vulkaninfo
+    // as the cross-vendor fallback for AMD/Intel/NVIDIA discrete cards
+    // when the proprietary tools aren't installed.
+    let vramBytes: number | undefined;
+    if (/AMD|Advanced Micro Devices/i.test(vendor)) {
+      vramBytes = await detectAmdVramViaRocm();
+    }
+    if (vramBytes === undefined) {
+      vramBytes = await detectGpuVramViaVulkan();
+    }
+    return { vendor, name, vramBytes };
   } catch {
     return undefined;
   }

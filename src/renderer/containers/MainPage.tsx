@@ -23,7 +23,6 @@ import { FullScreenContextProvider } from '-/hooks/FullScreenContextProvider';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
 import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { usePanelsContext } from '-/hooks/usePanelsContext';
-import { useUserContext } from '-/hooks/useUserContext';
 import useEventListener from '-/utils/useEventListener';
 import { Box, useMediaQuery } from '@mui/material';
 import Drawer from '@mui/material/Drawer';
@@ -101,7 +100,6 @@ function MainPage() {
     openCurrentDirectory,
   } = useDirectoryContentContext();
   const { showPanel } = usePanelsContext();
-  const { isLoggedIn } = useUserContext();
   const percent = useRef<number | undefined>(undefined);
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -354,7 +352,7 @@ function MainPage() {
               }
           `}
           </style>
-          {isDesktopMode || (AppConfig.ExtIsAmplify && !isLoggedIn()) ? (
+          {isDesktopMode ? (
             <>
               <Drawer
                 sx={{ backgroundColor: 'unset' }}

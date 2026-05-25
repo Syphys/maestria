@@ -22,7 +22,6 @@ import DragItemTypes from '-/components/DragItemTypes';
 import TargetFileBox from '-/components/TargetFileBox';
 import TargetMoveFileBox from '-/components/TargetMoveFileBox';
 import { useMenuContext } from '-/components/dialogs/hooks/useMenuContext';
-import { TabNames } from '-/hooks/EntryPropsTabsContextProvider';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
 import { useIOActionsContext } from '-/hooks/useIOActionsContext';
@@ -36,7 +35,6 @@ import {
   folderOperationsEnabled,
 } from '-/perspectives/common/main-container';
 import { useSortedDirContext } from '-/perspectives/grid/hooks/useSortedDirContext';
-import { getEntryContainerTab } from '-/reducers/settings';
 import i18n from '-/services/i18n';
 import { TS } from '-/tagspaces.namespace';
 import DragHandleIcon from '@mui/icons-material/DragHandleOutlined';
@@ -104,7 +102,6 @@ function CellView(props: Props) {
   const selectedEntriesRef = useSelectedEntriesRef();
   const { sortedDirContent, nativeDragModeEnabled } = useSortedDirContext();
   const { showNotification } = useNotificationContext();
-  const selectedTabName = useSelector(getEntryContainerTab);
 
   if (!fsEntry || (!fsEntry.isFile && !showDirectories)) {
     return null;
@@ -216,12 +213,7 @@ function CellView(props: Props) {
       setSelectedEntries([fsEntry]);
       if (fsEntry.isFile) {
         if (singleClickAction === 'openInternal') {
-          if (
-            !openedEntry ||
-            openedEntry.isFile ||
-            selectedTabName !== TabNames.aiTab
-          ) {
-            // do not open file if chat mode is enabled
+          if (!openedEntry || openedEntry.isFile) {
             openEntryInternal(fsEntry);
           }
         } else if (singleClickAction === 'openExternal') {

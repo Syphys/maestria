@@ -18,7 +18,6 @@
 
 import TagContainer from '-/components/TagContainer';
 import TsTextField from '-/components/TsTextField';
-import AiGenTagsButton from '-/components/chat/AiGenTagsButton';
 import EntryTagMenu from '-/components/menus/EntryTagMenu';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useEditedTagLibraryContext } from '-/hooks/useEditedTagLibraryContext';
@@ -58,12 +57,11 @@ interface Props {
   placeholderText?: string;
   selectedEntry?: TS.FileSystemEntry;
   autoFocus?: boolean;
-  generateButton?: boolean;
   /**
-   * Additional ReactNode rendered in the input's endAdornment, after the
-   * AI generate button. Lets caller-specific actions live on the same
-   * row as the tag chips instead of in a separate Stack below — e.g.
-   * the Models Hub "Régénérer les tags" button on model files.
+   * Additional ReactNode rendered in the input's endAdornment. Lets
+   * caller-specific actions live on the same row as the tag chips
+   * instead of in a separate Stack below — e.g. the Models Hub
+   * "Régénérer les tags" button on model files.
    */
   extraEndAdornment?: ReactNode;
 }
@@ -107,7 +105,6 @@ function TagsSelect(props: Props) {
     tagMode,
     handleNewTags,
     handleChange,
-    generateButton,
     extraEndAdornment,
     tagSearchType,
     dataTid,
@@ -255,9 +252,8 @@ function TagsSelect(props: Props) {
               slotProps={{
                 input: {
                   ...params.InputProps,
-                  endAdornment: (generateButton || extraEndAdornment) && (
+                  endAdornment: extraEndAdornment && (
                     <InputAdornment position="end">
-                      {generateButton && <AiGenTagsButton variant="text" />}
                       {extraEndAdornment}
                     </InputAdornment>
                   ),

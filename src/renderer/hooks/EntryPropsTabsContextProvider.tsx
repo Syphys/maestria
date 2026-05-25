@@ -18,7 +18,6 @@
 
 import AppConfig from '-/AppConfig';
 import {
-  AIIcon,
   DescriptionIcon,
   EntryPropertiesIcon,
   InferenceIcon,
@@ -28,7 +27,6 @@ import {
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { isSupportedModelFile } from '-/modelhub/parsers';
 import { Pro } from '-/pro';
-import { isDevMode } from '-/reducers/settings';
 import { TS } from '-/tagspaces.namespace';
 import { CommonLocation } from '-/utils/CommonLocation';
 import { getBackupDir } from '@tagspaces/tagspaces-common/paths';
@@ -49,7 +47,6 @@ export const TabNames = {
   propertiesTab: 'detailsTab',
   descriptionTab: 'descriptionTab',
   revisionsTab: 'revisionsTab',
-  aiTab: 'aiTab',
   linksTab: 'linksTab',
   closedTabs: 'closedTabs',
 };
@@ -74,29 +71,11 @@ export const EntryPropsTabsContextProvider = ({
   const { t } = useTranslation();
 
   const { findLocation } = useCurrentLocationContext();
-  const devMode: boolean = useSelector(isDevMode);
 
   function haveRevisions(openedEntry: TS.OpenedEntry): Promise<boolean> {
     const location: CommonLocation = findLocation(openedEntry.locationID);
     const backupPath = getBackupDir(openedEntry);
     return location?.checkDirExist(backupPath);
-  }
-
-  function haveAIChat(openedEntry: TS.OpenedEntry): Promise<boolean> {
-    if (openedEntry.isFile) {
-      return Promise.resolve(false);
-    }
-    const location: CommonLocation = findLocation(openedEntry.locationID);
-    const dirSeparator = location
-      ? location.getDirSeparator()
-      : AppConfig.dirSeparator;
-    const aiChatPath =
-      openedEntry.path +
-      dirSeparator +
-      AppConfig.metaFolder +
-      dirSeparator +
-      AppConfig.aiFolder;
-    return location?.checkDirExist(aiChatPath);
   }
 
   function isEditable(openedEntry: TS.OpenedEntry): boolean {
@@ -152,17 +131,6 @@ export const EntryPropsTabsContextProvider = ({
       tabsArray.push(tab3);
     }
 
-    if (!oEntry?.isFile || (devMode && oEntry?.isFile && Pro)) {
-      const aiChatAvailable = await haveAIChat(oEntry);
-      const tab4: TabItem = {
-        showBadge: aiChatAvailable,
-        icon: <AIIcon />,
-        title: t('core:aiChatTab'),
-        badgeTooltip: t('core:aiChatAvailable'),
-        name: TabNames.aiTab,
-      };
-      tabsArray.push(tab4);
-    }
     const tab5: TabItem = {
       icon: <LinkIcon />,
       showBadge: false,

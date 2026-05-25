@@ -18,7 +18,6 @@
 
 import AppConfig from '-/AppConfig';
 import {
-  AccountIcon,
   AddExistingFileIcon,
   ArrowDropDownIcon,
   AudioFileIcon,
@@ -62,7 +61,6 @@ import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
 import { useFileUploadContext } from '-/hooks/useFileUploadContext';
 import { usePanelsContext } from '-/hooks/usePanelsContext';
-import { useUserContext } from '-/hooks/useUserContext';
 import { Pro } from '-/pro';
 import { AppDispatch } from '-/reducers/app';
 import {
@@ -72,7 +70,7 @@ import {
 } from '-/reducers/settings';
 import { createNewInstance } from '-/services/utils-io';
 import { TS } from '-/tagspaces.namespace';
-import { ClickAwayListener, Divider, Popover } from '@mui/material';
+import { ClickAwayListener, Divider } from '@mui/material';
 import Box from '@mui/material/Box';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import Grow from '@mui/material/Grow';
@@ -92,7 +90,6 @@ import React, {
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import TsIconButton from './TsIconButton';
-import UserDetailsPopover from './UserDetailsPopover';
 
 interface Props {
   hideDrawer?: () => void;
@@ -117,8 +114,6 @@ function MobileNavigation(props: Props) {
   const { currentOpenedPanel, showPanel } = usePanelsContext();
   const { openDownloadUrl } = useDownloadUrlDialogContext();
   const keyBindings = useSelector(getKeyBindingObject);
-  const { currentUser } = useUserContext();
-  const [anchorUser, setAnchorUser] = useState<HTMLButtonElement | null>(null);
   const { hideDrawer, width } = props;
   const switchTheme = useCallback(
     () => dispatch(SettingsActions.switchTheme()),
@@ -382,43 +377,13 @@ function MobileNavigation(props: Props) {
                   <OpenLinkIcon />
                 </TsButton>
               </ButtonGroup>
-              {currentUser ? (
-                <>
-                  <TsIconButton
-                    tooltip={t('core:userAccount')}
-                    data-tid="accountCircleIconTID"
-                    onClick={(event: React.MouseEvent<HTMLButtonElement>) =>
-                      setAnchorUser(event.currentTarget)
-                    }
-                    title={t('core:userAccount')}
-                  >
-                    <AccountIcon />
-                  </TsIconButton>
-                  <Popover
-                    open={Boolean(anchorUser)}
-                    anchorEl={anchorUser}
-                    onClose={() => setAnchorUser(null)}
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'center',
-                    }}
-                    transformOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'center',
-                    }}
-                  >
-                    <UserDetailsPopover onClose={() => setAnchorUser(null)} />
-                  </Popover>
-                </>
-              ) : (
-                <TsIconButton
-                  tooltip={t('core:switchTheme')}
-                  data-tid="switchTheme"
-                  onClick={switchTheme}
-                >
-                  <ThemingIcon />
-                </TsIconButton>
-              )}
+              <TsIconButton
+                tooltip={t('core:switchTheme')}
+                data-tid="switchTheme"
+                onClick={switchTheme}
+              >
+                <ThemingIcon />
+              </TsIconButton>
               <TsIconButton
                 tooltip={t('core:settings')}
                 id="verticalNavButton"
@@ -799,8 +764,12 @@ function MobileNavigation(props: Props) {
               backgroundColor: theme.palette.background.default,
             }}
           >
-            <CharacterizeAllPanel />
-            <RunningModelsPanel />
+            {!AppConfig.isNativeMobile && (
+              <>
+                <CharacterizeAllPanel />
+                <RunningModelsPanel />
+              </>
+            )}
           </Box>
         </Box>
       </Box>

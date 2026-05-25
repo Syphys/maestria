@@ -113,6 +113,10 @@
     {
       "from": "src/main/modelhub/routing/questions",
       "to": "modelhub-questions"
+    },
+    {
+      "from": "src/main/modelhub/routing/sandbox/win-job.ps1",
+      "to": "modelhub-sandbox/win-job.ps1"
     }
   ]
 }

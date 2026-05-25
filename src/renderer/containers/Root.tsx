@@ -20,11 +20,9 @@ import { FileUploadDialogContextProvider } from '-/components/dialogs/hooks/File
 import App from '-/containers/App';
 import DialogsRoot from '-/containers/DialogsRoot';
 import MainPage from '-/containers/MainPage';
-import TsAuth from '-/containers/TsAuth';
 import { BookmarksContextProvider } from '-/hooks/BookmarksContextProvider';
 import { BrowserHistoryContextProvider } from '-/hooks/BrowserHistoryContextProvider';
 import { BulkEnrichmentContextProvider } from '-/modelhub';
-import { ChatContextProvider } from '-/hooks/ChatProvider';
 import { CurrentLocationContextProvider } from '-/hooks/CurrentLocationContextProvider';
 import { DirectoryContentContextProvider } from '-/hooks/DirectoryContentContextProvider';
 import { EditedEntryContextProvider } from '-/hooks/EditedEntryContextProvider';
@@ -47,7 +45,6 @@ import { SearchQueryContextProvider } from '-/hooks/SearchQueryContextProvider';
 import { SelectedEntryContextProvider } from '-/hooks/SelectedEntryContextProvider';
 import { TagGroupsLocationContextProvider } from '-/hooks/TagGroupsLocationContextProvider';
 import { TaggingActionsContextProvider } from '-/hooks/TaggingActionsContextProvider';
-import { UserContextProvider } from '-/hooks/UserContextProvider';
 import { Pro } from '-/pro';
 import i18nInit from '-/services/i18nInit';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -90,11 +87,9 @@ const ProFeatureStack: React.FC = () => (
         <Pro.contextProviders.AiTemplatesContextProvider>
           <Pro.contextProviders.FileTemplatesContextProvider>
             <Pro.contextProviders.WorkSpacesContextProvider>
-              <ChatContextProvider>
-                <DialogsRoot>
-                  <MainPage />
-                </DialogsRoot>
-              </ChatContextProvider>
+              <DialogsRoot>
+                <MainPage />
+              </DialogsRoot>
             </Pro.contextProviders.WorkSpacesContextProvider>
           </Pro.contextProviders.FileTemplatesContextProvider>
         </Pro.contextProviders.AiTemplatesContextProvider>
@@ -105,11 +100,9 @@ const ProFeatureStack: React.FC = () => (
 
 /* Non-pro fallback content */
 const NonProInner: React.FC = () => (
-  <ChatContextProvider>
-    <DialogsRoot>
-      <MainPage />
-    </DialogsRoot>
-  </ChatContextProvider>
+  <DialogsRoot>
+    <MainPage />
+  </DialogsRoot>
 );
 
 /* Providers that are shared and can be composed programmatically */
@@ -133,7 +126,6 @@ const SHARED_PROVIDERS = [
   DndWrapper, // wrapper that passes backend prop
   ExtensionsContextProvider,
   PanelsContextProvider,
-  UserContextProvider,
   SavedSearchesContextProvider,
   SearchQueryContextProvider,
   BrowserHistoryContextProvider,
@@ -178,11 +170,7 @@ export default function Root({ store, persistor }: RootType) {
     return <span />;
   }
 
-  let appContent = <App>{appInner}</App>;
-
-  if (AppConfig.isWeb) {
-    appContent = <TsAuth>{appContent}</TsAuth>;
-  }
+  const appContent = <App>{appInner}</App>;
 
   return (
     <ReduxProvider

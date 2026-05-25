@@ -25,20 +25,16 @@ import Tooltip from '-/components/Tooltip';
 import TsButton from '-/components/TsButton';
 import TsIconButton from '-/components/TsIconButton';
 import TsMenuList from '-/components/TsMenuList';
-import { AIProvider } from '-/components/chat/ChatTypes';
 import { adjustKeyBinding } from '-/components/dialogs/KeyboardDialog';
 import { useFileUploadDialogContext } from '-/components/dialogs/hooks/useFileUploadDialogContext';
 import { useProTeaserDialogContext } from '-/components/dialogs/hooks/useProTeaserDialogContext';
-import { TabNames } from '-/hooks/EntryPropsTabsContextProvider';
 import { useBrowserHistoryContext } from '-/hooks/useBrowserHistoryContext';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
-import { useOpenedEntryContext } from '-/hooks/useOpenedEntryContext';
 import { AvailablePerspectives, PerspectiveIDs } from '-/perspectives';
 import { Pro } from '-/pro';
 import { getProgress } from '-/reducers/app';
 import {
-  getDefaultAIProvider,
   getDesktopMode,
   getKeyBindingObject,
   isDevMode,
@@ -55,11 +51,10 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import {
-  AIIcon,
   GoBackIcon,
   GoForwardIcon,
   MainMenuIcon,
@@ -83,8 +78,6 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
     useBrowserHistoryContext();
   const { openFileUploadDialog } = useFileUploadDialogContext();
   const { openProTeaserDialog } = useProTeaserDialogContext();
-  const { openEntry } = useOpenedEntryContext();
-  const aiDefaultProvider: AIProvider = useSelector(getDefaultAIProvider);
   const {
     currentDirectoryEntries,
     currentDirectory,
@@ -123,14 +116,6 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
 
   const [perspectiveMenuAnchorEl, setPerspectiveMenuAnchorEl] =
     useState<null | HTMLElement>(null);
-  const [hasAIChat, setHasAIChat] = useState<boolean>(false);
-
-  // Check if AI chat folder exists
-  useEffect(() => {
-    haveAIChat()
-      .then((hasChat) => setHasAIChat(hasChat))
-      .catch(() => setHasAIChat(false));
-  }, [currentDirectory?.path]);
 
   const openPerspectiveMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) =>
@@ -153,22 +138,6 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
     );
     return objProgress ? objProgress.progress : 100;
   }, [progress]);
-
-  function haveAIChat(): Promise<boolean> {
-    if (!currentDirectory || !currentDirectory.path)
-      return Promise.resolve(false);
-    const location: CommonLocation = findLocation();
-    const dirSeparator = location
-      ? location.getDirSeparator()
-      : AppConfig.dirSeparator;
-    const aiChatPath =
-      currentDirectory.path +
-      dirSeparator +
-      AppConfig.metaFolder +
-      dirSeparator +
-      AppConfig.aiFolder;
-    return location?.checkDirExist(aiChatPath);
-  }
 
   // Memoized search key binding
   const openSearchKeyBinding = useMemo(
@@ -481,38 +450,6 @@ function FolderContainer({ toggleDrawer, drawerOpened, hidden }: Props) {
           >
             {perspectiveToggleButtons}
           </ToggleButtonGroup>
-          {aiDefaultProvider && (
-            <ToggleButtonGroup
-              size="small"
-              disabled={showWelcomePanel}
-              aria-label="open folder ai chat"
-              exclusive
-            >
-              <TsToggleButton
-                value=""
-                tooltip={
-                  readOnlyLocation
-                    ? t('core:aiChatForFolderDisabled')
-                    : hasAIChat
-                      ? t('core:aiChatAvailable')
-                      : t('core:aiChatForFolder')
-                }
-                aria-label="chat-label"
-                data-tid="chatTID"
-                sx={{
-                  marginLeft: '5px',
-                  backgroundColor: theme.palette.background.default,
-                  border: `1px solid ${theme.palette.divider}`,
-                }}
-                onClick={() => {
-                  if (readOnlyLocation) return;
-                  openEntry(currentDirectory.path, TabNames.aiTab);
-                }}
-              >
-                <AIIcon color={hasAIChat ? 'primary' : 'inherit'} />
-              </TsToggleButton>
-            </ToggleButtonGroup>
-          )}
         </Box>
       ) : (
         <>

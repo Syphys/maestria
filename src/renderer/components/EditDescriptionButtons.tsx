@@ -3,7 +3,6 @@ import { MoreMenuIcon } from '-/components/CommonIcons';
 import { ProTooltip } from '-/components/HelperComponents';
 import TsButton from '-/components/TsButton';
 import TsIconButton from '-/components/TsIconButton';
-import AiGenTagsButton from '-/components/chat/AiGenTagsButton';
 import DescriptionMenu from '-/components/md/DescriptionMenu';
 import { useCurrentLocationContext } from '-/hooks/useCurrentLocationContext';
 import { useFilePropertiesContext } from '-/hooks/useFilePropertiesContext';
@@ -191,19 +190,6 @@ const EditDescriptionButtons: React.FC<ButtonsProps> = ({
           </TsButton>
         </Tooltip>
       </ButtonGroup>
-      {openedEntry.meta?.description && (
-        <>
-          <ProTooltip
-            tooltip={'Add AI generated tags based on the description'}
-          >
-            <AiGenTagsButton
-              sx={{ marginLeft: AppConfig.defaultSpaceBetweenButtons }}
-              fromDescription={true}
-              variant="outlined"
-            />
-          </ProTooltip>
-        </>
-      )}
       <TsIconButton
         tooltip={t('core:moreActions')}
         onClick={handleMoreClick}
