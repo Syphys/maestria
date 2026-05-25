@@ -60,17 +60,57 @@ async function rotateIfNeeded(fp: string): Promise<void> {
   }
 }
 
+/**
+ * Field names whose values are dropped before logging — anything that
+ * could carry credentials. Matched case-insensitively. Drops the value
+ * but keeps the key so call shape is still inspectable post-hoc.
+ */
+const REDACT_FIELDS = new Set([
+  'apikey',
+  'api_key',
+  'authorization',
+  'token',
+  'password',
+  'passwd',
+  'secret',
+  'bearer',
+]);
+
+function redactSecrets(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(redactSecrets);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = REDACT_FIELDS.has(k.toLowerCase())
+      ? '[redacted]'
+      : redactSecrets(v);
+  }
+  return out;
+}
+
 export async function appendCallLog(entry: CallLogEntry): Promise<void> {
   const fp = getLogPath();
   try {
     await rotateIfNeeded(fp);
     await fs.mkdir(path.dirname(fp), { recursive: true });
+    const sanitized: CallLogEntry = {
+      ...entry,
+      args: redactSecrets(entry.args) as CallLogEntry['args'],
+    };
     const line =
       JSON.stringify({
         ts: new Date().toISOString(),
-        ...entry,
+        ...sanitized,
       }) + '\n';
     await fs.appendFile(fp, line, 'utf8');
+    // Tool args may carry tokens (HF API keys, embedder Authorization
+    // headers) even after redaction misses; lock the log so other local
+    // users can't tail it. POSIX only — no-op on Windows.
+    try {
+      await fs.chmod(fp, 0o600);
+    } catch {
+      /* best-effort */
+    }
   } catch (e) {
     console.warn(
       '[modelhub-mcp] log append failed:',

@@ -28,6 +28,8 @@
  * active SSE sessions.
  */
 
+import { timingSafeEqual } from 'crypto';
+import { URL } from 'url';
 import express, { Request, Response, NextFunction } from 'express';
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -180,30 +182,111 @@ export async function start(): Promise<{ url: string; token: string }> {
   const app = express();
   app.use(express.json({ limit: '4mb' }));
 
-  // Auth middleware — runs before any handler. SSE clients send the
+  // Origin/Host guard — runs before auth. The server binds 127.0.0.1
+  // so it can't be reached from the network, but a browser the user
+  // visits in any tab can still POST to http://127.0.0.1:41541/messages
+  // (CORS doesn't block writes from a regular form/fetch). Without an
+  // Origin/Host check, a malicious page could brute-force tokens at
+  // localhost speed. We:
+  //   - accept requests with NO Origin header (CLI tools, curl, MCP
+  //     clients that don't set one) — they aren't a browser.
+  //   - accept Origin === null (file:// pages).
+  //   - accept Origin from loopback hosts only.
+  //   - reject the Host header if it doesn't match 127.0.0.1/localhost
+  //     (defense against DNS rebinding attacks where the attacker
+  //     points evil.com → 127.0.0.1 to bypass same-origin).
+  const ALLOWED_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null') {
+      try {
+        const hostname = new URL(origin).hostname;
+        if (!ALLOWED_HOSTS.has(hostname)) {
+          res.status(403).json({ error: 'forbidden origin' });
+          return;
+        }
+      } catch {
+        res.status(403).json({ error: 'malformed origin' });
+        return;
+      }
+    }
+    const host = (req.headers.host ?? '').split(':')[0];
+    if (host && !ALLOWED_HOSTS.has(host)) {
+      res.status(403).json({ error: 'forbidden host' });
+      return;
+    }
+    next();
+  });
+
+  // Rate-limit failed auth attempts to prevent brute-force from any
+  // local process. Sliding window: 20 failed requests / 60s per remote
+  // IP. The userToken has ~122 bits of entropy so brute force is
+  // infeasible anyway, but this caps the noise + IO on a misconfigured
+  // client and surfaces obvious attacks via the rejection log.
+  const failedAttempts = new Map<string, number[]>(); // ip → timestamps
+  const RATE_WINDOW_MS = 60_000;
+  const RATE_LIMIT = 20;
+  const recordFailure = (ip: string) => {
+    const now = Date.now();
+    const window = (failedAttempts.get(ip) ?? []).filter(
+      (t) => now - t < RATE_WINDOW_MS,
+    );
+    window.push(now);
+    failedAttempts.set(ip, window);
+    return window.length;
+  };
+  const isThrottled = (ip: string) => {
+    const window = failedAttempts.get(ip) ?? [];
+    const now = Date.now();
+    const fresh = window.filter((t) => now - t < RATE_WINDOW_MS);
+    if (fresh.length !== window.length) failedAttempts.set(ip, fresh);
+    return fresh.length >= RATE_LIMIT;
+  };
+  // Constant-time compare to remove the early-byte timing oracle. Falls
+  // back to a length check first (timingSafeEqual requires equal-length
+  // inputs). Uint8Array cast keeps TS happy across @types/node majors
+  // where Buffer vs Uint8Array<ArrayBufferLike> drifted.
+  const safeEqual = (a: string, b: string | undefined): boolean => {
+    if (!b || a.length !== b.length) return false;
+    const ab = new Uint8Array(Buffer.from(a, 'utf8'));
+    const bb = new Uint8Array(Buffer.from(b, 'utf8'));
+    if (ab.length !== bb.length) return false;
+    return timingSafeEqual(ab, bb);
+  };
+
+  // Auth middleware — runs after origin guard. SSE clients send the
   // Authorization header on the GET /sse upgrade; POST /messages
   // requires it too. The admin token is read on EVERY request (not
   // cached) so revoking it from Settings takes effect immediately
   // without a server restart.
   app.use(async (req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    if (isThrottled(ip)) {
+      res
+        .status(429)
+        .json({ error: 'too many failed auth attempts; back off' });
+      return;
+    }
     const header = req.headers.authorization ?? '';
     const match = /^Bearer (.+)$/.exec(header);
     if (!match) {
+      recordFailure(ip);
       res.status(401).json({ error: 'unauthorized' });
       return;
     }
     const provided = match[1];
     const adminToken = await getAdminToken();
-    if (provided === userToken) {
+    if (safeEqual(provided, userToken)) {
       (req as any)._isAdmin = false;
       next();
       return;
     }
-    if (adminToken && provided === adminToken) {
+    if (adminToken && safeEqual(provided, adminToken)) {
       (req as any)._isAdmin = true;
       next();
       return;
     }
+    recordFailure(ip);
     res.status(401).json({ error: 'unauthorized' });
   });
 

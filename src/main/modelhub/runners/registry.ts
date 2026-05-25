@@ -47,6 +47,11 @@ async function writeFile(data: RegistryFile): Promise<void> {
   const fp = getFilePath();
   await fs.mkdir(path.dirname(fp), { recursive: true });
   await fs.writeFile(fp, JSON.stringify(data, null, 2), 'utf8');
+  try {
+    await fs.chmod(fp, 0o600);
+  } catch {
+    /* POSIX only; no-op on Windows */
+  }
 }
 
 /**

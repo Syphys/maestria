@@ -109,6 +109,11 @@ async function writeFile(data: RoutingFile): Promise<void> {
   const fp = getFilePath();
   await fs.mkdir(path.dirname(fp), { recursive: true });
   await fs.writeFile(fp, JSON.stringify(data, null, 2), 'utf8');
+  try {
+    await fs.chmod(fp, 0o600);
+  } catch {
+    /* POSIX only; no-op on Windows */
+  }
 }
 
 /** Keep a 0..1 knob only when it is a finite number strictly in range. */
@@ -116,6 +121,35 @@ function unit(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 1
     ? v
     : undefined;
+}
+
+/**
+ * Reject anything that isn't a plain http(s) URL or that points at
+ * cloud-metadata / link-local / multicast hosts. The MCP admin tier
+ * + the renderer can both write this; if either is compromised we
+ * don't want the embedder fetch to act as an SSRF gadget against
+ * AWS/GCP metadata (169.254.169.254), Docker daemons (172.17.x.x),
+ * etc. Localhost stays allowed because the canonical setup runs
+ * llama-embedding on 127.0.0.1.
+ */
+function isSafeEmbedderUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const host = u.hostname;
+  // Link-local + cloud-metadata IPv4
+  if (host === '169.254.169.254' || host.startsWith('169.254.')) return false;
+  // Multicast + reserved
+  if (/^(2(2[4-9]|3\d|4\d|5[0-5]))\./.test(host)) return false;
+  // Private RFC1918 ranges other than 127.0.0.0/8 + localhost (which
+  // are explicitly allowed — that's where llama-embedding lives by
+  // default).
+  if (host === '0.0.0.0') return false;
+  return true;
 }
 
 function sanitize(input: RoutingConfig): RoutingConfig {
@@ -132,7 +166,7 @@ function sanitize(input: RoutingConfig): RoutingConfig {
   const fp = input.routingEmbedderPath?.trim();
   if (fp) out.routingEmbedderPath = fp;
   const url = input.routingEmbedderBaseUrl?.trim();
-  if (url) out.routingEmbedderBaseUrl = url;
+  if (url && isSafeEmbedderUrl(url)) out.routingEmbedderBaseUrl = url;
   const model = input.routingEmbedderModel?.trim();
   if (model) out.routingEmbedderModel = model;
   const tq = unit(input.thetaQ);

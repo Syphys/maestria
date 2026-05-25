@@ -152,7 +152,9 @@ const configuration: webpack.Configuration = {
       filename: path.join('index.html'),
       template: path.join(webpackPaths.srcRendererPath, 'index.ejs'),
       templateParameters: {
-        csp: "connect-src files: *; frame-src 'self' tsfile: *; default-src 'self' ; object-src 'none' ; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' data:  blob: ; media-src * blob: tsfile:; img-src tsfile: * blob: data: content:;",
+        // Dev CSP — same tightening as prod, plus `ws:` (HMR socket)
+        // and `'unsafe-eval'` for source maps + webpack-dev-server.
+        csp: "connect-src 'self' files: tsfile: ws: wss: https:; frame-src 'self' tsfile:; default-src 'self'; object-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' data: blob:; media-src 'self' tsfile: blob: https:; img-src 'self' tsfile: blob: data: content: https:;",
       },
       minify: {
         collapseWhitespace: true,

@@ -76,6 +76,15 @@ async function writeFile(data: TokenFile): Promise<void> {
   const fp = getFilePath();
   await fs.mkdir(path.dirname(fp), { recursive: true });
   await fs.writeFile(fp, JSON.stringify(data, null, 2), 'utf8');
+  // Bearer tokens are local-machine passwords. Lock the file so other
+  // users on the same machine can't read it via /home/$other_user share,
+  // backup tools, or accidental world-readable inheritance. POSIX only —
+  // chmod is a no-op on Windows (ACLs from the user-profile dir cover it).
+  try {
+    await fs.chmod(fp, 0o600);
+  } catch {
+    /* best-effort; Windows or read-only mount */
+  }
 }
 
 export async function getOrCreateToken(): Promise<string> {

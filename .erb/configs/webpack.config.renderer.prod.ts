@@ -111,7 +111,12 @@ const configuration: webpack.Configuration = {
       filename: 'index.html',
       template: path.join(webpackPaths.srcRendererPath, 'index.ejs'),
       templateParameters: {
-        csp: "connect-src files: *; frame-src 'self' tsfile: *; default-src 'self' ; object-src 'none' ; font-src 'self'; script-src 'self' ; style-src 'self' 'unsafe-inline' data:  blob: ; media-src * blob: tsfile:; img-src tsfile: * blob: data: content:;",
+        // Production CSP — `*` wildcards replaced with `https:` so any
+        // HTTPS endpoint stays loadable (HF metadata fetch, markdown
+        // remote images) while plain `http:` is rejected. `tsfile:`,
+        // `files:`, `blob:`, `data:`, `content:` remain for the local
+        // file protocol + thumbnails.
+        csp: "connect-src 'self' files: tsfile: https:; frame-src 'self' tsfile:; default-src 'self'; object-src 'none'; font-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' data: blob:; media-src 'self' tsfile: blob: https:; img-src 'self' tsfile: blob: data: content: https:;",
       },
       minify: {
         collapseWhitespace: true,

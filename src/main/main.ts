@@ -99,6 +99,17 @@ process.argv.forEach((arg, count) => {
 });
 
 // --- Browser Window Options ---
+// Set the Electron security flags explicitly. The Electron 41 defaults
+// already give us contextIsolation:true, nodeIntegration:false and
+// sandbox:false, but the Electron security checklist recommends being
+// explicit so a future Electron upgrade (or a copy of this options
+// object for a secondary window) can't silently regress.
+// — `sandbox: true`: every renderer goes through the OS sandbox; the
+//   preload script is restricted to the contextBridge surface only.
+// — `webSecurity: true`: keeps same-origin policy + CSP enforced.
+// — `allowRunningInsecureContent: false`: refuse mixed content.
+// — `webviewTag: false`: <webview> not used anywhere in the app;
+//   disabling it removes a known privilege-escalation vector.
 const browserWindowOptions: BrowserWindowConstructorOptions = {
   show: false,
   center: true,
@@ -106,6 +117,12 @@ const browserWindowOptions: BrowserWindowConstructorOptions = {
   titleBarStyle: isMacLike ? 'hidden' : 'default',
   webPreferences: {
     spellcheck: true,
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    webviewTag: false,
     preload:
       app.isPackaged || !isDebug
         ? path.join(__dirname, 'preload.js')
