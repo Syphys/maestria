@@ -60,28 +60,22 @@ export class WindowsSandbox extends SandboxProvider {
 
   private get ps1Path(): string {
     if (this.opts.ps1Path) return this.opts.ps1Path;
-    // In dev, `__dirname` points at the TS source (or webpack-output
-    // dir) which sits next to win-job.ps1. In a packaged build,
-    // webpack collapses everything into release/app/dist/main/ so the
-    // .ps1 is no longer alongside the JS — electron-builder copies it
-    // to `process.resourcesPath/modelhub-sandbox/win-job.ps1` via the
-    // extraResources entry in resources/builder.json. Pick the right
-    // one based on whether we're packaged. The lazy require avoids
-    // pulling Electron into the import graph at test time (the unit
-    // tests load this module without a runtime Electron binary).
-    let packaged = false;
-    try {
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      packaged = require('electron').app?.isPackaged === true;
-    } catch {
-      /* not running under Electron (unit test or non-Electron node) */
-    }
-    if (packaged) {
-      return path.join(
-        process.resourcesPath,
+    // In dev, `__dirname` sits next to win-job.ps1. In a packaged
+    // build, webpack collapses everything into release/app/dist/main/
+    // so the .ps1 is no longer alongside the JS — electron-builder
+    // copies it to `process.resourcesPath/modelhub-sandbox/win-job.ps1`
+    // via the extraResources entry in resources/builder.json. We
+    // detect packaged-mode via `process.resourcesPath` (Electron-only
+    // global, undefined in Node and tests) without importing electron
+    // — keeps webpack's static analysis happy.
+    const resourcesPath = (process as any).resourcesPath;
+    if (typeof resourcesPath === 'string' && resourcesPath) {
+      const candidate = path.join(
+        resourcesPath,
         'modelhub-sandbox',
         'win-job.ps1',
       );
+      if (fs.existsSync(candidate)) return candidate;
     }
     return path.join(__dirname, 'win-job.ps1');
   }
