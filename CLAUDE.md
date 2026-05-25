@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Local fork — AI Models Hub
 
-This repo is being adapted into a specialized AI-model browser/manager for `D:\models`. Scope spans header parsing (GGUF / safetensors), HF metadata enrichment, sidecar persistence, perspectives (treemap / calendar / graph), hardware-aware autotune + run delegation, and an MCP server that exposes the library to external clients (Claude Desktop, Cursor, deer-flow, scripts). **Do not read `tagspacespro/` source** — any feature inspired by Pro must be reimplemented from user-visible behavior only.
+This repo is being adapted into a specialized AI-model browser/manager for `D:\models`. Scope spans header parsing (GGUF / safetensors), local metadata enrichment (GGUF KV → auto-tags, folder segments), sidecar persistence, perspectives (treemap / calendar / graph), hardware-aware autotune + run delegation, and an MCP server that exposes the library to external clients (Claude Desktop, Cursor, deer-flow, scripts). **Do not read `tagspacespro/` source** — any feature inspired by Pro must be reimplemented from user-visible behavior only.
 
 **Engine** — llama.cpp's `llama-server` is the only supported runner. The autotuned run params (`ngl`, `ctx`, `threads`, `batchSize`, `flashAttn`, `mlock`, `port`) are llama-server flags. Ollama and LM Studio are out of scope and have been removed from the runner abstraction — don't add new code paths that re-introduce them.
 
@@ -12,7 +12,7 @@ This repo is being adapted into a specialized AI-model browser/manager for `D:\m
 
 **Model orchestration, not agent orchestration** — TagSpaces launches **models** (llama-server processes) and exposes them via MCP. It does **not** spawn or supervise external agents. Agents are clients of our MCP server, like Claude Desktop or any script. Don't reintroduce `AgentConfig`, an agent launcher, an agents-tree sidebar, or `agents.*` MCP tools — that direction was abandoned (see `archive/agents` branch for the deleted mock UI). When a client launches a model via `models.run`, annotate the `ActiveEntry` with `launchedBy` (caller label) so `RunningModelsPanel` can group by provenance.
 
-**MCP tools surface** — namespaced families: `models.*` (search / get / list_running / run / stop), `tags.*`, `description.*`, `hf.*`, `hardware.*`. Tools are registered in a single `src/main/modelhub/mcp/registry.ts`. HTTP+SSE transport on `127.0.0.1:41541`, Bearer token auth, opt-in via Settings.
+**MCP tools surface** — namespaced families: `models.*` (search / get / list_running / run / stop / route), `tags.*`, `description.*`, `meta.*`, `enrich.*`, `characterize.*`, `runners.*`, `routing.*`, `hardware.*`. Tools are registered in a single `src/main/modelhub/mcp/registry.ts`. HTTP+SSE transport on `127.0.0.1:41541`, Bearer token auth, opt-in via Settings. No remote HTTP integration — Hugging Face metadata fetch was removed because results were unreliable; enrichment is fully local (GGUF KV → auto-tags via `enrichLocal.ts`).
 
 **Sharded models** — a model split into N files (e.g. `foo-00001-of-00012.gguf`) is one logical entity. Shard 1 is canonical: it carries the sidecar, drives autoTags, and is what the runner receives. Helpers in `src/renderer/modelhub/shard.ts` (pure) + `src/main/modelhub/shardFs.ts` (fs-backed). When adding any feature that touches a model file, check `isCanonicalShard(name)` and route through `resolveCanonicalShardPath(filePath)` in main process.
 

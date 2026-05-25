@@ -200,8 +200,8 @@ register({
   description:
     'Return the sidecar metadata for a model file: parsed GGUF header ' +
     '(architecture, quantization, layer count, context length, ' +
-    'embedding dim, etc.), Hugging Face card if cached, auto-derived ' +
-    'system tags (arch:llama, quant:q4_k_m, size:7-13B, …). The raw ' +
+    'embedding dim, etc.) and auto-derived system tags ' +
+    '(arch:llama, quant:q4_k_m, size:7-13B, …). The raw ' +
     'GGUF KV dump (`header.rawMetadata`, ~40 typed entries like ' +
     '`rope.scaling.yarn_log_multiplier`) is hidden by default — pass ' +
     '`withMetadata: true` for the full dump. Works on any shard — ' +
