@@ -1520,7 +1520,7 @@
   "mhCharAllRunnerRequiredTitle": "llama.cpp runner required",
   "mhCharAllRunnerRequiredText": "No llama.cpp binary is configured. Maestria launches every model — and the embedder — through llama-server, so nothing can be characterized without one. Configure a runner, then start the characterization again.",
   "mhCharAllErrorsLabel": "Errors (first 10):",
-  "mhCharAllCancel": "Cancel (stops after the current model)",
+  "mhCharAllCancel": "Cancel (stops immediately)",
   "mhCharAllNoLocation": "Open a location that contains models",
   "mhCharAllScanning": "Scanning models…",
   "mhCharAllModel": "Model {{i}}/{{n}} — {{name}}",

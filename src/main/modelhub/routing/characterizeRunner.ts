@@ -159,6 +159,14 @@ export interface RunCharacterizationOptions {
    * monologue; characterization is the QCM staircase only.
    */
   freegen?: boolean;
+  /**
+   * Bulk-cancel propagation. When the user clicks "Cancel" on the
+   * bulk panel, characterizeAll aborts a shared AbortController and
+   * the signal flows from here into characterize() and freegen(),
+   * which forward it to each chat.complete() so the in-flight HTTP
+   * request and the inner prompt loop both bail out immediately.
+   */
+  signal?: AbortSignal;
 }
 
 /** Canonical path of the run in flight, or null. Guards against overlap. */
@@ -373,6 +381,7 @@ export async function runCharacterization(
       maxTokens,
       skipWrite: opts.skipWrite,
       onProgress: (p) => status({ stage: 'running', progress: p }),
+      signal: opts.signal,
     });
 
     // Slice 6a-2 — chain the tree-v0 vector pass on the SAME, still-up
@@ -505,6 +514,8 @@ export interface FreeGenBackfillOptions {
   onStatus?: (s: CharacterizeRunStatus) => void;
   deps?: FreeGenBackfillDeps;
   readyTimeoutMs?: number;
+  /** Bulk-cancel propagation — see RunCharacterizationOptions.signal. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -659,7 +670,7 @@ export async function runFreeGenGenerate(
     let text: string;
     let words: number;
     try {
-      const gen = await generateFreeGenText(ask);
+      const gen = await generateFreeGenText(ask, { signal: opts.signal });
       text = gen.text;
       words = gen.words;
     } finally {

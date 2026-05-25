@@ -106,6 +106,13 @@ export type CharacterizeOptions = {
   /** Clock seam (tests). */
   now?: () => string;
   onProgress?: (p: CharacterizationProgress) => void;
+  /**
+   * Fires when the user clicks Cancel on the bulk-characterise panel.
+   * Plumbed through to each chat.complete() so an in-flight HTTP
+   * request gets killed immediately AND the per-prompt loop bails out
+   * at its next iteration without firing the remaining work.
+   */
+  signal?: AbortSignal;
 };
 
 export type CharacterizeResult = {
@@ -215,6 +222,13 @@ export async function characterize(
   let consecutiveEmpty = 0;
 
   for (let i = 0; i < work.length; i++) {
+    // Honour the user's Cancel click between every prompt — combined
+    // with the AbortSignal wired into chat.complete() below, this
+    // bounds the cancel latency at roughly the time it takes the
+    // in-flight HTTP fetch to unwind (≤ 1 s in practice).
+    if (opts.signal?.aborted) {
+      throw new Error('characterize: aborted by caller');
+    }
     const w = work[i];
     const startedAt = now();
     opts.onProgress?.({
@@ -229,7 +243,10 @@ export async function characterize(
 
     let entry: DiagnosticRunEntry;
     try {
-      const response = await chat.complete(input, { id: w.id });
+      const response = await chat.complete(input, {
+        id: w.id,
+        signal: opts.signal,
+      });
       const result =
         w.kind === 'prompt'
           ? getScorer(w.id)!(response, w.prompt)

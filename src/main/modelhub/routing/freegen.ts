@@ -102,12 +102,16 @@ export type FreeGenProbeResult = FreeGenText & FreeGenProjection;
  * characterizeTree — swallows the throw so the probe never sinks the
  * tree pass).
  */
-export async function generateFreeGenText(ask: ChatLike): Promise<FreeGenText> {
-  // ChatLike.complete only accepts `{ id }`. No max_tokens cap is sent
-  // (see chat.ts) — the model writes its full monologue, bounded only
-  // by its context window and the request timeout.
+export async function generateFreeGenText(
+  ask: ChatLike,
+  opts: { signal?: AbortSignal } = {},
+): Promise<FreeGenText> {
+  // No max_tokens cap is sent (see chat.ts) — the model writes its
+  // full monologue, bounded only by its context window. `opts.signal`
+  // propagates the user's Cancel click to the in-flight HTTP request.
   const response = await ask.complete(FREEGEN_PROMPT, {
     id: 'freegen-probe',
+    signal: opts.signal,
   });
   const trimmed = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   if (!trimmed) {

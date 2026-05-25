@@ -138,14 +138,30 @@ export interface CharacterizeAllOptions {
 
 let running = false;
 let cancelFlag = false;
+// Aborted on `cancelCharacterizeAll()` and re-created at the start of
+// every new run. Propagated through `RunCharacterizationOptions.signal`
+// → `CharacterizeOptions.signal` → `chat.complete({ signal })` so an
+// in-flight HTTP request to llama-server is killed immediately; the
+// inner prompt loop also re-checks `.aborted` between every iteration.
+let cancelController: AbortController | undefined;
 
 export function isCharacterizeAllRunning(): boolean {
   return running;
 }
 
-/** Request a stop — honoured between models (the current one finishes). */
+/**
+ * Request a stop. Immediate: the current chat.complete()'s fetch is
+ * aborted (server-side generation ends on the disconnect), the inner
+ * prompt loop sees `signal.aborted` at its next check, and the outer
+ * model loop bails on `cancelFlag` at the next boundary. No "wait for
+ * the current model to finish" — that was the old contract, replaced
+ * because a 30k-token runaway generation could hold the run hostage
+ * for minutes per stuck model.
+ */
 export function cancelCharacterizeAll(): void {
-  if (running) cancelFlag = true;
+  if (!running) return;
+  cancelFlag = true;
+  cancelController?.abort();
 }
 
 function baseName(p: string): string {
@@ -185,6 +201,9 @@ export async function characterizeAll(
   }
   running = true;
   cancelFlag = false;
+  // Fresh AbortController per run — old aborted ones can't be reused.
+  cancelController = new AbortController();
+  const signal = cancelController.signal;
 
   const d = opts.deps ?? {};
   const lmf = d.listModelFiles ?? listModelFiles;
@@ -373,14 +392,22 @@ export async function characterizeAll(
             skipWrite: opts.skipWrite,
             freegen: opts.freegen,
             onStatus,
+            signal,
           });
           prog.ok += 1;
         } else if (kind === 'gen') {
           // Already complete; just make the model talk once.
-          await rg(file, { skipWrite: opts.skipWrite, onStatus });
+          await rg(file, { skipWrite: opts.skipWrite, onStatus, signal });
         }
         // kind === 'project-only' ⇒ nothing to do here.
       } catch (e) {
+        // User cancelled mid-flight — don't count it as a regular
+        // failure (no error log, no errorSamples bump). The outer
+        // loop's `if (cancelFlag)` will catch up next iteration and
+        // set the terminal `cancelled` phase.
+        if (cancelFlag) {
+          break;
+        }
         testFailed = true;
         const reason = (e as Error).message;
         if (isUnsupported(e)) {
@@ -447,5 +474,6 @@ export async function characterizeAll(
   } finally {
     running = false;
     cancelFlag = false;
+    cancelController = undefined;
   }
 }

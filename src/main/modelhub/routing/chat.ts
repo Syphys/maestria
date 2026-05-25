@@ -9,8 +9,20 @@
 
 /** Minimal seam the runner depends on — lets the smoke inject a mock. */
 export interface ChatLike {
-  /** `ctx.id` is the work-item id (mocks route on it; real client ignores). */
-  complete(prompt: string, ctx?: { id: string }): Promise<string>;
+  /**
+   * `ctx.id` is the work-item id (mocks route on it; real client ignores).
+   *
+   * `ctx.signal` is an OPTIONAL AbortSignal that fires when the user
+   * clicks the bulk-characterise "Cancel" button. It is wired through
+   * to `fetch()` so an in-flight HTTP request is killed immediately,
+   * which in turn makes llama-server stop generating (the connection
+   * close is its cancellation signal). This is the ONLY cancellation
+   * path — there is no wall-clock timeout (see ChatClientConfig docs).
+   */
+  complete(
+    prompt: string,
+    ctx?: { id?: string; signal?: AbortSignal },
+  ): Promise<string>;
 }
 
 export type ChatClientConfig = {
@@ -118,7 +130,10 @@ export class ChatClient implements ChatLike {
    * 3–4 min; the user prefers to wait rather than see fake `(empty)`
    * responses. Real network/process failures still throw + retry.
    */
-  async complete(prompt: string): Promise<string> {
+  async complete(
+    prompt: string,
+    ctx?: { id?: string; signal?: AbortSignal },
+  ): Promise<string> {
     const payload: Record<string, unknown> = {
       model: this.cfg.model ?? '',
       messages: [{ role: 'user', content: prompt }],
@@ -157,11 +172,21 @@ export class ChatClient implements ChatLike {
 
     let lastErr: ChatError | undefined;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      // Early-out before re-issuing the request when the caller has
+      // already aborted (e.g. user clicked Cancel during the backoff
+      // sleep between attempts). Avoids one wasted network round-trip.
+      if (ctx?.signal?.aborted) {
+        throw new ChatError('chat: aborted by caller', undefined, attempt + 1);
+      }
       try {
         const res = await fetch(this.url, {
           method: 'POST',
           headers,
           body,
+          // When the caller aborts mid-flight, fetch throws an
+          // AbortError immediately and we close the socket — llama-server
+          // detects the disconnect and stops generating server-side too.
+          signal: ctx?.signal,
         });
         if (!res.ok) {
           const detail = (await res.text().catch(() => '')).slice(0, 300);
@@ -195,6 +220,17 @@ export class ChatClient implements ChatLike {
           return content;
         }
       } catch (e) {
+        // AbortError from fetch when the caller cancels — do NOT retry,
+        // surface immediately. node-fetch and undici both throw
+        // `DOMException`/`AbortError` with `name === 'AbortError'`.
+        const name = (e as { name?: string } | null)?.name;
+        if (name === 'AbortError' || ctx?.signal?.aborted) {
+          throw new ChatError(
+            `chat: aborted by caller`,
+            undefined,
+            attempt + 1,
+          );
+        }
         if (e instanceof ChatError && e.status !== undefined) {
           if (!isRetryableStatus(e.status)) throw e;
           lastErr = e;

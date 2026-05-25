@@ -1511,7 +1511,7 @@
   "mhCharAllRunnerRequiredTitle": "Runner llama.cpp requis",
   "mhCharAllRunnerRequiredText": "Aucun binaire llama.cpp n'est configuré. Maestria lance chaque modèle — et l'embedder — via llama-server : rien ne peut être caractérisé sans runner. Configurez un runner, puis relancez la caractérisation.",
   "mhCharAllErrorsLabel": "Erreurs (10 premières) :",
-  "mhCharAllCancel": "Annuler (s'arrête après le modèle courant)",
+  "mhCharAllCancel": "Annuler (arrêt immédiat)",
   "mhCharAllNoLocation": "Ouvrez une location contenant des modèles",
   "mhCharAllScanning": "Recensement des modèles…",
   "mhCharAllModel": "Modèle {{i}}/{{n}} — {{name}}",
