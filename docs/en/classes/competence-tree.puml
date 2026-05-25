@@ -8,29 +8,29 @@
 
 !include ../_includes/classes/competence-tree.iuml
 
-title COMPETENCE_TREE — frozen taxonomy\nsource: `src/shared/RoutingTypes.ts` (DRY include)
+title STR_CTREE_DIAG_TITLE
 
 note right of B_SAFE
-  Safety stays **binary** 0/1
-  (single item, no Beta-Laplace
-  smoothing — user 2026-05-19).
+  STR_CTREE_DIAG_NOTE_SAFE_L1
+  STR_CTREE_DIAG_NOTE_SAFE_L2
+  STR_CTREE_DIAG_NOTE_SAFE_L3
 end note
 
 note right of B_INFO
-  Slice 7a — domain-of-knowledge
-  beyond programming.
+  STR_CTREE_DIAG_NOTE_INFO_L1
+  STR_CTREE_DIAG_NOTE_INFO_L2
 end note
 
 note right of B_TOOLS
-  Slice 7b — function-call /
-  abstention / source-cited
-  summary, at tree level.
+  STR_CTREE_DIAG_NOTE_TOOLS_L1
+  STR_CTREE_DIAG_NOTE_TOOLS_L2
+  STR_CTREE_DIAG_NOTE_TOOLS_L3
 end note
 
 note bottom of B_LANG
-  Display-only collapse in the R5
-  radar (slice 6c) — routing uses
-  the per-language leaves intact.
+  STR_CTREE_DIAG_NOTE_LANG_L1
+  STR_CTREE_DIAG_NOTE_LANG_L2
+  STR_CTREE_DIAG_NOTE_LANG_L3
 end note
 
 @enduml

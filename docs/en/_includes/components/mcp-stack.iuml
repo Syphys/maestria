@@ -2,28 +2,28 @@
 ' the MCP layer.
 
 package "src/main/modelhub/mcp/" <<Folder>> as PKG_MCP {
-  component "index.ts\n• side-effect import\n  of every tool module\n• re-exports start/stop\n  + token helpers" as CMP_MCP_INDEX
-  component "server.ts\n• HTTP+SSE on\n  127.0.0.1:41541\n• Bearer middleware\n  (two tokens —\n   user + admin)\n• callerLabelFor(req)\n  from User-Agent" as CMP_MCP_SERVER
-  component "registry.ts\n• Map<name,ToolDefinition>\n• requiresAdmin flag\n• isAdmin in ctx\n• ListTools sorted\n  by name\n• 403 on admin gate" as CMP_MCP_REG
-  component "token.ts\n• user Bearer\n  (lazy create)\n• admin Bearer\n  (opt-in, regen,\n   revoke)\n• autoStart toggle" as CMP_MCP_TOKEN
-  component "logger.ts\n• appendCallLog()\n• rotating\n  ~/.tagspaces/mcp.log" as CMP_MCP_LOG
+  component "STR_MCP_STACK_CMP_INDEX" as CMP_MCP_INDEX
+  component "STR_MCP_STACK_CMP_SERVER" as CMP_MCP_SERVER
+  component "STR_MCP_STACK_CMP_REG" as CMP_MCP_REG
+  component "STR_MCP_STACK_CMP_TOKEN" as CMP_MCP_TOKEN
+  component "STR_MCP_STACK_CMP_LOG" as CMP_MCP_LOG
 
-  package "tools/ (self-register on import)" as PKG_MCP_TOOLS {
-    component "models.ts\n7 tools\n  · admin:true on run\n    triggers UAC/pkexec" as CMP_T_MODELS
+  package "STR_MCP_STACK_PKG_TOOLS_LABEL" as PKG_MCP_TOOLS {
+    component "STR_MCP_STACK_CMP_T_MODELS" as CMP_T_MODELS
     component "route.ts\n1 tool (models.route)" as CMP_T_ROUTE
     component "tags.ts\n2 tools" as CMP_T_TAGS
     component "description.ts\n2 tools" as CMP_T_DESC
     component "hardware.ts\n2 tools (detect/autotune)" as CMP_T_HW
     component "characterize.ts\n6 tools\n  · start/status/\n    all_start/cancel/\n    load_signature/\n    get_questions_dir" as CMP_T_CHAR
     component "logs.ts\n4 tools\n  · models.get_server_log\n  · get_error_log\n  · list_archives\n  · runners.get_log" as CMP_T_LOGS
-    component "meta.ts ⚠ admin\n  · meta.patch (open)\n  · meta.enrich (open)\n  · enrich.folder_start ⚠\n  · clear_folder ⚠" as CMP_T_META
+    component "STR_MCP_STACK_CMP_T_META" as CMP_T_META
     component "discovery.ts\n2 tools\n  · sum_shard_bytes\n  · list_hosting_folders" as CMP_T_DISC
-    component "runners.ts ⚠ admin\n  · list/dismiss/\n    open_chat/build_cmd/\n    fit_probe (open)\n  · save/remove/detect/\n    reprobe ⚠" as CMP_T_RUNN
-    component "configs.ts ⚠ admin\n  · hardware.detect_raw\n  · get_override (open)\n  · set_override ⚠\n  · routing.get_config\n  · set_config ⚠" as CMP_T_CFG
+    component "STR_MCP_STACK_CMP_T_RUNN" as CMP_T_RUNN
+    component "STR_MCP_STACK_CMP_T_CFG" as CMP_T_CFG
   }
 }
 
-component "useMcp.ts\n(renderer hook,\npolls every 5 s)" as CMP_MCP_USE
+component "STR_MCP_STACK_CMP_USE" as CMP_MCP_USE
 
 CMP_MCP_INDEX ..> CMP_T_MODELS : import (side-effect)
 CMP_MCP_INDEX ..> CMP_T_ROUTE  : import (side-effect)
@@ -38,8 +38,8 @@ CMP_MCP_INDEX ..> CMP_T_RUNN   : import (side-effect)
 CMP_MCP_INDEX ..> CMP_T_CFG    : import (side-effect)
 
 CMP_MCP_SERVER --> CMP_MCP_REG : dispatch (ctx.isAdmin)
-CMP_MCP_SERVER --> CMP_MCP_TOKEN : verify Bearer\n(user OR admin)
-CMP_MCP_SERVER --> CMP_MCP_LOG : appendCallLog\n(per tool call)
+CMP_MCP_SERVER --> CMP_MCP_TOKEN : STR_MCP_STACK_REL_VERIFY_BEARER
+CMP_MCP_SERVER --> CMP_MCP_LOG : STR_MCP_STACK_REL_APPEND_LOG
 CMP_MCP_REG --> CMP_T_MODELS
 CMP_MCP_REG --> CMP_T_ROUTE
 CMP_MCP_REG --> CMP_T_TAGS
@@ -52,4 +52,4 @@ CMP_MCP_REG --> CMP_T_DISC
 CMP_MCP_REG --> CMP_T_RUNN
 CMP_MCP_REG --> CMP_T_CFG
 
-CMP_MCP_USE ..> CMP_MCP_INDEX : start / stop / status\n+ user/admin tokens\n(IPC + 5 s poll)
+CMP_MCP_USE ..> CMP_MCP_INDEX : STR_MCP_STACK_REL_USE_INDEX

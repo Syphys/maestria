@@ -2,36 +2,35 @@
 !include ../_includes/style.iuml
 !include ../_includes/usecase/actors.iuml
 
-title Use cases — who does what with the AI subsystem
+title STR_UCU_TITLE
 
 left to right direction
 
-rectangle "Maestria — AI subsystem" {
+rectangle "STR_UCU_RECT_LABEL" {
 
-  package "Inférence tab" as UC_UI {
-    usecase "Open a .gguf model file" as UC_OPEN
-    usecase "Run a chat model (browser UI)" as UC_RUN
-    usecase "Characterize / Re-characterize" as UC_CH
-    usecase "View competence radar\n(R5 + tree)" as UC_RADAR
-    usecase "Bulk characterize\n(folder)" as UC_BULK
+  package "STR_UCU_PKG_UI" as UC_UI {
+    usecase "STR_UCU_OPEN" as UC_OPEN
+    usecase "STR_UCU_RUN" as UC_RUN
+    usecase "STR_UCU_CH" as UC_CH
+    usecase "STR_UCU_RADAR" as UC_RADAR
+    usecase "STR_UCU_BULK" as UC_BULK
   }
 
-  package "Settings ▸ AI" as UC_SET {
-    usecase "Pick embedder .gguf\n(file picker)" as UC_PICK_EMB
-    usecase "Enable code-tests\nsandbox (opt-in)" as UC_OPT_SBX
-    usecase "Start / stop MCP server" as UC_MCP
-    usecase "Copy MCP configuration" as UC_COPY_CFG
+  package "STR_UCU_PKG_SET" as UC_SET {
+    usecase "STR_UCU_PICK_EMB" as UC_PICK_EMB
+    usecase "STR_UCU_OPT_SBX" as UC_OPT_SBX
+    usecase "STR_UCU_MCP" as UC_MCP
+    usecase "STR_UCU_COPY_CFG" as UC_COPY_CFG
     usecase "Override hardware" as UC_HW
   }
 
-  package "MCP surface" as UC_MCP_SURF {
+  package "STR_UCU_PKG_MCP_SURF" as UC_MCP_SURF {
     usecase "models.search / .get" as UC_SEARCH
     usecase "models.run / .stop" as UC_MRUN
-    usecase "models.route\n(advice only)" as UC_ROUTE
+    usecase "STR_UCU_ROUTE" as UC_ROUTE
     usecase "models.get_run_params\nmodels.list_runner_flags" as UC_INSPECT
     usecase "tags.add / .remove" as UC_TAGS
     usecase "description.set / .get" as UC_DESC
-    usecase "hf.fetch (metadata)" as UC_FETCH
     usecase "hardware.detect /\n.autotune" as UC_HW_TOOL
   }
 }
@@ -53,24 +52,22 @@ A_MCP_CLI --> UC_ROUTE
 A_MCP_CLI --> UC_INSPECT
 A_MCP_CLI --> UC_TAGS
 A_MCP_CLI --> UC_DESC
-A_MCP_CLI --> UC_FETCH
 A_MCP_CLI --> UC_HW_TOOL
 
-UC_FETCH ..> A_HF : (egress)
-UC_PICK_EMB ..> A_EXT_EMB : (alternative\nto managed)
-UC_ROUTE ..> UC_MRUN : <<extends>>\nfollow-up
+UC_PICK_EMB ..> A_EXT_EMB : STR_UCU_REL_ALT
+UC_ROUTE ..> UC_MRUN : STR_UCU_REL_EXTENDS
 UC_INSPECT ..> UC_MRUN : <<precedes>>
 
 note bottom of UC_OPT_SBX
-  Opt-in OFF by default. Unlocks
-  the 9 code-tests items in the
-  staircase; otherwise they stay
-  UNMEASURED (D12 prior).
+  STR_UCU_NOTE_SBX_L1
+  STR_UCU_NOTE_SBX_L2
+  STR_UCU_NOTE_SBX_L3
+  STR_UCU_NOTE_SBX_L4
 end note
 
 note bottom of UC_ROUTE
-  Advice only — does NOT launch.
-  Caller follows up with models.run.
+  STR_UCU_NOTE_ROUTE_L1
+  STR_UCU_NOTE_ROUTE_L2
 end note
 
 @enduml

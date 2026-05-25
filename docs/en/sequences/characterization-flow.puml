@@ -1,79 +1,79 @@
 @startuml characterization-flow
 !include ../_includes/style.iuml
 
-title Characterise ONE model — full flow (2026-05-23 single-pass)
+title STR_CFLOW_TITLE
 
-actor User
-participant "UI\n(Inférence tab)" as UI
+actor STR_CFLOW_ACTOR_USER
+participant "STR_CFLOW_UI" as UI
 participant "characterizeRunner" as RUN
 participant "runner registry\n+ launch.ts" as LAUNCH
-participant "modelLogStore\n(.ts/<file>.log)" as LOG
+participant "STR_CFLOW_LOG" as LOG
 participant "llama-server\n(chat)" as CHAT
-participant "characterize.ts\n(R5 pass)" as R5
+participant "STR_CFLOW_R5" as R5
 participant "characterizeTree.ts" as TREE
 participant "staircase.ts\n+ scorers" as STAIR
 participant "sandbox\n(slice 2d)" as SBX
-participant "freegen.ts\n(2-phase, 2026-05-22)" as FG
+participant "STR_CFLOW_FG" as FG
 participant "embedderCli.ts\n(llama-embedding,\none-shot)" as EMB_CLI
-participant "signatureStore\n(.ts/<file>.json)" as SIG
+participant "STR_CFLOW_SIG" as SIG
 
-User -> UI : "Caractériser" / "Re-caractériser"
+STR_CFLOW_ACTOR_USER -> UI : "STR_CFLOW_MSG_CHAR"
 UI -> RUN : start({filePath, freegen, skipProjection})
 
-== Pre-launch non-chat filter (2026-05-24) ==
-RUN -> RUN : readModelHeader(filePath) ONCE
-alt arch ∈ NON_GENERATIVE_ARCH\nOR name matches /tokenizer|codec|vocoder|vq|cfm|tts/\nOR pooling_type ≥ 1
-  RUN -> SIG : markUnsupported(reason)
+== STR_CFLOW_GRP_PRELAUNCH ==
+RUN -> RUN : STR_CFLOW_MSG_READ_HDR
+alt STR_CFLOW_ALT_NON_CHAT
+  RUN -> SIG : STR_CFLOW_MSG_MARKUNSUP
   RUN --> UI : status:'error' (state='failed', quarantined)
   note right of RUN
-    Cosyvoice3 = name "Llamacpp_Tokenizer"
-    is caught HERE → no llama-server boot,
-    no wasted 28-prompt suite.
+    STR_CFLOW_NOTE_COSYV_L1
+    STR_CFLOW_NOTE_COSYV_L2
+    STR_CFLOW_NOTE_COSYV_L3
   end note
-else generative chat OK
-  RUN -> LOG : archiveServerLog(filePath)\n(rotate prev .log → .ts/<file>.<ISO>.log)
-  RUN -> LAUNCH : ensure chat live (spawn if needed)\nwith --timeout 86400
+else STR_CFLOW_ELSE_GEN_OK
+  RUN -> LOG : STR_CFLOW_MSG_ARCHIVE_LOG
+  RUN -> LAUNCH : STR_CFLOW_MSG_ENSURE_CHAT
   LAUNCH -> CHAT : llama-server (8080)
-  LAUNCH -> LOG : append stdout/stderr\n(append-only, 4 MiB rotation)
+  LAUNCH -> LOG : STR_CFLOW_MSG_APPEND_STREAMS
 end
-RUN -> R5 : runR5(ask=chatClient,\n  no wall-clock timeout)
-loop per prompt (v1-30)
+RUN -> R5 : STR_CFLOW_MSG_RUNR5
+loop STR_CFLOW_LOOP_PROMPT
   R5 -> CHAT : prompt
-  CHAT --> R5 : content (+ reasoning_content\n  wrapped as <think>…</think>\n  if model emits it)
-  R5 -> UI : prompt_done event\nwith FULL DiagnosticRunEntry\n(live « Interactions » tab,\n2026-05-24)
-  alt response = only `<|stop_…|>` tokens\nOR 5 consecutive empties
+  CHAT --> R5 : STR_CFLOW_MSG_CONTENT_REASONING
+  R5 -> UI : STR_CFLOW_MSG_PROMPT_DONE
+  alt STR_CFLOW_ALT_STOP_TOKENS
     R5 --> RUN : throw 'non-chat model'
     note right of R5
-      Tier 3 adaptive quarantine —
-      catches TTS / audio-codec
-      GGUFs that escaped the
-      pre-launch arch+name filter.
+      STR_CFLOW_NOTE_TIER3_L1
+      STR_CFLOW_NOTE_TIER3_L2
+      STR_CFLOW_NOTE_TIER3_L3
+      STR_CFLOW_NOTE_TIER3_L4
     end note
   end
 end
-R5 --> RUN : behavioral (R5 vector)
+R5 --> RUN : STR_CFLOW_MSG_BEHAV_R5
 
-== Tree (slice 4c) ==
+== STR_CFLOW_GRP_TREE ==
 RUN -> TREE : characterizeTree({\n  ask, embed:undefined, seams.runSandbox\n})
 note right of TREE
-  Embedder NOT touched here —
-  test model is the only resident
-  process. Projection deferred.
+  STR_CFLOW_NOTE_TREE_L1
+  STR_CFLOW_NOTE_TREE_L2
+  STR_CFLOW_NOTE_TREE_L3
 end note
-loop per OPENED branch (R5 ≥ θ_open)
+loop STR_CFLOW_LOOP_BRANCH
   TREE -> STAIR : characterizeBranch(branch)
-  loop per leaf, climb level 1→N until first fail
+  loop STR_CFLOW_LOOP_LEAF
     STAIR -> CHAT : item.prompt
-    CHAT --> STAIR : response
-    alt check is registered scorer
+    CHAT --> STAIR : STR_CFLOW_MSG_RESPONSE
+    alt STR_CFLOW_ALT_REG_SCORER
       STAIR -> STAIR : runCheck(response)
-    else check is sandbox request (code-tests)
+    else STR_CFLOW_ELSE_SBX_REQ
       STAIR -> SBX : runSandbox({code, tests})
-      alt opt-in OFF or boundary fails
+      alt STR_CFLOW_ALT_OPTIN_OFF
         SBX --> STAIR : throw SandboxUnavailable
-        STAIR -> STAIR : mark UNMEASURED\n(branch prior D12)
+        STAIR -> STAIR : STR_CFLOW_MSG_MARK_UNMEAS
       else
-        SBX -> SBX : spawn python (POSIX rlimits / Win Job)
+        SBX -> SBX : STR_CFLOW_MSG_SPAWN_PY
         SBX --> STAIR : {pass:true|false}
       end
     end
@@ -81,41 +81,41 @@ loop per OPENED branch (R5 ≥ θ_open)
 end
 TREE --> RUN : scores_per_leaf,\nbranch_scores,\npasses_per_leaf
 
-== Free-gen phase 1 — TEXT only (no embedder) ==
+== STR_CFLOW_GRP_FG1 ==
 alt freegen=true
   TREE -> FG : generateFreeGenText(ask)
   FG -> CHAT : FREEGEN_PROMPT
-  CHAT --> FG : ~600-800 words
+  CHAT --> FG : STR_CFLOW_MSG_FG_WORDS
   FG --> TREE : { text, words }
 end
 
-TREE --> RUN : signature with\nfreegen_text (no projection yet)
+TREE --> RUN : STR_CFLOW_MSG_SIG_WITH_TEXT
 RUN -> SIG : writeSignature(skipWrite?)
 RUN -> LAUNCH : stop chat server
 RUN --> UI : status:'tests done'
 
-== Free-gen phase 2 — PROJECTION (per model, deferred) ==
+== STR_CFLOW_GRP_FG2 ==
 note over RUN
-  characterizeAll's per-model loop:
-  test session ended ⇒ chat server stopped ⇒
-  embedder CLI is the only thing in RAM.
+  STR_CFLOW_NOTE_FG2_L1
+  STR_CFLOW_NOTE_FG2_L2
+  STR_CFLOW_NOTE_FG2_L3
 end note
-alt skipProjection=false AND embedder available
-  RUN -> EMB_CLI : embed([freegen_text, ...17 anchors])
+alt STR_CFLOW_ALT_PROJ_RUN
+  RUN -> EMB_CLI : STR_CFLOW_MSG_EMBED_CALL
   EMB_CLI -> EMB_CLI : spawn llama-embedding.exe\n--embd-output-format json\n--log-disable
-  EMB_CLI --> RUN : Float32Array[]\n(process exits, RAM freed)
+  EMB_CLI --> RUN : STR_CFLOW_MSG_FLOAT32_RAM
   RUN -> FG : projectFreeGenText(text, embed, anchors)
-  FG --> RUN : topic_coverage_*\n(per leaf + per branch)
-  RUN -> SIG : patch signature\n(topic_coverage_per_leaf,\n topic_coverage_per_branch)
+  FG --> RUN : STR_CFLOW_MSG_TOPIC_COV
+  RUN -> SIG : STR_CFLOW_MSG_PATCH_SIG
 else
   note right of RUN
-    skipProjection=true OR no embedder
-    configured ⇒ text saved, projection
-    deferred (can run later on-demand).
+    STR_CFLOW_NOTE_SKIP_L1
+    STR_CFLOW_NOTE_SKIP_L2
+    STR_CFLOW_NOTE_SKIP_L3
   end note
 end
 
 RUN --> UI : status:'done' + signature
-UI -> UI : refresh radar (R5 + tree + projection)
+UI -> UI : STR_CFLOW_MSG_REFRESH_RADAR
 
 @enduml

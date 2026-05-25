@@ -1,11 +1,11 @@
 @startuml routing-flow
 !include ../_includes/style.iuml
 
-title `models.route` — vector path with R5 fallback
+title STR_RFLOW_TITLE
 
-actor "MCP client" as CLI
-participant "MCP server\n+ registry" as MCP
-participant "route.ts\n(MCP tool)" as TOOL
+actor "STR_RFLOW_CLI_ACTOR" as CLI
+participant "STR_RFLOW_MCP" as MCP
+participant "STR_RFLOW_TOOL" as TOOL
 participant "routingConfig" as CFG
 participant "embedderLifecycle" as ELC
 participant "llama-server\n--embedding" as EMB
@@ -13,62 +13,61 @@ participant "embedDetect\n+ reliability" as REL
 participant "routeByVectors" as VEC
 participant "classifyQuery\n(R5)" as R5
 participant "routeDecision\n(rank + score)" as RANK
-participant "signatureStore\n(.ts/ on disk)" as SIG
+participant "STR_RFLOW_SIG" as SIG
 
 CLI -> MCP : models.route\n{query, directory, limit, weights}
-MCP -> TOOL : dispatch + JSON-Schema validate
+MCP -> TOOL : STR_RFLOW_MSG_DISPATCH
 TOOL -> CFG : effectiveRoutingParams(cfg)
 CFG --> TOOL : {thetaQ, embedder, …}
-TOOL -> SIG : list candidates (complete sigs only — D9)
+TOOL -> SIG : STR_RFLOW_MSG_LIST_CANDS
 SIG --> TOOL : RouteCandidate[]
 TOOL -> TOOL : probeFreeMemory()
 
-alt embedder configured
-  TOOL -> ELC : ensureEmbedderReady(filePath)\nOR external baseUrl
-  ELC -> EMB : spawn if managed
+alt STR_RFLOW_ALT_EMB_CONFIG
+  TOOL -> ELC : STR_RFLOW_MSG_ENSURE_READY
+  ELC -> EMB : STR_RFLOW_MSG_SPAWN_IF_MANAGED
   ELC --> TOOL : baseUrl
-  TOOL -> REL : measure reliability\n(per language)
-  REL --> TOOL : {fr, zh, en} cosines
-  alt all langs ≥ threshold
+  TOOL -> REL : STR_RFLOW_MSG_MEASURE_REL
+  REL --> TOOL : STR_RFLOW_MSG_COSINES
+  alt STR_RFLOW_ALT_ALL_LANGS_OK
     TOOL -> VEC : routeByVectors({\n  embedder, candidates,\n  query, params})
     VEC -> EMB : embed(query)
-    EMB --> VEC : query vector
-    VEC -> VEC : project onto 32 anchors\n+ blend α/β with topic_coverage
+    EMB --> VEC : STR_RFLOW_MSG_QUERY_VEC
+    VEC -> VEC : STR_RFLOW_MSG_PROJ_BLEND
     VEC --> TOOL : routedBy:'vector',\nlevel, ranked
-  else any lang below threshold
-    TOOL -> R5 : classifyQuery(query)\n(fallback)
+  else STR_RFLOW_ELSE_LANG_BELOW
+    TOOL -> R5 : STR_RFLOW_MSG_CLASSIFY_FALLBACK
     R5 --> TOOL : axisWeights
-    TOOL -> RANK : score by R5 weights\n+ fit + hot
+    TOOL -> RANK : STR_RFLOW_MSG_SCORE_R5
     RANK --> TOOL : routedBy:'r5',\nranked
   end
-else no embedder
-  TOOL -> R5 : classifyQuery(query)\n(default fallback)
+else STR_RFLOW_ELSE_NO_EMB
+  TOOL -> R5 : STR_RFLOW_MSG_CLASSIFY_DEFAULT
   R5 --> TOOL : axisWeights
   TOOL -> RANK : score
   RANK --> TOOL : routedBy:'r5'
 end
 
 TOOL --> MCP : {best, ranked, resources,\nrouting, gateReason}
-MCP --> CLI : JSON response
+MCP --> CLI : STR_RFLOW_MSG_JSON_RESP
 
 note over CLI, TOOL
-  Advice only: this tool DOES NOT launch.
-  Caller typically follows up with
-  `models.run({path: best.id})`.
+  STR_RFLOW_NOTE_ADVICE_L1
+  STR_RFLOW_NOTE_ADVICE_L2
+  STR_RFLOW_NOTE_ADVICE_L3
 end note
 
 note right of ELC
-  SERVER mode (resident llama-server
-  --embedding) — chosen for INTERACTIVE
-  routing because queries are repeated
-  and low latency matters.
+  STR_RFLOW_NOTE_ELC_L1
+  STR_RFLOW_NOTE_ELC_L2
+  STR_RFLOW_NOTE_ELC_L3
+  STR_RFLOW_NOTE_ELC_L4
 
-  Bulk characterization uses the CLI
-  path instead (embedderCli.ts → spawn
-  llama-embedding.exe → exit) so the
-  test model never coexists with the
-  embedder in RAM. See sequences/
-  embedder-startup.puml for both routes.
+  STR_RFLOW_NOTE_ELC_L5
+  STR_RFLOW_NOTE_ELC_L6
+  STR_RFLOW_NOTE_ELC_L7
+  STR_RFLOW_NOTE_ELC_L8
+  STR_RFLOW_NOTE_ELC_L9
 end note
 
 @enduml

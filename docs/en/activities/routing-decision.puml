@@ -1,7 +1,7 @@
 @startuml activity-routing-decision
 !include ../_includes/style.iuml
 
-title Activity — `models.route` decision flow
+title STR_RTDEC_TITLE
 
 ' Activity diagram for the routing decision logic. Distinct from the
 ' sequence (which shows WHO calls WHO) — here we show the BRANCHING
@@ -9,37 +9,37 @@ title Activity — `models.route` decision flow
 
 start
 
-:Load `routingConfig`\n+ `effectiveRoutingParams`;
-:List eligible candidates\n(D9: complete signature only);
-:Probe free memory\n(VRAM/RAM);
+:STR_RTDEC_STEP_LOAD_CFG;
+:STR_RTDEC_STEP_LIST_CANDS;
+:STR_RTDEC_STEP_PROBE;
 
-if (Embedder configured\n(managed or external)?) then (no)
-  :Use R5 deterministic\nclassifier;
+if (STR_RTDEC_IF_EMB_CONFIG) then (STR_RTDEC_NO)
+  :STR_RTDEC_STEP_USE_R5;
   note right
-    classifyQuery() returns
-    axisWeights from regex /
-    keyword analysis.
+    STR_RTDEC_NOTE_R5_L1
+    STR_RTDEC_NOTE_R5_L2
+    STR_RTDEC_NOTE_R5_L3
   end note
   -> r5_path;
-else (yes)
-  :ensureEmbedderReady()\nOR read external URL;
-  if (Embedder live?) then (no)
-    :Silent fallback to R5\n(gateReason:'embedder-down');
+else (STR_RTDEC_YES)
+  :STR_RTDEC_STEP_ENSURE_READY;
+  if (STR_RTDEC_IF_EMB_LIVE) then (STR_RTDEC_NO)
+    :STR_RTDEC_STEP_FALLBACK_DOWN;
     -> r5_path;
-  else (yes)
-    :Measure embedding\nreliability per language\n(fr/zh/en triplets);
-    if (All langs ≥ threshold?) then (no)
-      :Fallback to R5\n(gateReason:\n'reliability-below-threshold');
+  else (STR_RTDEC_YES)
+    :STR_RTDEC_STEP_MEASURE_REL;
+    if (STR_RTDEC_IF_ALL_LANGS) then (STR_RTDEC_NO)
+      :STR_RTDEC_STEP_FALLBACK_THR;
       -> r5_path;
-    else (yes)
-      :Embed query;
-      :Project onto 32 leaf anchors;
-      if (Per-leaf confidence\nq[i] ≥ θ_q?) then (yes)
-        :Descend to LEAF level\n(level:'leaf');
-      else (no)
-        :Stay at BRANCH level\n(level:'branch');
+    else (STR_RTDEC_YES)
+      :STR_RTDEC_STEP_EMBED_QUERY;
+      :STR_RTDEC_STEP_PROJECT;
+      if (STR_RTDEC_IF_PERLEAF_CONF) then (STR_RTDEC_YES)
+        :STR_RTDEC_STEP_DESC_LEAF;
+      else (STR_RTDEC_NO)
+        :STR_RTDEC_STEP_STAY_BRANCH;
       endif
-      :Blend v = α·v_deterministic\n+ β·max(0, topic_coverage)\n(α=0.7, β=0.3);
+      :STR_RTDEC_STEP_BLEND;
       :score_m = Σ q[i]·v_m[i]\n+ w_fit·fit_m + w_hot·hot_m;
       -> vector_done;
     endif
@@ -47,20 +47,20 @@ else (yes)
 endif
 
 label r5_path
-:axisWeights → branch priors;
-:score_m using R5 weights;
+:STR_RTDEC_STEP_AXIS_TO_PRIORS;
+:STR_RTDEC_STEP_SCORE_R5;
 label vector_done
-:Filter to D9 eligible\nrank by score (desc);
-:Build response\n{routedBy, gateReason,\nbest, ranked, resources,\nembeddingReliability?,\nlevel?, axisWeights?};
+:STR_RTDEC_STEP_FILTER_RANK;
+:STR_RTDEC_STEP_BUILD_RESP;
 
 stop
 
 note right
-  routedBy is **always** explicit
-  in the response: 'vector' (full
-  pipeline) or 'r5' (fallback).
-  gateReason explains why for
-  each non-vector outcome.
+  STR_RTDEC_NOTE_FINAL_L1
+  STR_RTDEC_NOTE_FINAL_L2
+  STR_RTDEC_NOTE_FINAL_L3
+  STR_RTDEC_NOTE_FINAL_L4
+  STR_RTDEC_NOTE_FINAL_L5
 end note
 
 @enduml

@@ -1,157 +1,137 @@
 @startuml activity-characterization-escalation
 !include ../_includes/style.iuml
 
-title Activity — characterization escalation\nR5 → tree → freegen with R5-gated deepening
+title STR_CHESC_TITLE
 
 ' Slice 6a Dββ — only R5-maximal branches are deepened on the tree.
 ' This activity diagram shows the decision points + the failure
 ' isolation between passes.
 
 start
-:User clicks "Caractériser"\nOR MCP request;
+:STR_CHESC_STEP_START;
 
-partition "Pre-launch non-chat filter (2026-05-24)" {
-  :Read GGUF header ONCE
-  (arch + general.name + pooling);
-  if (arch ∈ NON_GENERATIVE_ARCH?
-    whisper/clip/bert/t5/...
-    + qwen3tts/outetts/parlertts/
-    kokoro/mossttts/snactts) then (yes)
+partition "STR_CHESC_PART_PRELAUNCH" {
+  :STR_CHESC_STEP_READ_HDR;
+  if (STR_CHESC_IF_ARCH_NON_GEN) then (STR_CHESC_YES)
     :throw UnsupportedModelError;
     :state = 'failed' (quarantined);
     stop
   endif
-  if (general.name matches
-    /[_\W](tokenizer|codec|vocoder|
-    vq|cfm|tts)[_\W]/i ?) then (yes)
+  if (STR_CHESC_IF_NAME_REGEX) then (STR_CHESC_YES)
     note right
-      Cosyvoice3 = name
-      "Llamacpp_Tokenizer"
-      → caught here, never
-      boots llama-server.
+      STR_CHESC_NOTE_COSY_L1
+      STR_CHESC_NOTE_COSY_L2
+      STR_CHESC_NOTE_COSY_L3
+      STR_CHESC_NOTE_COSY_L4
     end note
     :throw UnsupportedModelError;
     :state = 'failed' (quarantined);
     stop
   endif
-  if (pooling_type ≥ 1?
-    Qwen3-Embedding-N etc.) then (yes)
-    :throw UnsupportedModelError
-    ("embedding model");
+  if (STR_CHESC_IF_POOLING) then (STR_CHESC_YES)
+    :STR_CHESC_STEP_THROW_EMB;
     :state = 'failed' (quarantined);
     stop
   endif
 }
 
-:characterizeRunner ensures\nchat process live;
-:archiveServerLog
-(rotate previous .log →
- .ts/<file>.<ISO>.log,
- fresh session starts clean);
+:STR_CHESC_STEP_ENSURE_CHAT;
+:STR_CHESC_STEP_ARCHIVE_LOG;
 
-partition "R5 pass (coarse, always)" {
-  :Iterate v1-30.json prompts;
+partition "STR_CHESC_PART_R5" {
+  :STR_CHESC_STEP_ITER_PROMPTS;
   repeat
-    :ask.complete(prompt)
-    (no client timeout — wait
-     as long as the model needs);
-    :emit prompt_done event
-    with FULL DiagnosticRunEntry
-    (live Interactions tab,
-     2026-05-24);
-    :Run registered scorer;
-    :Update scores_per_axis;
-    if (Tier 3 — adaptive quarantine?
-      response only `<|stop_…|>` tokens
-      OR 5 consecutive empties) then (yes)
+    :STR_CHESC_STEP_ASK;
+    :STR_CHESC_STEP_EMIT_DONE;
+    :STR_CHESC_STEP_RUN_SCORER;
+    :STR_CHESC_STEP_UPD_AXIS;
+    if (STR_CHESC_IF_TIER3) then (STR_CHESC_YES)
       note right
-        Catches TTS / audio-codec
-        GGUFs the arch+name filters
-        missed (e.g. a Cosyvoice
-        variant with an innocent
-        general.name).
+        STR_CHESC_NOTE_TIER3_L1
+        STR_CHESC_NOTE_TIER3_L2
+        STR_CHESC_NOTE_TIER3_L3
+        STR_CHESC_NOTE_TIER3_L4
       end note
       :throw 'non-chat model';
       :state = 'failed' (quarantined);
       stop
     endif
-  repeat while (more prompts?) is (yes)
-  -> R5 done;
-  :Persist behavioral\n+ characterization_state = 'incomplete';
+  repeat while (STR_CHESC_WHILE_MORE) is (STR_CHESC_YES)
+  -> STR_CHESC_ARR_R5_DONE;
+  :STR_CHESC_STEP_PERSIST_BEHAV;
 }
 
-if (characterizeTreeFn available?) then (no)
-  :State stays 'incomplete';
+if (STR_CHESC_IF_TREE_AVAIL) then (STR_CHESC_NO)
+  :STR_CHESC_STEP_STATE_INC;
   stop
 endif
 
-partition "Tree pass (R5-gated, Dββ)" {
-  :Read scores_per_axis;
-  :branchGateFromAxes()\nmaps R5 → 9 branches;
+partition "STR_CHESC_PART_TREE" {
+  :STR_CHESC_STEP_READ_AXIS;
+  :STR_CHESC_STEP_BRANCH_GATE;
   fork
-    :For each branch where\n  R5 mapped score ≥ θ_open;
-    :characterizeBranch\n(Phase A: level 1 probe,\nthen climb until first fail);
-    if (passes_per_leaf > 0?) then (yes)
-      :Beta-Laplace posterior\n(1+passes)/(2+asked);
-    else (no)
-      :Mark UNMEASURED\n→ branch prior D12;
+    :STR_CHESC_STEP_FOR_OPEN;
+    :STR_CHESC_STEP_CHAR_BRANCH;
+    if (passes_per_leaf > 0?) then (STR_CHESC_YES)
+      :STR_CHESC_STEP_BETA_POST;
+    else (STR_CHESC_NO)
+      :STR_CHESC_STEP_MARK_UNMEAS;
     endif
   fork again
-    :For each branch where R5 < θ_open;
+    :STR_CHESC_STEP_FOR_CLOSED;
     :Skip (cost-bounded);
-    :Leaves stay at\nQCM-prior (qcmDiscount · pass);
+    :STR_CHESC_STEP_LEAVES_QCM;
   end fork
-  :Merge into BehavioralSignature\n(scores_per_leaf, branch_scores,\npasses_per_leaf, n_per_leaf);
-  if (tree pass failed catastrophically?) then (yes)
-    :Log + KEEP R5 result;
+  :STR_CHESC_STEP_MERGE_BEHAV;
+  if (STR_CHESC_IF_TREE_FAIL) then (STR_CHESC_YES)
+    :STR_CHESC_STEP_LOG_KEEP_R5;
     :state = 'incomplete';
     stop
   endif
 }
 
-partition "Free-gen PHASE 1 — text only (2026-05-22 split)" {
-  if (opts.freegen !== false?) then (no)
-    :Skip silently;
-  else (yes)
-    if (generateFreeGenText) then (succeeds)
-      :ask.complete(FREEGEN_PROMPT)\n~600-800 words\nNO embedder needed;
+partition "STR_CHESC_PART_FG1" {
+  if (opts.freegen !== false?) then (STR_CHESC_NO)
+    :STR_CHESC_STEP_SKIP_SILENT;
+  else (STR_CHESC_YES)
+    if (generateFreeGenText) then (STR_CHESC_SUCCEEDS)
+      :STR_CHESC_STEP_ASK_FREEGEN;
       :Strip <think>…</think> (D11);
-      :Persist freegen_text + freegen_words;
-    else (throws)
-      :Log + skip (DCC §5\nisolation: tree kept);
+      :STR_CHESC_STEP_PERSIST_FG;
+    else (STR_CHESC_THROWS)
+      :STR_CHESC_STEP_LOG_SKIP_FG;
     endif
   endif
 }
 
 :state = 'complete';
-:Persist signature (test pass done);
-:Stop test server\n(release model RAM);
+:STR_CHESC_STEP_PERSIST_SIG;
+:STR_CHESC_STEP_STOP_SRV;
 
-partition "Free-gen PHASE 2 — projection (per model, single-pass)" {
-  if (opts.skipProjection OR\nembedder unreachable?) then (yes)
-    :Defer projection\n(text already saved);
-  else (no)
-    :embedderCli.embedViaLlamaCli\n(spawn llama-embedding.exe,\nbatch text + 17 anchors,\nJSON out, process exits);
-    :projectFreeGenText\n(cosine projection);
-    :Patch signature:\ntopic_coverage_per_leaf,\ntopic_coverage_per_branch;
+partition "STR_CHESC_PART_FG2" {
+  if (STR_CHESC_IF_SKIP_PROJ) then (STR_CHESC_YES)
+    :STR_CHESC_STEP_DEFER_PROJ;
+  else (STR_CHESC_NO)
+    :STR_CHESC_STEP_EMBED_CLI;
+    :STR_CHESC_STEP_PROJECT;
+    :STR_CHESC_STEP_PATCH_SIG;
   endif
 }
 
-:Refresh UI radar (R5 + tree + projection);
+:STR_CHESC_STEP_REFRESH_RADAR;
 stop
 
 note right
-  Three independent passes,
-  each fail-isolated from the
-  next. The strongest guarantee
-  is: a working R5 always lands
-  even if tree + freegen die.
-  Free-gen split (2026-05-22) lets
-  phase 1 always run (no embedder
-  dependency); phase 2 can be
-  deferred or done later on stored
-  text without re-launching the
-  test model.
+  STR_CHESC_NOTE_FINAL_L1
+  STR_CHESC_NOTE_FINAL_L2
+  STR_CHESC_NOTE_FINAL_L3
+  STR_CHESC_NOTE_FINAL_L4
+  STR_CHESC_NOTE_FINAL_L5
+  STR_CHESC_NOTE_FINAL_L6
+  STR_CHESC_NOTE_FINAL_L7
+  STR_CHESC_NOTE_FINAL_L8
+  STR_CHESC_NOTE_FINAL_L9
+  STR_CHESC_NOTE_FINAL_L10
 end note
 
 @enduml

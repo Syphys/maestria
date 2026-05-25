@@ -1,19 +1,19 @@
 ' Partial — characterization pipeline components.
 
-package "src/main/modelhub/routing/ (characterization)" <<Folder>> as PKG_CHARACT {
-  component "characterizeRunner.ts\n(top-level orchestrator)" as CMP_CH_RUNNER
-  component "characterize.ts\n(R5 pass)" as CMP_CH_R5
-  component "characterizeTree.ts\n(tree pass,\nR5-gated)" as CMP_CH_TREE
-  component "staircase.ts\n(CAT-style climb,\nBeta-Laplace)" as CMP_CH_STAIR
-  component "freegen.ts\n(slice 7c probe)" as CMP_CH_FG
-  component "signatureStore.ts\n(.ts/<file>.json IO)" as CMP_CH_STORE
-  component "chat.ts\n(ChatClient,\n4 min timeout)" as CMP_CH_CHAT
+package "STR_CHAR_STACK_PKG_LABEL" <<Folder>> as PKG_CHARACT {
+  component "STR_CHAR_STACK_CMP_RUNNER" as CMP_CH_RUNNER
+  component "STR_CHAR_STACK_CMP_R5" as CMP_CH_R5
+  component "STR_CHAR_STACK_CMP_TREE" as CMP_CH_TREE
+  component "STR_CHAR_STACK_CMP_STAIR" as CMP_CH_STAIR
+  component "STR_CHAR_STACK_CMP_FG" as CMP_CH_FG
+  component "STR_CHAR_STACK_CMP_STORE" as CMP_CH_STORE
+  component "STR_CHAR_STACK_CMP_CHAT" as CMP_CH_CHAT
 
   package "scorers/" as PKG_SCORERS {
-    component "checkSpec.ts\n(runCheck dispatch)" as CMP_SC_CORE
-    component "10 deterministic\nscorers" as CMP_SC_DET
-    component "4 axis scorers" as CMP_SC_AXIS
-    component "informatics scorer" as CMP_SC_INFO
-    component "sandbox-pending\nscorers (slice 2d)" as CMP_SC_PEND
+    component "STR_CHAR_STACK_CMP_SC_CORE" as CMP_SC_CORE
+    component "STR_CHAR_STACK_CMP_SC_DET" as CMP_SC_DET
+    component "STR_CHAR_STACK_CMP_SC_AXIS" as CMP_SC_AXIS
+    component "STR_CHAR_STACK_CMP_SC_INFO" as CMP_SC_INFO
+    component "STR_CHAR_STACK_CMP_SC_PEND" as CMP_SC_PEND
   }
 }

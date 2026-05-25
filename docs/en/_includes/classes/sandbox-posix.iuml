@@ -5,26 +5,26 @@ package "src/main/modelhub/routing/sandbox/posix.ts" <<Frame>> as PKG_SBX_POSIX 
 
   class PosixSandbox {
     + kind = 'posix'
-    - spawner : Spawner   (test seam)
-    - pythonBin? : string   (lazy-probed)
+    - spawner : Spawner   STR_SBXPOSIX_TEST_SEAM
+    - pythonBin? : string   STR_SBXPOSIX_LAZY_PROBED
     --
     + runPythonTests(...)
     - findPython()
     - probeBinary(bin)
     - spawnIsolated(...)
     --
-    Boundaries (kernel):
+    STR_SBXPOSIX_BOUNDARIES
     • RLIMIT_NPROC = cur   (T2/T7)
     • RLIMIT_AS / DATA = 512 MiB   (T6)
     • RLIMIT_CPU = 10 s   (T1)
     • RLIMIT_FSIZE = 0   (T4)
-    Plus: detached pgrp + kill(-pgid),
-    empty env, disposable workdir,
+    STR_SBXPOSIX_PLUS_L1
+    STR_SBXPOSIX_PLUS_L2
     python -I -S -B.
   }
 
   class "type Spawner" as Spawner <<type>> {
     (cmd, args, options) => ChildProcess
-    Re-exported by windows.ts for symmetry
+    STR_SBXPOSIX_SPAWNER_REEXPORT
   }
 }

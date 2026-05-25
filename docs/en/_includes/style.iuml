@@ -1,3 +1,12 @@
+!ifndef LANG
+!define LANG en
+!endif
+!if (LANG == "fr")
+!include i18n/strings_fr.iuml
+!else
+!include i18n/strings_en.iuml
+!endif
+
 ' ───────────────────────────────────────────────────────────────
 ' Shared style — every .puml in this folder !includes this file.
 ' Keeps colour + skin consistent. Maestria palette mirrors

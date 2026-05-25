@@ -36,15 +36,15 @@ package "src/shared/RoutingTypes.ts" <<Frame>> as PKG_ROUTING_TYPES {
     + n_per_axis? : Partial<Record<DiagnosticAxis, number>>
     + overall? : number
     --
-    <b>Tree-routing fields (slice 4c+)</b>
-    + scores_per_leaf? : Record<leafId, number>  <i>(0..1 — see scheme)</i>
+    <b>STR_RTYPES_HDR_TREE_FIELDS</b>
+    + scores_per_leaf? : Record<leafId, number>  <i>STR_RTYPES_NOTE_SEE_SCHEME</i>
     + branch_scores? : Partial<Record<CompetenceBranch, number>>
     + n_per_leaf? : Record<leafId, number>
-    + passes_per_leaf? : Record<leafId, number>  <i>(beta-laplace only)</i>
+    + passes_per_leaf? : Record<leafId, number>  <i>STR_RTYPES_NOTE_BETA_ONLY</i>
     + scoring_scheme? : 'beta-laplace-v1' | 'breaking-rung-v0'
     --
-    <b>Free-gen probe (slice 7c)</b>
-    + topic_coverage_per_leaf? : Record<leafId, number>  <i>(cosines)</i>
+    <b>STR_RTYPES_HDR_FREEGEN</b>
+    + topic_coverage_per_leaf? : Record<leafId, number>  <i>STR_RTYPES_NOTE_COSINES</i>
     + topic_coverage_per_branch? : Record<CompetenceBranch, number>
     + freegen_words? : number
     + freegen_excerpt? : string
@@ -63,7 +63,7 @@ package "src/shared/RoutingTypes.ts" <<Frame>> as PKG_ROUTING_TYPES {
   class QcmReliability {
     + format_adherence : number  <i>(0..1)</i>
     + consistency : number
-    + overall : number  <i>(display-only — NEVER enters routing)</i>
+    + overall : number  <i>STR_RTYPES_NOTE_DISPLAY_ONLY</i>
     + n : number
   }
 }

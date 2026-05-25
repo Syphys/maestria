@@ -1,48 +1,48 @@
 @startuml sandbox
 !include ../_includes/style.iuml
 
-title Sandbox — slice 2d code-tests isolation (Dαα, opt-in, fail-closed)
+title STR_SBXDIA_TITLE
 
 package "src/main/modelhub/routing/sandbox/" {
-  component "index.ts\n• getSandbox({enabled})\n• dispatch by\n  process.platform" as IDX
+  component "STR_SBXDIA_IDX" as IDX
   component "types.ts\n• SandboxProvider (ABC)\n• SandboxResult\n• SandboxOptions\n• SandboxUnavailable" as TYPES
 
-  component "unsafe.ts\n• UnsafeSandbox\n• throws every time\n• default when opt-in off" as UNSAFE
-  component "posix.ts\n• PosixSandbox\n• rlimits NPROC=cur,\n  AS/DATA=512 MiB,\n  CPU=10s, FSIZE=0\n• detached pgrp\n• kill -pgid on timeout\n• `python -I -S -B`" as POSIX
-  component "windows.ts\n• WindowsSandbox\n• dispatches to PS1" as WIN
-  component "win-job.ps1\n• Add-Type P/Invoke\n• CreateJobObject\n• ActiveProcessLimit=1\n• ProcessMemoryLimit\n  =512 MiB\n• KILL_ON_JOB_CLOSE\n• marker-line streams" as PS1
+  component "STR_SBXDIA_UNSAFE" as UNSAFE
+  component "STR_SBXDIA_POSIX" as POSIX
+  component "STR_SBXDIA_WIN" as WIN
+  component "STR_SBXDIA_PS1" as PS1
 }
 
-component "characterizeRunner.ts\n(builds runSandbox seam)" as RUNNER
-component "staircase.evaluateItem()\n(catches throw ⇒ UNMEASURED)" as STAIR
+component "STR_SBXDIA_RUNNER" as RUNNER
+component "STR_SBXDIA_STAIR" as STAIR
 
 RUNNER --> IDX : getSandbox({enabled})
-IDX --> UNSAFE : enabled:false\n(default) OR\nunknown OS
+IDX --> UNSAFE : STR_SBXDIA_REL_UNSAFE
 IDX --> POSIX : enabled:true\n+ linux/darwin
 IDX --> WIN : enabled:true\n+ win32
 
 WIN --> PS1 : spawn powershell.exe\n-File win-job.ps1
-POSIX ..> "python3\n(child)" : spawn\ndetached:true
-PS1 ..> "python.exe\n(child)" : Process.Start +\nAssignProcessToJobObject
+POSIX ..> "STR_SBXDIA_PY_LABEL" : spawn\ndetached:true
+PS1 ..> "STR_SBXDIA_PYEXE_LABEL" : Process.Start +\nAssignProcessToJobObject
 
-UNSAFE -.-> STAIR : throws\nSandboxUnavailable
-POSIX -.-> STAIR : {pass:bool} OR\nthrows on\nUNMEASURED
-WIN -.-> STAIR : {pass:bool} OR\nthrows on\nUNMEASURED
+UNSAFE -.-> STAIR : STR_SBXDIA_REL_UNSAFE_STAIR
+POSIX -.-> STAIR : STR_SBXDIA_REL_POSIX_STAIR
+WIN -.-> STAIR : STR_SBXDIA_REL_WIN_STAIR
 
 note bottom of IDX
-  Fail-closed (Dαα §3):
-  ANY impossibility to set the
-  kernel boundary ⇒ throw
-  SandboxUnavailable ⇒ caller
-  marks the item UNMEASURED.
-  **Never** a false pass.
+  STR_SBXDIA_NOTE_IDX_L1
+  STR_SBXDIA_NOTE_IDX_L2
+  STR_SBXDIA_NOTE_IDX_L3
+  STR_SBXDIA_NOTE_IDX_L4
+  STR_SBXDIA_NOTE_IDX_L5
+  STR_SBXDIA_NOTE_IDX_L6
 end note
 
 note right of POSIX
-  Defense-in-depth preamble blocks
-  imports (socket, subprocess,
-  ctypes, …) — trivially bypassable,
-  the rlimits ARE the boundary.
+  STR_SBXDIA_NOTE_POSIX_L1
+  STR_SBXDIA_NOTE_POSIX_L2
+  STR_SBXDIA_NOTE_POSIX_L3
+  STR_SBXDIA_NOTE_POSIX_L4
 end note
 
 @enduml

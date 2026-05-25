@@ -1,7 +1,7 @@
 @startuml states-signature-lifecycle
 !include ../_includes/style.iuml
 
-title State machine — Signature.characterization_state lifecycle
+title STR_SIGLC_TITLE
 
 ' States are the literal values on disk in `.ts/<file>.json`.
 ' Transitions correspond to characterizeRunner.ts outcomes.
@@ -21,65 +21,64 @@ title State machine — Signature.characterization_state lifecycle
 '                                     (one line per failure).
 ' All best-effort writes: a disk error never sinks a run.
 
-[*] --> NotCharacterized : model added\nto folder
+[*] --> NotCharacterized : STR_SIGLC_REL_MODEL_ADDED
 
-state "Not characterized" as NotCharacterized {
-  description : sidecar `modelMeta` exists\n(possibly with autoTags)\nbut no `signature` field.\nFor routing: D9 ⇒ INELIGIBLE.
+state "STR_SIGLC_S_NOTCHAR" as NotCharacterized {
+  description : STR_SIGLC_DESC_NOTCHAR
 }
 
-NotCharacterized --> Running : user clicks\n"Caractériser"\nOR MCP request
+NotCharacterized --> Running : STR_SIGLC_REL_USER_CHAR
 
-state "Running (in-progress)" as Running {
-  description : characterizeRunner active.\nlistRunning() shows the chat\nprocess; characterization_state\non disk still null (no partial\nwrites).
+state "STR_SIGLC_S_RUNNING" as Running {
+  description : STR_SIGLC_DESC_RUNNING
 }
 
-Running --> Complete : R5 + tree + freegen\n(if seamed)\nALL succeeded
-Running --> Incomplete : R5 OK\nbut tree OR freegen\nfailed (isolated)
-Running --> Quarantined : R5 itself failed\n(e.g. model crashed boot)\nOR catastrophic IO error\nOR non-chat model detected\n(3-tier filter, 2026-05-24)
+Running --> Complete : STR_SIGLC_REL_ALL_OK
+Running --> Incomplete : STR_SIGLC_REL_TREE_FAIL
+Running --> Quarantined : STR_SIGLC_REL_QUARANTINED
 
 state "complete" as Complete #FFFDF6 {
-  description : routing-eligible (D9).\nAll required behavioral fields\npresent: `scores_per_axis`,\n`scores_per_leaf`, `branch_scores`.\nmodels.route ranks this candidate.
+  description : STR_SIGLC_DESC_COMPLETE
 }
 
 state "incomplete" as Incomplete {
-  description : routing-eligible (D9) iff\nthe core scores_per_axis is set.\nMissing optional fields ⇒\ndegraded confidence but ranked.
+  description : STR_SIGLC_DESC_INCOMPLETE
 }
 
 state "quarantined" as Quarantined #E6DFD2 {
-  description : routing INELIGIBLE.\nShown in radar with a clear\nbanner. User re-characterizes\nto leave this state.
+  description : STR_SIGLC_DESC_QUARANTINED
 }
 
-Complete --> Running : Re-caractériser\n(with confirm)
+Complete --> Running : STR_SIGLC_REL_RECHAR_CONFIRM
 Incomplete --> Running : Re-caractériser
 Quarantined --> Running : Re-caractériser
-Complete --> Stale : modelHash drift\n(file edited /\nshards changed)
-Incomplete --> Stale : modelHash drift
+Complete --> Stale : STR_SIGLC_REL_HASH_DRIFT
+Incomplete --> Stale : STR_SIGLC_REL_HASH_DRIFT_SHORT
 
 state "Stale" as Stale {
-  description : Pseudo-state: hash on disk ≠\ncurrent file hash. Routing\nstill uses old signature but\nUI prompts re-characterization.
+  description : STR_SIGLC_DESC_STALE
 }
 
 Stale --> Running : Re-caractériser
 
 note bottom of Quarantined
-  Quarantined remains permanent
-  until the user explicitly
-  re-characterizes — even if a
-  routing query comes in.
+  STR_SIGLC_NOTE_QUAR_L1
+  STR_SIGLC_NOTE_QUAR_L2
+  STR_SIGLC_NOTE_QUAR_L3
+  STR_SIGLC_NOTE_QUAR_L4
 end note
 
 note right of Running
-  Side-effects on disk:
-  • `archiveServerLog(...)` at run START
-    (renames previous `.log` →
-    `.<ISO>.log`, fresh session
-    begins clean — 2026-05-24).
-  • `appendServerLog(.log, chunk)`
-    on every llama-server stdout/stderr
-    chunk (hooked in runners/launch.ts).
-  • On Quarantined / Incomplete-with-error:
-    `appendErrorLog(.ts/<file>.error,
-    reason)` with ISO timestamp.
+  STR_SIGLC_NOTE_RUN_L1
+  STR_SIGLC_NOTE_RUN_L2
+  STR_SIGLC_NOTE_RUN_L3
+  STR_SIGLC_NOTE_RUN_L4
+  STR_SIGLC_NOTE_RUN_L5
+  STR_SIGLC_NOTE_RUN_L6
+  STR_SIGLC_NOTE_RUN_L7
+  STR_SIGLC_NOTE_RUN_L8
+  STR_SIGLC_NOTE_RUN_L9
+  STR_SIGLC_NOTE_RUN_L10
 end note
 
 @enduml

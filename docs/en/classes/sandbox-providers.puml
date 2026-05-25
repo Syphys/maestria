@@ -14,28 +14,28 @@
 !include ../_includes/classes/sandbox-windows.iuml
 !include ../_includes/classes/sandbox-index.iuml
 
-title Sandbox providers — slice 2d\nclass definitions imported from\n_includes/classes/sandbox-*.iuml (DRY)
+title STR_SBXPROV_TITLE
 
 SandboxProvider <|-- UnsafeSandbox
 SandboxProvider <|-- PosixSandbox
 SandboxProvider <|-- WindowsSandbox
-SandboxProvider ..> SandboxResult : returns
-SandboxProvider ..> SandboxOptions : accepts
-SandboxProvider ..> SandboxUnavailable : throws
+SandboxProvider ..> SandboxResult : STR_SBXPROV_REL_RETURNS
+SandboxProvider ..> SandboxOptions : STR_SBXPROV_REL_ACCEPTS
+SandboxProvider ..> SandboxUnavailable : STR_SBXPROV_REL_THROWS
 
-PosixSandbox ..> Spawner : injects
-WindowsSandbox ..> Spawner : injects
+PosixSandbox ..> Spawner : STR_SBXPROV_REL_INJECTS
+WindowsSandbox ..> Spawner : STR_SBXPROV_REL_INJECTS
 WindowsSandbox ..> PS1 : spawn powershell.exe
 
-GetSandbox ..> UnsafeSandbox : enabled:false\nor unknown OS
+GetSandbox ..> UnsafeSandbox : STR_SBXPROV_REL_DISP_UNSAFE
 GetSandbox ..> PosixSandbox : enabled:true\n+ linux/darwin
 GetSandbox ..> WindowsSandbox : enabled:true\n+ win32
 
 note bottom of GetSandbox
-  Single dispatch site. Callers
-  (characterizeRunner) never
-  import the concrete providers —
-  they go through this factory only.
+  STR_SBXPROV_NOTE_L1
+  STR_SBXPROV_NOTE_L2
+  STR_SBXPROV_NOTE_L3
+  STR_SBXPROV_NOTE_L4
 end note
 
 @enduml

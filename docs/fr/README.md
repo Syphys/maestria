@@ -4,28 +4,24 @@
 
 Espace conceptuel UML complet de la stack IA / routing / sandbox / MCP /
 embedder / caractérisation de Maestria. Les sources PlantUML vivent
-dans git pour se differ comme du code. Strictement DRY : chaque
+dans git pour se différencier comme du code. Strictement DRY : chaque
 classe / acteur / composant est **défini une seule fois** dans un
 partial sous `_includes/`, et référencé depuis chaque composeur via
 `!include`.
 
-Les diagrammes sont intégrés inline ci-dessous. Les sources sont à
-côté dans `_includes/` + les dossiers par type (`components/`,
-`sequences/`, …) ; les SVG rendus atterrissent dans [`svg/`](svg/) —
-voir [Rendu](#rendu) pour régénérer après édition.
-
-Le repo contient deux arbres **miroirs par langue** —
-[`docs/en/`](../en/) (canonique) et [`docs/fr/`](.) (celui-ci) — avec
-le même layout de fichiers. Chaque `.puml` / `.iuml` existe dans les
-deux copies ; choisis celle qui correspond à ta langue de lecture.
-L'anglais est la source canonique — le français en est traduit.
+Les diagrammes sont intégrés inline ci-dessous. Les sources vivent dans
+[`docs/en/`](../en/) ; les chaînes traduisibles sont catalogées dans
+`_includes/i18n/strings_{en,fr}.iuml`. La langue est un drapeau CLI au
+rendu (`-DLANG=en` / `-DLANG=fr`) — il n'y a plus de duplication des
+sources `.puml` à maintenir. Les SVG rendus atterrissent dans
+[`svg/`](svg/) — voir [Rendu](#rendu) pour régénérer après édition.
 
 ## Parcours architectural
 
-Les diagrammes ci-dessous sont ordonnés comme tu expliquerais Maestria
-à un nouveau contributeur — de l'extérieur vers l'intérieur, en
-épluchant une couche à la fois. Lecture top-down en première passe ;
-saute directement à une section quand tu cherches un point précis.
+Les diagrammes ci-dessous sont organisés de l'extérieur vers l'intérieur,
+une couche à la fois. Lecture top-down recommandée en première passe ;
+une section donnée peut être consultée directement pour répondre à un
+point précis.
 
 ### 1. Vue d'ensemble — ce qu'est Maestria
 
@@ -37,9 +33,8 @@ Trois diagrammes répondent à « c'est quoi » à trois altitudes.
 
 **Contexte C4** — Maestria comme boîte noire entourée des *vrais*
 systèmes externes : l'utilisateur, le système de fichiers local,
-llama.cpp (`llama-server` et `llama-embedding`), les métadonnées
-Hugging Face, et les clients MCP (Claude Desktop, deer-flow, scripts).
-À lire en premier.
+llama.cpp (`llama-server` et `llama-embedding`), et les clients MCP
+(Claude Desktop, deer-flow, scripts). À lire en premier.
 
 ![Contexte C4](svg/c4-context.svg)
 
@@ -419,12 +414,26 @@ installeraient.
 
 ## Disposition du dossier
 
+Les sources PlantUML vivent exclusivement dans `docs/en/`. Les chaînes
+traduisibles sont catalogées dans
+`docs/en/_includes/i18n/strings_{en,fr}.iuml` ; la langue est un
+drapeau CLI au rendu (`-DLANG=en` / `-DLANG=fr`). `docs/fr/` ne porte
+que le `README.md` traduit et la sortie `svg/` rendue — il n'y a pas
+de sources PlantUML parallèles susceptibles de dériver.
+
 ```
 docs/fr/
 ├── README.md                         ← ce fichier
+└── svg/                              ← sortie rendue (gitignored)
+
+docs/en/
+├── README.md                         ← README anglais
 ├── svg/                              ← sortie rendue (gitignored)
 ├── _includes/                        ← partials DRY — définitions UNIQUEMENT ici
-│   ├── style.iuml                    ← palette + skinparams
+│   ├── style.iuml                    ← palette + skinparams + loader i18n
+│   ├── i18n/                         ← catalogues de langue
+│   │   ├── strings_en.iuml           ← valeurs STR_* en anglais
+│   │   └── strings_fr.iuml           ← valeurs STR_* en français (parallèle à en)
 │   ├── actors.iuml                   ← acteurs partagés génériques (forme component)
 │   ├── legend.iuml                   ← rung/prior/none + scoring_scheme
 │   ├── classes/                      ← définitions de classes / types
@@ -526,6 +535,12 @@ pour cette codebase) :
 
 ## Rendu
 
+Les sources vivent uniquement dans `docs/en/`. La langue est un choix
+au rendu : passer `-DLANG=en` ou `-DLANG=fr` et le même fichier source
+produit le SVG correspondant. Les chaînes traduisibles sont catalogées
+sous `_includes/i18n/strings_{en,fr}.iuml` ; les mots-clés structurels,
+identifiants et code snippets restent dans la source.
+
 Toutes les commandes supposent que `plantuml.jar` vit à la racine du
 repo (déjà gitignored). Java 8+ suffit ; OpenJDK 21 du JBR bundle
 d'Android Studio marche bien sous Windows.
@@ -533,21 +548,27 @@ d'Android Studio marche bien sous Windows.
 1. **Extension VS Code** (recommandé pour les édits ponctuels) —
    installer `jebbs.plantuml`, puis `Alt+D` sur un `.puml`.
    L'extension prend en compte `_includes/*.iuml` automatiquement.
-2. **CLI — batch tout l'arbre vers `docs/fr/svg/`** :
+   L'aperçu live affiche l'anglais par défaut ; pour prévisualiser en
+   français, ajouter `"plantuml.commandArgs": ["-DLANG=fr"]` dans les
+   settings du workspace (voir
+   [`.vscode/settings.json.example`](../../.vscode/settings.json.example)).
+2. **CLI — batch tout l'arbre vers `docs/en/svg/` et `docs/fr/svg/`** :
 
    PowerShell (Windows) :
    ```powershell
    $java = "C:\Program Files\Android\Android Studio\jbr\bin\java.exe"
-   $fr = (Get-ChildItem docs\fr -Filter *.puml -Recurse).FullName
-   & $java -jar plantuml.jar -tsvg -charset UTF-8 -o "$PWD\docs\fr\svg" $fr
+   $src = (Get-ChildItem docs\en -Filter *.puml -Recurse).FullName
+   & $java -jar plantuml.jar -DLANG=en -tsvg -charset UTF-8 -o "$PWD\docs\en\svg" $src
+   & $java -jar plantuml.jar -DLANG=fr -tsvg -charset UTF-8 -o "$PWD\docs\fr\svg" $src
    ```
 
    bash (macOS / Linux / Git Bash) :
    ```bash
    curl -fsSL -o plantuml.jar \
      https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
-   java -jar plantuml.jar -tsvg -charset UTF-8 \
-     -o "$(pwd)/docs/fr/svg" $(find docs/fr -name '*.puml')
+   src=$(find docs/en -name '*.puml')
+   java -jar plantuml.jar -DLANG=en -tsvg -charset UTF-8 -o "$(pwd)/docs/en/svg" $src
+   java -jar plantuml.jar -DLANG=fr -tsvg -charset UTF-8 -o "$(pwd)/docs/fr/svg" $src
    ```
 
    La forme dossier-de-sortie-unique est intentionnelle.
@@ -556,38 +577,46 @@ d'Android Studio marche bien sous Windows.
    des chemins `!include` relatifs ne rendent qu'en local (le service
    web ne peut pas accéder à nos `_includes/`).
 
-`docs/fr/svg/` devrait être gitignored (les SVG sont dérivés et
-créeraient juste du bruit de merge — re-rendre à la demande).
+`docs/en/svg/` et `docs/fr/svg/` devraient être gitignored (les SVG
+sont dérivés et créeraient juste du bruit de merge — re-rendre à la
+demande).
 
 ## Conventions
 
-- Chaque `.puml` commence par `!include _includes/style.iuml`.
+- Chaque `.puml` commence par `!include _includes/style.iuml`. Cet
+  include charge transitivement le catalogue i18n, donc tout token
+  `STR_FOO` utilisé en aval est résolu automatiquement.
 - **Chaque classe / type / shape / acteur / composant est défini UNE
   FOIS**, dans un partial sous `_includes/`. Les composeurs
   `!include` le partial — jamais redéclarer. Éditer un champ est un
   changement d'une ligne qui se propage à chaque composeur qui le
   référence.
+- **Chaque chaîne traduisible est définie UNE FOIS par langue**, dans
+  `_includes/i18n/strings_{en,fr}.iuml`. Les sources référencent les
+  valeurs via les tokens `STR_FICHIER_DESCRIPTEUR`. Pour ajouter un
+  nouveau label traduisible : ajouter les entrées parallèles dans les
+  deux catalogues, puis utiliser le token dans la source.
 - Les composeurs sont fins — includes + relations + notes. Les
   notes sont la seule chose qu'ils portent qui ne vit pas dans un
   partial.
 - Les alias dans les partials sont stables (ex. `as PKG_SBX_TYPES`,
-  `as CMP_T_MODELS`). Si tu en renommes un, chaque composeur casse
-  visiblement au prochain render — c'est intentionnel.
+  `as CMP_T_MODELS`). Renommer un alias casse visiblement chaque
+  composeur au prochain render — comportement intentionnel.
+- Les commentaires (`'…`) vivent uniquement dans la source anglaise.
+  Ils sont strippés par le préprocesseur et ne sont jamais rendus dans
+  le SVG, donc il n'y a rien à traduire.
 - Périmètre = sous-système IA uniquement. Pas de plomberie file
   organiser héritée de TagSpaces, pas de rendu de perspectives, pas
   de paramètres généraux — documenté dans `CLAUDE.md` et le JSDoc
   inline à la place.
-- **Cohérence avec `docs/en/`** : quand tu touches un `.puml` /
-  `.iuml`, modifie le miroir anglais dans le même commit. La source
-  canonique est l'anglais ; le français en est traduit.
 
 ## Source de vérité
 
 Les diagrammes décrivent l'**état actuel sur `develop`** au commit où
-ils vivent. Quand tu changes un flux câblé (un nouveau tool, un
-nouveau provider sandbox, un nouveau knob routing), mets à jour le
-partial affecté sous `_includes/` dans le même commit — ça met
-automatiquement à jour chaque composeur qui le référence.
+ils vivent. Lors d'une modification d'un flux câblé (nouveau tool,
+nouveau provider sandbox, nouveau knob routing), mettre à jour le
+partial affecté sous `_includes/` dans le même commit — la mise à jour
+se propage automatiquement à chaque composeur qui le référence.
 
 Contrepartie prose : [`../../MODELS_HUB.md`](../../MODELS_HUB.md)
 (privé, gitignored — notes de travail du mainteneur).

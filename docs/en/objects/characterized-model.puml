@@ -2,7 +2,7 @@
 !include ../_includes/style.iuml
 !include ../_includes/classes/routing-types.iuml
 
-title Object diagram — a fully characterized model in the sidecar
+title STR_OCHAR_TITLE
 
 ' Concrete instance of the classes defined in
 ' _includes/classes/routing-types.iuml. Demonstrates what one
@@ -32,9 +32,9 @@ object "behavioral : BehavioralSignature" as O_BEH {
   scores_per_axis.code = 0.40
   scores_per_axis.math = 0.55
   scores_per_axis.reasoning = 0.66
-  ..tree (slice 4c+)..
+  ..STR_OCHAR_HDR_TREE..
   scores_per_leaf['math.proba'] = 0.80
-  scores_per_leaf['code.python'] = (absent — UNMEASURED,\nsandbox opt-in off)
+  scores_per_leaf['code.python'] = STR_OCHAR_ABSENT_SBX
   passes_per_leaf['math.proba'] = 3
   n_per_leaf['math.proba'] = 3
   branch_scores.math = 0.70
@@ -55,14 +55,14 @@ object "run1 : DiagnosticRunEntry" as O_RUN1 {
   axes = ["math", "multistep"]
   pass = true
   score = 1.0
-  response = "Train A had a head start of…"
+  response = "STR_OCHAR_RUN1_RESPONSE"
 }
 
 object "run2 : DiagnosticRunEntry" as O_RUN2 {
   id = "code-debug-01"
   axes = ["code", "multistep"]
   pass = false
-  detail = "UNMEASURED — sandbox opt-in off"
+  detail = "STR_OCHAR_RUN2_DETAIL"
 }
 
 O_SIG --> O_STRUCT : structural
@@ -72,18 +72,18 @@ O_BEH --> O_RUN1 : diagnostic_run\n['math-arith-01']
 O_BEH --> O_RUN2 : diagnostic_run\n['code-debug-01']
 
 note bottom of O_BEH
-  Beta-Laplace example:
-  3/3 climb on `math.proba`
-  ⇒ (1+3)/(2+3) = 0.80,
-  the Phase-A ceiling.
+  STR_OCHAR_NOTE_BL_L1
+  STR_OCHAR_NOTE_BL_L2
+  STR_OCHAR_NOTE_BL_L3
+  STR_OCHAR_NOTE_BL_L4
 end note
 
 note right of O_RUN2
-  Sandbox-pending items
-  appear in diagnostic_run
-  with a clear UNMEASURED
-  detail — never as a
-  false fail.
+  STR_OCHAR_NOTE_PEND_L1
+  STR_OCHAR_NOTE_PEND_L2
+  STR_OCHAR_NOTE_PEND_L3
+  STR_OCHAR_NOTE_PEND_L4
+  STR_OCHAR_NOTE_PEND_L5
 end note
 
 @enduml

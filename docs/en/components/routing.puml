@@ -2,40 +2,40 @@
 !include ../_includes/style.iuml
 !include ../_includes/legend.iuml
 
-title Routing — `models.route` pipeline (slice 5b + 7)
+title STR_RTDIA_TITLE
 
 [*] --> ENTRY
-state "models.route MCP tool" as ENTRY
-state "load routing config\n+ effectiveRoutingParams()" as CFG
-state "list candidate models\n(complete signatures only — D9)" as CANDS
-state "Probe free memory\n(VRAM/RAM, resident set)" as PROBE
-state "Embedder configured?" as Q_EMBED
-state "Reliability gate ≥ θ" as Q_GATE
+state "STR_RTDIA_ENTRY" as ENTRY
+state "STR_RTDIA_CFG" as CFG
+state "STR_RTDIA_CANDS" as CANDS
+state "STR_RTDIA_PROBE" as PROBE
+state "STR_RTDIA_Q_EMBED" as Q_EMBED
+state "STR_RTDIA_Q_GATE" as Q_GATE
 
-state "VECTOR path (routedBy:'vector')" as VEC {
-  state "EmbedClient → query vector\n(slice 7e ensureEmbedderReady)" as EMBED_Q
-  state "Project onto 32 leaf anchors\n(`probe-anchors.json`)" as PROJECT
+state "STR_RTDIA_VEC" as VEC {
+  state "STR_RTDIA_EMBED_Q" as EMBED_Q
+  state "STR_RTDIA_PROJECT" as PROJECT
   state "Blend α·v_det + β·max(0, tc)\n(α=0.7, β=0.3)" as BLEND
 }
 
-state "R5 path (routedBy:'r5')" as R5 {
-  state "classifyQuery()\ndeterministic axis weights" as CLASSIFY
-  state "Map onto branch priors" as MAP_BRANCH
+state "STR_RTDIA_R5" as R5 {
+  state "STR_RTDIA_CLASSIFY" as CLASSIFY
+  state "STR_RTDIA_MAP_BRANCH" as MAP_BRANCH
 }
 
-state "Score each candidate\nC_m = Σ q[i]·v_m[i]\n+ w_fit·fit + w_hot·hot" as SCORE
-state "rank + select best\nfilter to eligible (D9)" as RANK
-state "return {routedBy, gateReason,\n best, ranked, resources, …}" as OUT
+state "STR_RTDIA_SCORE" as SCORE
+state "STR_RTDIA_RANK" as RANK
+state "STR_RTDIA_OUT" as OUT
 
 ENTRY --> CFG
 CFG --> CANDS
 CANDS --> PROBE
 PROBE --> Q_EMBED
 
-Q_EMBED --> Q_GATE : configured\n(managed or external)
-Q_EMBED --> R5 : absent\n(R5 fallback)
-Q_GATE --> VEC : embeddingReliability\n≥ threshold
-Q_GATE --> R5 : below threshold\n(gateReason explains)
+Q_EMBED --> Q_GATE : STR_RTDIA_REL_CONFIGURED
+Q_EMBED --> R5 : STR_RTDIA_REL_ABSENT
+Q_GATE --> VEC : STR_RTDIA_REL_RELY_OK
+Q_GATE --> R5 : STR_RTDIA_REL_BELOW_THR
 
 VEC --> EMBED_Q
 EMBED_Q --> PROJECT
@@ -50,18 +50,18 @@ SCORE --> RANK
 RANK --> OUT
 
 note right of BLEND
-  topic_coverage_per_leaf
-  (slice 7c) is **additional
-  evidence**, never replaces
-  the deterministic competence.
-  See DECISIONS.md DCC.
+  STR_RTDIA_NOTE_BLEND_L1
+  STR_RTDIA_NOTE_BLEND_L2
+  STR_RTDIA_NOTE_BLEND_L3
+  STR_RTDIA_NOTE_BLEND_L4
+  STR_RTDIA_NOTE_BLEND_L5
 end note
 
 note right of Q_GATE
-  Failure to embed query or
-  read reliability ⇒ silently
-  fall back to R5. Routing
-  is **never blocking**.
+  STR_RTDIA_NOTE_QGATE_L1
+  STR_RTDIA_NOTE_QGATE_L2
+  STR_RTDIA_NOTE_QGATE_L3
+  STR_RTDIA_NOTE_QGATE_L4
 end note
 
 @enduml

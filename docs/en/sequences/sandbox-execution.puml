@@ -1,64 +1,64 @@
 @startuml sandbox-execution
 !include ../_includes/style.iuml
 
-title Sandbox — per-OS isolation lifecycle (slice 2d)
+title STR_SBXEXEC_TITLE
 
 participant "staircase.\nevaluateItem" as STAIR
-participant "characterizeRunner\n(builds seam)" as RUN
+participant "STR_SBXEXEC_RUN" as RUN
 participant "getSandbox({enabled})" as DISP
 participant "PosixSandbox\n/ WindowsSandbox\n/ UnsafeSandbox" as PROV
 participant "spawn (child_process)" as SPAWN
 participant "kernel\n(rlimits / Job Object)" as KERNEL
-participant "python child" as PY
+participant "STR_SBXEXEC_PY" as PY
 
-STAIR -> RUN : item is sandbox-request\n(needs runSandbox seam)
-RUN -> DISP : params.enableSandbox?
-DISP --> RUN : provider instance
+STAIR -> RUN : STR_SBXEXEC_MSG_ITEM_SBX
+RUN -> DISP : STR_SBXEXEC_MSG_ENABLED_Q
+DISP --> RUN : STR_SBXEXEC_MSG_PROV_INSTANCE
 
-alt UnsafeSandbox (opt-in OFF, default)
+alt STR_SBXEXEC_ALT_UNSAFE
   RUN -> PROV : runPythonTests(code, tests)
   PROV --> RUN : throw SandboxUnavailable
-  RUN --> STAIR : item ⇒ UNMEASURED (D12 prior)
-else PosixSandbox (linux/darwin, opt-in ON)
+  RUN --> STAIR : STR_SBXEXEC_MSG_ITEM_UNMEAS
+else STR_SBXEXEC_ELSE_POSIX
   RUN -> PROV : runPythonTests(code, tests)
-  PROV -> PROV : findPython() probe
-  alt probe fails
+  PROV -> PROV : STR_SBXEXEC_MSG_FINDPY
+  alt STR_SBXEXEC_ALT_PROBE_FAILS
     PROV --> RUN : throw SandboxUnavailable
     RUN --> STAIR : UNMEASURED
-  else probe OK
-    PROV -> PROV : mkdtemp + write script\n  (preamble + code + tests)
-    PROV -> SPAWN : python -I -S -B script.py\n  detached:true (own pgrp)\n  env minimal
+  else STR_SBXEXEC_ELSE_PROBE_OK
+    PROV -> PROV : STR_SBXEXEC_MSG_MKDTEMP
+    PROV -> SPAWN : STR_SBXEXEC_MSG_PYTHON_ISB
     SPAWN -> PY : exec
     PY -> KERNEL : setrlimit NPROC=cur,\n  AS=512M, CPU=10s, FSIZE=0
-    KERNEL --> PY : arm limits
-    PY -> PY : run model's code + asserts
+    KERNEL --> PY : STR_SBXEXEC_MSG_ARM_LIMITS
+    PY -> PY : STR_SBXEXEC_MSG_RUN_CODE
     alt asserts pass, exit 0
       PY --> SPAWN : exit 0
       SPAWN --> PROV : close(0)
       PROV --> RUN : {pass: true}
-    else assert fails / exception
+    else STR_SBXEXEC_ELSE_ASSERT_FAIL
       PY --> SPAWN : exit 1
       PROV --> RUN : {pass: false, reason: exit-nonzero}
-    else timeout (parent enforces)
+    else STR_SBXEXEC_ELSE_TIMEOUT
       PROV -> PROV : kill -pgid SIGKILL
       PROV --> RUN : {pass: false, reason: timeout}
-    else output overflow
+    else STR_SBXEXEC_ELSE_OVERFLOW
       PROV -> PROV : kill -pgid SIGKILL
       PROV --> RUN : {pass: false, reason: output-overflow}
     end
     PROV -> PROV : rmtree workdir (finally)
   end
-else WindowsSandbox (win32, opt-in ON)
+else STR_SBXEXEC_ELSE_WIN
   RUN -> PROV : runPythonTests(code, tests)
   PROV -> SPAWN : powershell.exe -File win-job.ps1
   SPAWN -> KERNEL : CreateJobObject +\n  SetInformationJobObject\n  (ActiveProcess=1,\n   MemoryLimit=512MiB,\n   KILL_ON_JOB_CLOSE)
-  KERNEL --> SPAWN : job handle
+  KERNEL --> SPAWN : STR_SBXEXEC_MSG_JOB_HANDLE
   SPAWN -> PY : Process.Start(python.exe)
   SPAWN -> KERNEL : AssignProcessToJobObject
-  PY -> PY : run script
-  alt WaitForExit returns in time
-    PY --> SPAWN : exit code
-    SPAWN --> PROV : exit code + marker-line\n  stdout/stderr
+  PY -> PY : STR_SBXEXEC_MSG_RUN_SCRIPT
+  alt STR_SBXEXEC_ALT_WAIT_OK
+    PY --> SPAWN : STR_SBXEXEC_MSG_EXIT_CODE
+    SPAWN --> PROV : STR_SBXEXEC_MSG_EXIT_CODE_MARKER
   else timeout
     SPAWN -> KERNEL : TerminateJobObject (1)
     SPAWN --> PROV : exit 124

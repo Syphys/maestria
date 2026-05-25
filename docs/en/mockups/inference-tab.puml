@@ -4,16 +4,28 @@
 ' it inside @startuml + `salt { … }` no longer works as of
 ' PlantUML 1.2026.x. Each mockup is a separate top-level block so
 ' the renderer emits one image per panel.
+'
+' The i18n preamble below has to be repeated inside each @startsalt
+' block because Salt opens a fresh preprocessor scope per block
+' (PlantUML 1.2026.x — `!define` from outside the block isn't seen).
 
 @startsalt mockup-inference-tab
+!ifndef LANG
+!define LANG en
+!endif
+!if (LANG == "fr")
+!include ../_includes/i18n/strings_fr.iuml
+!else
+!include ../_includes/i18n/strings_en.iuml
+!endif
 {
   {/ Tags | Description | <b>Inférence</b> | Linked }
-  {* Model | qwen-coder-32b.gguf [Q4_K_M] | 18 GB | ctx 32768 }
+  {* STR_MOCK_INF_MODEL_LBL | qwen-coder-32b.gguf [Q4_K_M] | 18 GB | ctx 32768 }
   --
-  {[ ▶ Run ▼ ] | Runner: llama.cpp (ik_llama) | ⚙ Configure }
+  {[ ▶ Run ▼ ] | STR_MOCK_INF_RUNNER_LBL | STR_MOCK_INF_CONFIGURE_BTN }
   --
-  {+ <b>Run parameters</b>           |        |       }
-  {     Parameter | Estimated | Used       }
+  {+ <b>STR_MOCK_INF_RUN_PARAMS</b>           |        |       }
+  {     STR_MOCK_INF_PARAM_COL | STR_MOCK_INF_ESTIM_COL | STR_MOCK_INF_USED_COL       }
   {     ngl       |     99    |     99     }
   {     ctx       |   32768   |   32768    }
   {     threads   |     8     |      8     }
@@ -22,19 +34,27 @@
   {     mlock     |   false   |    false   }
   {     fit       |    ✓ on   |   ✓ on     }
   --
-  {[ Advanced parameters... (3 custom) ]                     }
+  {[ STR_MOCK_INF_ADV_PARAMS_BTN ]                     }
   --
-  {<b>Compétence</b> (Beta-Laplace pass-rate)                  }
+  {<b>Compétence</b> STR_MOCK_INF_COMP_SUFFIX                  }
   {        radar (R5 — 16 axes)                                 }
-  {      ▸ Arbre de compétence (collapsible)                    }
+  {      ▸ STR_MOCK_INF_ARBRE                    }
   {      ▸ Parler libre (freegen_text + projection)             }
   {                                                              }
-  {<i>Suite tree-v0 · caractérisé 2026-05-23 19:17</i>          }
+  {<i>STR_MOCK_INF_SUITE</i>          }
   {[ ⚗ Re-caractériser ] | [ ❓ Questions sources ]            }
 }
 @endsalt
 
 @startsalt mockup-bulk-panel
+!ifndef LANG
+!define LANG en
+!endif
+!if (LANG == "fr")
+!include ../_includes/i18n/strings_fr.iuml
+!else
+!include ../_includes/i18n/strings_en.iuml
+!endif
 {
   {<b>Caractériser tous les modèles</b>                         }
   --
@@ -42,21 +62,29 @@
   { [✓] Parler libre          | [ ▶ TOUT CARACTÉRISER ]         }
   { [ ] Sans calcul vectoriel | [ ❓ Questions sources ]        }
   --
-  {<i>Modèle 12/52 — qwen-coder-32b.gguf · 47 effectués</i>      }
+  {<i>STR_MOCK_BULK_PROGRESS</i>      }
   { ▇▇▇▇▇▇▇▆▁▁▁▁▁ 60%                                            }
   --
   { ( Erreurs (3) | Logs serveur | <b>Interactions</b> ) | [ 📋 Copier ] }
-  {<i>scrollable tab body, infinite scroll,</i>                   }
-  {<i>polling pauses while a text selection is active,</i>        }
-  {<i>auto-scroll to bottom on tab switch (2026-05-24),</i>       }
-  {<i>each prompt_done event pushes a full DiagnosticRunEntry</i> }
-  {<i>(« Interactions » is live during a run, no signature poll)</i>}
+  {<i>STR_MOCK_BULK_L1</i>                   }
+  {<i>STR_MOCK_BULK_L2</i>        }
+  {<i>STR_MOCK_BULK_L3</i>       }
+  {<i>STR_MOCK_BULK_L4</i> }
+  {<i>STR_MOCK_BULK_L5</i>}
 }
 @endsalt
 
 @startsalt mockup-superviseur
+!ifndef LANG
+!define LANG en
+!endif
+!if (LANG == "fr")
+!include ../_includes/i18n/strings_fr.iuml
+!else
+!include ../_includes/i18n/strings_en.iuml
+!endif
 {
-  {<b>Superviseur</b> (3) · 2 en cours · 1 sorti                   }
+  {<b>Superviseur</b> STR_MOCK_SUP_HEADER_SUFFIX                   }
   --
   {| <b>Direct</b>                                                  }
   {| LFM2.5-1.2B-Q4_K_M.gguf · llama-server · :8082 · [📋][📄][⛔]  }

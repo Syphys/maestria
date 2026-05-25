@@ -7,7 +7,7 @@ package "src/main/modelhub/routing/sandbox/unsafe.ts" <<Frame>> as PKG_SBX_UNSAF
     + kind = 'unsafe'
     + runPythonTests() : Promise<never>
     --
-    Default when `enableSandbox: false`.
-    Always throws SandboxUnavailable.
+    STR_SBXUNSAFE_DEFAULT_LINE
+    STR_SBXUNSAFE_THROWS_LINE
   }
 }

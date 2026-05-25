@@ -1,7 +1,7 @@
 @startuml states-embedder-process
 !include ../_includes/style.iuml
 
-title State machine — managed embedder lifecycle (server mode)
+title STR_EMBPROC_TITLE
 
 ' Reflects the logic of embedderLifecycle.ts:
 '   - in-flight launch promise = concurrency guard
@@ -18,65 +18,65 @@ title State machine — managed embedder lifecycle (server mode)
 
 [*] --> Idle
 
-state "Idle (not configured)" as Idle {
-  description : routingEmbedderPath empty\nAND routingEmbedderBaseUrl empty.\nRouting falls back to R5 silently.
+state "STR_EMBPROC_S_IDLE" as Idle {
+  description : STR_EMBPROC_DESC_IDLE
 }
 
-Idle --> Probing : ensureEmbedderReady(filePath)\ncalled by routeByVectors\nor characterizeTree
+Idle --> Probing : STR_EMBPROC_REL_ENSURE
 
-state "Probing existing" as Probing {
-  description : check listRunning() for a\nrunning process with\n`launchedBy: 'embedder'`\n+ same canonical filePath.
+state "STR_EMBPROC_S_PROBING" as Probing {
+  description : STR_EMBPROC_DESC_PROBING
 }
 
-Probing --> Reused : found alive
-Probing --> Launching : not found,\nset in-flight promise
+Probing --> Reused : STR_EMBPROC_REL_FOUND_ALIVE
+Probing --> Launching : STR_EMBPROC_REL_NOTFOUND
 
-state "Reused" as Reused #FFFDF6 {
-  description : return {baseUrl, pid,\nsource:'reused'}.\nCaller proceeds immediately.
+state "STR_EMBPROC_S_REUSED" as Reused #FFFDF6 {
+  description : STR_EMBPROC_DESC_REUSED
 }
 
-state "Launching" as Launching {
+state "STR_EMBPROC_S_LAUNCHING" as Launching {
   description : launchModelByPath(\n  launchedBy:'embedder',\n  customArgs:'--embedding'\n)
 }
 
-Launching --> Waiting : spawn OK\n(pid received)
-Launching --> Failed : spawn returned !ok\nOR no pid
+Launching --> Waiting : STR_EMBPROC_REL_SPAWN_OK
+Launching --> Failed : STR_EMBPROC_REL_SPAWN_NOK
 
-state "Waiting for /v1/models" as Waiting {
-  description : loop until\n• response.ok ⇒ Ready\n• entry.exited ⇒ Crashed\n• 60 s deadline ⇒ Timeout\nPolls every 1 s with 4 s budget per probe.
+state "STR_EMBPROC_S_WAITING" as Waiting {
+  description : STR_EMBPROC_DESC_WAITING
 }
 
 Waiting --> Ready : 200 OK
-Waiting --> Crashed : process exited\nduring boot
-Waiting --> TimedOut : 60 s deadline
+Waiting --> Crashed : STR_EMBPROC_REL_EXIT_BOOT
+Waiting --> TimedOut : STR_EMBPROC_REL_DEADLINE
 
 state "Ready" as Ready #FFFDF6 {
-  description : return {baseUrl, pid,\nsource:'launched'}.\nVisible in RunningModelsPanel\nunder "embedder" group.
+  description : STR_EMBPROC_DESC_READY
 }
 
 state "Crashed" as Crashed {
-  description : stopProcess(pid),\nreturn null,\nclear in-flight promise.\nCaller silently falls back to R5.
+  description : STR_EMBPROC_DESC_CRASHED
 }
 
 state "Timed out" as TimedOut {
-  description : stopProcess(pid),\nreturn null,\nclear in-flight promise.\nCaller silently falls back to R5.
+  description : STR_EMBPROC_DESC_TIMEDOUT
 }
 
 state "Failed" as Failed {
-  description : log + return null,\nclear in-flight promise.\nCaller silently falls back to R5.
+  description : STR_EMBPROC_DESC_FAILED
 }
 
-Ready --> Idle : stopManagedEmbedders()\nor process killed manually
+Ready --> Idle : STR_EMBPROC_REL_STOP
 Crashed --> Idle
 TimedOut --> Idle
 Failed --> Idle
-Reused --> Reused : subsequent\nensureEmbedderReady\n(idempotent)
+Reused --> Reused : STR_EMBPROC_REL_SUBSEQ
 
 note bottom of Launching
-  Concurrent callers share the SAME
-  in-flight promise — never spawn
-  twice. This is the only critical
-  section in embedderLifecycle.ts.
+  STR_EMBPROC_NOTE_LAUNCH_L1
+  STR_EMBPROC_NOTE_LAUNCH_L2
+  STR_EMBPROC_NOTE_LAUNCH_L3
+  STR_EMBPROC_NOTE_LAUNCH_L4
 end note
 
 @enduml

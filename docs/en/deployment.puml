@@ -2,68 +2,67 @@
 !include _includes/style.iuml
 !include _includes/actors.iuml
 
-title Maestria — runtime processes & ports
+title STR_DEPL_TITLE
 
-node "User's machine" as HOST {
-  node "Maestria.exe / .dmg / .AppImage\n(Electron — main + renderer)" as MAESTRIA {
-    component "Renderer\n(React UI)" as R
-    component "Main process\n(Node.js)" as M
+node "STR_DEPL_HOST" as HOST {
+  node "STR_DEPL_MAESTRIA" as MAESTRIA {
+    component "STR_DEPL_R" as R
+    component "STR_DEPL_M" as M
   }
 
-  node "Optional sub-processes\n(spawned by Maestria, child PIDs tracked)" as SUBS {
-    node "llama-server\n(chat model)\nport :auto" as P_CHAT
+  node "STR_DEPL_SUBS" as SUBS {
+    node "STR_DEPL_P_CHAT" as P_CHAT
     node "llama-server\n--embedding\nport 8081" as P_EMB
-    node "python3 / python.exe\n(sandboxed,\nephemeral per item)" as P_PY
+    node "STR_DEPL_P_PY" as P_PY
   }
 
-  database "User filesystem" {
-    folder "D:\\models\\\nor user's model folder" as MODELS
-    folder ".ts/ sidecars\nper-model JSON" as SC
-    folder "~/.tagspaces/\nmcp.log + settings" as APP_DATA
+  database "STR_DEPL_FS_LABEL" {
+    folder "STR_DEPL_MODELS" as MODELS
+    folder "STR_DEPL_SC" as SC
+    folder "STR_DEPL_APPDATA" as APP_DATA
   }
 }
 
-node "External MCP clients\n(separate processes)" as EXT_CLIENTS {
+node "STR_DEPL_EXT_CLIENTS" as EXT_CLIENTS {
   component "Claude Code" as C_CC
   component "Cursor" as C_CUR
   component "deer-flow" as C_DF
   component "bash / curl" as C_SH
 }
 
-USER --> R : keyboard / mouse
+USER --> R : STR_DEPL_REL_USER_R
 M --> P_CHAT : spawn / stop
 M --> P_EMB : spawn / stop\n(slice 7e)
-M --> P_PY : spawn / kill\n(slice 2d, opt-in)
-M --> SC : read/write sidecars
-M --> MODELS : list models
-M --> APP_DATA : log + settings
-M --> HF : hf.fetch\n(via internet)
+M --> P_PY : STR_DEPL_REL_M_PPY
+M --> SC : STR_DEPL_REL_M_SC
+M --> MODELS : STR_DEPL_REL_M_MODELS
+M --> APP_DATA : STR_DEPL_REL_M_APP
 
 EXT_CLIENTS -- M : HTTP+SSE\n127.0.0.1:41541\nBearer token
-R -- M : Electron IPC
+R -- M : STR_DEPL_REL_R_M
 
 note right of P_CHAT
-  One process per running chat model.
-  User opens its native web UI in
-  the browser (no in-app chat).
+  STR_DEPL_NOTE_PCHAT_L1
+  STR_DEPL_NOTE_PCHAT_L2
+  STR_DEPL_NOTE_PCHAT_L3
 end note
 
 note right of P_EMB
   Singleton — `launchedBy: 'embedder'`.
-  Reused across routing + characterize.
+  STR_DEPL_NOTE_PEMB_L2
 end note
 
 note right of P_PY
-  Per-item, immediately killed after
-  the assert block returns.
-  POSIX rlimits / Win Job Object.
+  STR_DEPL_NOTE_PPY_L1
+  STR_DEPL_NOTE_PPY_L2
+  STR_DEPL_NOTE_PPY_L3
 end note
 
 note bottom of EXT_CLIENTS
-  All external clients bind to
-  127.0.0.1 — the MCP server NEVER
-  listens on 0.0.0.0. Even cross-
-  machine clients have to tunnel.
+  STR_DEPL_NOTE_EXT_L1
+  STR_DEPL_NOTE_EXT_L2
+  STR_DEPL_NOTE_EXT_L3
+  STR_DEPL_NOTE_EXT_L4
 end note
 
 @enduml

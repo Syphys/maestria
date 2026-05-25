@@ -9,40 +9,40 @@
 
 !include ../_includes/classes/routing-types.iuml
 
-title BehavioralSignature — shape on disk (`.ts/<file>.json`)
+title STR_SIGNATURE_TITLE
 
 ' Persistence side — kept inline because it's diagram-specific (a
 ' different composer might show signatureStore behaviour without the
 ' on-disk database). `component` declarations would clash with the
 ' class-diagram mode the routing-types include puts us in, so we
 ' use the class shape here too (visually identical, parser-stable).
-class "signatureStore.ts\nloadSignature() / writeSignature()" as STORE
-class ".ts/<modelfile>.json\n(per-model sidecar)" as DISK <<file>>
+class "STR_SIGNATURE_STORE_LABEL" as STORE
+class "STR_SIGNATURE_DISK_LABEL" as DISK <<file>>
 
 Signature *-- StructuralSignature
 Signature *-- BehavioralSignature
 Signature *-- QcmReliability
-BehavioralSignature *-- "many" DiagnosticRunEntry
-STORE ..> Signature : serialise / parse
+BehavioralSignature *-- "STR_SIGNATURE_MULT_MANY" DiagnosticRunEntry
+STORE ..> Signature : STR_SIGNATURE_REL_SERIALISE
 STORE -- DISK : JSON
 
 note right of BehavioralSignature::scores_per_leaf
-  Beta-Laplace `(1+passes)/(2+asked)` ∈ (0, 1].
-  3/3 ⇒ 0.80, never 1.0 in Phase A.
-  Coexists with `scores_per_axis` (R5 fallback).
+  STR_SIGNATURE_NOTE_LEAF_L1
+  STR_SIGNATURE_NOTE_LEAF_L2
+  STR_SIGNATURE_NOTE_LEAF_L3
 end note
 
 note right of BehavioralSignature::topic_coverage_per_leaf
-  DCC §4 carve-out. 32 cosines against
-  the SAME shared anchors used by routing —
-  same index space as `scores_per_leaf`.
-  Additional evidence, never replacement.
+  STR_SIGNATURE_NOTE_COV_L1
+  STR_SIGNATURE_NOTE_COV_L2
+  STR_SIGNATURE_NOTE_COV_L3
+  STR_SIGNATURE_NOTE_COV_L4
 end note
 
 note bottom of QcmReliability
-  SPEC §6bis: QCM aptitude is a
-  judge-candidacy signal, never
-  a competence signal for routing.
+  STR_SIGNATURE_NOTE_QCM_L1
+  STR_SIGNATURE_NOTE_QCM_L2
+  STR_SIGNATURE_NOTE_QCM_L3
 end note
 
 @enduml

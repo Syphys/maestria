@@ -1,45 +1,45 @@
 @startuml freegen
 !include ../_includes/style.iuml
 
-title Free-gen probe — slice 7c, 2-phase split (2026-05-22)
+title STR_FGDIA_TITLE
 
-state "Tree characterization\nfinished (slice 4c)" as TREE_DONE
+state "STR_FGDIA_TREE_DONE" as TREE_DONE
 state "characterizeTree.ts\n  if (opts.freegen !== false) {…}" as GATE_FG
 
-state "PHASE 1 — text only\nfreegen.generateFreeGenText(ask)" as PHASE1 {
-  state "1× model call\nFREEGEN_PROMPT\n(topic-neutral,\n~600–800 words)" as ASK
+state "STR_FGDIA_PHASE1" as PHASE1 {
+  state "STR_FGDIA_ASK" as ASK
   state "Strip <think>…</think>\n(D11)" as STRIP
-  state "Output:\n• freegen_text (verbatim)\n• freegen_words" as TEXT_OUT
+  state "STR_FGDIA_TEXT_OUT" as TEXT_OUT
 }
 
-state "merge into signature\n(text only,\nNO projection yet)" as MERGE_TEXT
+state "STR_FGDIA_MERGE_TEXT" as MERGE_TEXT
 
-state "PHASE 2 — projection\nfreegen.projectFreeGenText(\n  text, embed, anchors\n)" as PHASE2 {
-  state "1× embed call\n(stored freegen_text)" as EMB_TEXT
-  state "K× embed calls\n(17 leaf anchors —\nbatched in one\nllama-embedding spawn)" as EMB_ANCHORS
-  state "Cosine projection\nonto each anchor\n(probe-anchors.json)" as PROJECT
-  state "Output:\n• topic_coverage_per_leaf\n• topic_coverage_per_branch" as PROJ_OUT
+state "STR_FGDIA_PHASE2" as PHASE2 {
+  state "STR_FGDIA_EMB_TEXT" as EMB_TEXT
+  state "STR_FGDIA_EMB_ANCHORS" as EMB_ANCHORS
+  state "STR_FGDIA_PROJECT" as PROJECT
+  state "STR_FGDIA_PROJ_OUT" as PROJ_OUT
 }
 
-state "merge projection into\nsignature (additive)" as MERGE_PROJ
+state "STR_FGDIA_MERGE_PROJ" as MERGE_PROJ
 
-state "freegen disabled\n(opts.freegen === false)" as SKIP_FG
-state "phase 1 throw\n(empty response, etc.) →\nisolated, tree pass kept" as SKIP_E
+state "STR_FGDIA_SKIP_FG" as SKIP_FG
+state "STR_FGDIA_SKIP_E" as SKIP_E
 
 TREE_DONE --> GATE_FG
-GATE_FG --> PHASE1 : freegen ON\n(default true)
-GATE_FG --> SKIP_FG : explicitly OFF
+GATE_FG --> PHASE1 : STR_FGDIA_REL_FREEGEN_ON
+GATE_FG --> SKIP_FG : STR_FGDIA_REL_EXPLICIT_OFF
 PHASE1 --> ASK
 ASK --> STRIP
 STRIP --> TEXT_OUT
 TEXT_OUT --> MERGE_TEXT
 
-state "characterizeAll\n(bulk per-model loop)" as BULK_LOOP
-state "skipProjection?\nOR embedder unavailable?" as PROJ_GATE
-MERGE_TEXT --> BULK_LOOP : signature saved with\nfreegen_text alone
+state "STR_FGDIA_BULK_LOOP" as BULK_LOOP
+state "STR_FGDIA_PROJ_GATE" as PROJ_GATE
+MERGE_TEXT --> BULK_LOOP : STR_FGDIA_REL_SIG_SAVED
 BULK_LOOP --> PROJ_GATE
-PROJ_GATE --> PHASE2 : embedder available\nAND !skipProjection
-PROJ_GATE --> [*] : skip projection\n(text stays, can be\nprojected later)
+PROJ_GATE --> PHASE2 : STR_FGDIA_REL_EMB_AVAIL
+PROJ_GATE --> [*] : STR_FGDIA_REL_SKIP_PROJ
 
 PHASE2 --> EMB_TEXT
 EMB_TEXT --> EMB_ANCHORS
@@ -47,34 +47,34 @@ EMB_ANCHORS --> PROJECT
 PROJECT --> PROJ_OUT
 PROJ_OUT --> MERGE_PROJ
 
-PHASE1 --> SKIP_E : throws caught\nby characterizeTree
+PHASE1 --> SKIP_E : STR_FGDIA_REL_THROW_CAUGHT
 
 note right of PHASE1
-  NO EMBEDDER touched here.
-  Test model is the only thing
-  in RAM during phase 1.
+  STR_FGDIA_NOTE_PH1_L1
+  STR_FGDIA_NOTE_PH1_L2
+  STR_FGDIA_NOTE_PH1_L3
 end note
 
 note right of PHASE2
-  Bulk path: one llama-embedding
-  spawn per model (embedderCli.ts),
-  process exits → RAM freed.
-  Test model is NEVER coexistent
-  with the embedder.
+  STR_FGDIA_NOTE_PH2_L1
+  STR_FGDIA_NOTE_PH2_L2
+  STR_FGDIA_NOTE_PH2_L3
+  STR_FGDIA_NOTE_PH2_L4
+  STR_FGDIA_NOTE_PH2_L5
 end note
 
 note bottom of MERGE_PROJ
-  Fields are **additional evidence**
-  in routing (α=0.7 deterministic,
-  β=0.3 coverage blend). Never
-  replace `scores_per_leaf`.
+  STR_FGDIA_NOTE_MP_L1
+  STR_FGDIA_NOTE_MP_L2
+  STR_FGDIA_NOTE_MP_L3
+  STR_FGDIA_NOTE_MP_L4
 end note
 
 note bottom of SKIP_E
-  DECISIONS.md DCC §5 —
-  probe failure NEVER sinks
-  the tree pass that already
-  computed scores_per_leaf.
+  STR_FGDIA_NOTE_SE_L1
+  STR_FGDIA_NOTE_SE_L2
+  STR_FGDIA_NOTE_SE_L3
+  STR_FGDIA_NOTE_SE_L4
 end note
 
 @enduml

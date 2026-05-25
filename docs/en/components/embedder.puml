@@ -2,62 +2,61 @@
 !include ../_includes/style.iuml
 !include ../_includes/actors.iuml
 
-title Embedder — dual mode: server (interactive) + CLI (bulk)
+title STR_EMBDIA_TITLE
 
 package "src/main/modelhub/" {
-  component "embedderLifecycle.ts\n• ensureEmbedderReady(filePath)\n• in-flight launch promise\n  (concurrency-safe)\n• stopManagedEmbedders()" as EMBED_LC
-  component "embedderCli.ts\n(2026-05-23)\n• embedViaLlamaCli(opts)\n  spawn → JSON → exit\n• resolveEmbedderCliFn()\n  derives llama-embedding\n  from llama-server runner\n• deriveLlamaEmbeddingPath" as EMBED_CLI
+  component "STR_EMBDIA_EMBED_LC" as EMBED_LC
+  component "STR_EMBDIA_EMBED_CLI" as EMBED_CLI
   component "launchModelByPath\n(via launch.ts)\nlaunchedBy: 'embedder'\ncustomArgs: '--embedding'" as LAUNCH
   component "EmbedClient\n(routing/embed.ts)\nHTTP POST /v1/embeddings" as EMBED_CLIENT
   component "routingConfig.ts\n.routingEmbedderPath /\n.routingEmbedderBaseUrl" as RC
 }
 
-component "characterizeAll\n(bulk, per-model loop)" as CHAR_ALL
-component "routeByVectors\n(interactive query)" as ROUTE
+component "STR_EMBDIA_CHAR_ALL" as CHAR_ALL
+component "STR_EMBDIA_ROUTE" as ROUTE
 
-CHAR_ALL --> EMBED_CLI : resolveEmbedderCliFn() once\nthen embed() per model
+CHAR_ALL --> EMBED_CLI : STR_EMBDIA_REL_CHAR_EMB
 ROUTE --> RC : effectiveRoutingParams.embedder
 
 RC --> EMBED_LC : kind:'managed'\n+ filePath\n(server-backed)
 RC ..> EMBED_CLIENT : kind:'external'\n+ baseUrl (direct)
 
-EMBED_LC --> LAUNCH : spawn if not running
+EMBED_LC --> LAUNCH : STR_EMBDIA_REL_SPAWN_IF
 LAUNCH --> LLAMA_EMBED : llama-server\n--embedding (port 8081)
-LLAMA_EMBED --> EMBED_LC : /v1/models OK\n(ready probe, 60s timeout)
+LLAMA_EMBED --> EMBED_LC : STR_EMBDIA_REL_READY_PROBE
 EMBED_LC --> EMBED_CLIENT : baseUrl
 EMBED_CLIENT --> LLAMA_EMBED : POST /v1/embeddings
 
-component "llama-embedding.exe\n(one-shot CLI)" as LLAMA_EMBED_CLI
-EMBED_CLI ..> LLAMA_EMBED_CLI : spawn one-shot per call
+component "STR_EMBDIA_LLAMA_CLI" as LLAMA_EMBED_CLI
+EMBED_CLI ..> LLAMA_EMBED_CLI : STR_EMBDIA_REL_SPAWN_ONESHOT
 
 note right of LLAMA_EMBED_CLI
-  Sibling of llama-server in the
-  same llama.cpp build folder.
-  Spawned per call, prints JSON
-  on stdout, exits.
+  STR_EMBDIA_NOTE_CLI_L1
+  STR_EMBDIA_NOTE_CLI_L2
+  STR_EMBDIA_NOTE_CLI_L3
+  STR_EMBDIA_NOTE_CLI_L4
 end note
 
 note bottom of EMBED_LC
-  SERVER mode (interactive routing):
-  resident process, low-latency queries,
-  reused across calls. Idempotent + crash-
-  safe (boot crash ⇒ null ⇒ R5 fallback).
+  STR_EMBDIA_NOTE_LC_L1
+  STR_EMBDIA_NOTE_LC_L2
+  STR_EMBDIA_NOTE_LC_L3
+  STR_EMBDIA_NOTE_LC_L4
 end note
 
 note bottom of EMBED_CLI
-  CLI mode (bulk characterization):
-  spawn → embed → exit per model.
-  Zero resident RAM between models —
-  test model is the only big GGUF
-  loaded at any given time.
-  Both modes use the SAME embedder
-  GGUF (routingEmbedderPath).
+  STR_EMBDIA_NOTE_CLI2_L1
+  STR_EMBDIA_NOTE_CLI2_L2
+  STR_EMBDIA_NOTE_CLI2_L3
+  STR_EMBDIA_NOTE_CLI2_L4
+  STR_EMBDIA_NOTE_CLI2_L5
+  STR_EMBDIA_NOTE_CLI2_L6
 end note
 
 note right of LLAMA_EMBED
-  Visible in RunningModelsPanel,
-  grouped by `launchedBy: 'embedder'`,
-  alongside chat models.
+  STR_EMBDIA_NOTE_LLAMA_L1
+  STR_EMBDIA_NOTE_LLAMA_L2
+  STR_EMBDIA_NOTE_LLAMA_L3
 end note
 
 @enduml

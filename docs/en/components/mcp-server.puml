@@ -2,23 +2,23 @@
 !include ../_includes/style.iuml
 !include ../_includes/actors.iuml
 
-title MCP server — full UI-parity surface + two-token auth (2026-05-24)
+title STR_MCPDIA_TITLE
 
 package "src/main/modelhub/mcp/" as MCP_PKG {
-  component "index.ts\n• side-effect imports\n  every tool module\n  (auto-register)\n• re-exports start/stop\n  + user/admin tokens" as INDEX
-  component "server.ts\n• HTTP+SSE on\n  127.0.0.1:41541\n• Express + Bearer\n  middleware (two-tier)\n• callerLabelFor(req)\n  from User-Agent\n• stash ctx.isAdmin\n  on the transport" as SERVER
-  component "registry.ts\n• Map<name,\n  ToolDefinition>\n• requiresAdmin flag\n• isAdmin in ctx\n• ListTools sorted\n  by name\n• 403 short-circuit\n  on admin gate" as REG
-  component "token.ts\n• user Bearer\n  (lazy create)\n• admin Bearer\n  (opt-in,\n   regenerate,\n   revoke)\n• autoStart toggle" as TOKEN
-  component "logger.ts\n• appendCallLog()\n• rotating\n  ~/.tagspaces/mcp.log\n• caller / tool /\n  duration / ok|err\n  / admin-rejected" as LOGGER
+  component "STR_MCPDIA_INDEX" as INDEX
+  component "STR_MCPDIA_SERVER" as SERVER
+  component "STR_MCPDIA_REG" as REG
+  component "STR_MCPDIA_TOKEN" as TOKEN
+  component "STR_MCPDIA_LOGGER" as LOGGER
 
-  package "tools/ (self-register on import) — ~40 total" as TOOLS {
-    component "models.ts (7)\n• search\n• get  (raw KV opt-in)\n• list_running\n• run (admin? ⇒ UAC)\n• stop\n• get_run_params\n• list_runner_flags" as T_MODELS
-    component "route.ts (1)\n• models.route\n  · embedder-gated\n  · vector projection\n  · R5 fallback" as T_ROUTE
+  package "STR_MCPDIA_TOOLS_PKG_LABEL" as TOOLS {
+    component "STR_MCPDIA_T_MODELS" as T_MODELS
+    component "STR_MCPDIA_T_ROUTE" as T_ROUTE
     component "characterize.ts (6)\n• start / status\n• all_start (long)\n• all_cancel\n• load_signature\n• get_questions_dir" as T_CHAR
     component "logs.ts (4)\n• models.get_server_log\n• models.get_error_log\n• models.list_archives\n• runners.get_log" as T_LOGS
-    component "meta.ts (4) ⚠\n• meta.patch (open)\n• meta.enrich (open)\n• enrich.folder_start ⚠\n• meta.clear_folder ⚠" as T_META
+    component "STR_MCPDIA_T_META" as T_META
     component "discovery.ts (2)\n• sum_shard_bytes\n• list_hosting_folders" as T_DISC
-    component "runners.ts (9) ⚠\n• list / dismiss /\n  open_chat /\n  build_command /\n  fit_probe (open)\n• save / remove /\n  detect / reprobe ⚠" as T_RUNN
+    component "STR_MCPDIA_T_RUNN" as T_RUNN
     component "configs.ts (5) ⚠\n• hardware.detect_raw\n• hardware.get_override\n• hardware.set_override ⚠\n• routing.get_config\n• routing.set_config ⚠" as T_CFG
     component "tags.ts (2)\n• tags.add\n• tags.remove" as T_TAGS
     component "description.ts (2)\n• description.get\n• description.set" as T_DESC
@@ -33,21 +33,21 @@ component "modelLogStore.ts\n+ runners/launch.getEntryLog" as LOGS_CORE
 component "enrichFolder + clearFolder\n+ sidecar.patchModelMeta" as META_CORE
 component "runners/registry +\nfitProbe + openChat" as RUNN_CORE
 component "hardwareOverride +\nroutingConfig" as CFG_CORE
-component "Settings ▸ AI ▸ MCP\n(useMcp.ts hook,\nrenderer — admin\ntoken generator)" as UI_SETTINGS_R
+component "STR_MCPDIA_UI_SETTINGS_R" as UI_SETTINGS_R
 
 MCP_CLIENT --> SERVER : GET /sse\nPOST /messages?sessionId=…\nAuthorization: Bearer <user|admin>
-SERVER --> TOKEN : verify Bearer\n(both tokens read fresh\n every request — revoke\n takes effect immediately)
-SERVER --> REG : dispatch CallTool\n(ctx.isAdmin from token tier)
-SERVER --> LOGGER : appendCallLog(caller,\n  tool, args, duration, ok|err)
+SERVER --> TOKEN : STR_MCPDIA_REL_VERIFY_BEARER
+SERVER --> REG : STR_MCPDIA_REL_DISPATCH
+SERVER --> LOGGER : STR_MCPDIA_REL_APPEND_LOG
 
 REG --> T_MODELS
 REG --> T_ROUTE
 REG --> T_CHAR
 REG --> T_LOGS
-REG --> T_META : (admin-gated subset)
+REG --> T_META : STR_MCPDIA_REL_ADMIN_GATED
 REG --> T_DISC
-REG --> T_RUNN : (admin-gated subset)
-REG --> T_CFG  : (admin-gated subset)
+REG --> T_RUNN : STR_MCPDIA_REL_ADMIN_GATED
+REG --> T_CFG  : STR_MCPDIA_REL_ADMIN_GATED
 REG --> T_TAGS
 REG --> T_DESC
 REG --> T_HW
@@ -64,9 +64,9 @@ INDEX ..> T_TAGS   : import (register)
 INDEX ..> T_DESC   : import (register)
 INDEX ..> T_HW     : import (register)
 
-T_MODELS --> LAUNCH : list / spawn (launchedBy =\n  ctx.callerLabel) / stop\n  / launchProcessElevated\n  when admin:true
-T_MODELS --> SIDECARS : resolveCanonicalShardPath\n+ loadModelMeta\n+ autotune preview
-T_ROUTE --> ROUTE_CORE : decideRoute\n(probeFreeMemory + embedder gate)
+T_MODELS --> LAUNCH : STR_MCPDIA_REL_T_MODELS_LAUNCH
+T_MODELS --> SIDECARS : STR_MCPDIA_REL_T_MODELS_SIDE
+T_ROUTE --> ROUTE_CORE : STR_MCPDIA_REL_T_ROUTE
 T_CHAR --> CHAR_CORE : runCharacterization,\ncharacterizeAll,\nloadSignature
 T_LOGS --> LOGS_CORE : readServerLog / readErrorLog /\nlistServerLogArchives /\ngetEntryLog
 T_META --> META_CORE : enrichLocal /\nenrichFolder /\nclearFolder /\npatchModelMeta
@@ -75,38 +75,38 @@ T_RUNN --> RUNN_CORE : listRunners / saveRunner /\nremoveRunner / reprobe /\nfit
 T_CFG --> CFG_CORE : getOverride / setOverride /\ngetRoutingConfig / setRoutingConfig
 T_TAGS --> SIDECARS : patchSidecar({tags})
 T_DESC --> SIDECARS : patchSidecar({description})
-T_HW ..> "Hardware\nprofiler" : detect + autotune preview
+T_HW ..> "STR_MCPDIA_HW_LABEL" : STR_MCPDIA_REL_T_HW
 
-UI_SETTINGS_R --> INDEX : start / stop /\nregenerate user token /\nget|create|regenerate|\nrevoke admin token\n(IPC, polled status every 5 s)
+UI_SETTINGS_R --> INDEX : STR_MCPDIA_REL_UI_SETTINGS
 
 note bottom of REG
-  Two-tier authentication.
-  Each ToolDefinition opts into
-  `requiresAdmin: true`. Default
-  (user) token: every tool EXCEPT
-  those. Admin token: every tool
-  AND the `admin: true` branch of
-  models.run (OS-level elevation).
-  Server-side check returns an
-  `isError: true` MCP response,
-  NOT HTTP 401 — the session stays
-  alive, only that specific call
-  is forbidden.
+  STR_MCPDIA_NOTE_REG_L1
+  STR_MCPDIA_NOTE_REG_L2
+  STR_MCPDIA_NOTE_REG_L3
+  STR_MCPDIA_NOTE_REG_L4
+  STR_MCPDIA_NOTE_REG_L5
+  STR_MCPDIA_NOTE_REG_L6
+  STR_MCPDIA_NOTE_REG_L7
+  STR_MCPDIA_NOTE_REG_L8
+  STR_MCPDIA_NOTE_REG_L9
+  STR_MCPDIA_NOTE_REG_L10
+  STR_MCPDIA_NOTE_REG_L11
+  STR_MCPDIA_NOTE_REG_L12
 end note
 
 note bottom of SERVER
-  callerLabel derived from the
-  request's User-Agent header
-  (trimmed at first space/`(`) —
-  fallback to the short sessionId
-  hash. Surfaces as `launchedBy`
-  on every model the caller
-  spawns, so the Superviseur
-  groups them by provenance.
-  ⚠ Admin tokens unlock
-  destructive ops AND OS-level
-  privilege elevation for spawned
-  llama-server processes.
+  STR_MCPDIA_NOTE_SRV_L1
+  STR_MCPDIA_NOTE_SRV_L2
+  STR_MCPDIA_NOTE_SRV_L3
+  STR_MCPDIA_NOTE_SRV_L4
+  STR_MCPDIA_NOTE_SRV_L5
+  STR_MCPDIA_NOTE_SRV_L6
+  STR_MCPDIA_NOTE_SRV_L7
+  STR_MCPDIA_NOTE_SRV_L8
+  STR_MCPDIA_NOTE_SRV_L9
+  STR_MCPDIA_NOTE_SRV_L10
+  STR_MCPDIA_NOTE_SRV_L11
+  STR_MCPDIA_NOTE_SRV_L12
 end note
 
 @enduml

@@ -1,7 +1,7 @@
 @startuml objects-running-models
 !include ../_includes/style.iuml
 
-title Object diagram — Superviseur (RunningModelsPanel) snapshot\n(typical state during a routing-driven session)\n2026-05-24: non-collapsible — always-open with bounded scroll
+title STR_ORM_TITLE
 
 ' A frozen view of `listRunning()` — what the user sees grouped by
 ' launchedBy in the sidebar. Helpful for explaining how the same
@@ -32,16 +32,16 @@ object "LFM2_5-1_2B :\nActiveEntry" as O_E_LFM {
   filePath = "D:\\models\\…\\LFM2_5-1_2B-Q4_K_M.gguf"
   url = "http://127.0.0.1:8082"
   launchedBy = null
-  params = { … (autotune defaults) }
+  params = STR_ORM_LFM_PARAMS
   startedAt = "2026-05-21T14:36:10Z"
   exited = false
 }
 
-object "Superviseur :\nrenderer view\n(RunningModelsPanel.tsx)" as O_PANEL {
+object "STR_ORM_PANEL_LABEL" as O_PANEL {
   collapsible = false   ' 2026-05-24
   groupBy = launchedBy ?? "Direct"
   sortStable = true
-  maxHeight = 260       ' bounded scroll
+  maxHeight = 260       ' STR_ORM_PANEL_SCROLL_COMMENT
   overflowY = "auto"
   groups = [
     "Direct" → [LFM2_5-1_2B],
@@ -50,27 +50,26 @@ object "Superviseur :\nrenderer view\n(RunningModelsPanel.tsx)" as O_PANEL {
   ]
 }
 
-O_PANEL --> O_E_LFM : Direct group
-O_PANEL --> O_E_EMB : embedder group
-O_PANEL --> O_E_QWEN : MCP group
+O_PANEL --> O_E_LFM : STR_ORM_REL_DIRECT
+O_PANEL --> O_E_EMB : STR_ORM_REL_EMB
+O_PANEL --> O_E_QWEN : STR_ORM_REL_MCP
 
 note right of O_E_EMB
-  Singleton process. Reused by
-  characterizeTree (slice 7c probe)
-  AND routing query path (slice 7e).
-  Concurrent callers share one launch.
+  STR_ORM_NOTE_EMB_L1
+  STR_ORM_NOTE_EMB_L2
+  STR_ORM_NOTE_EMB_L3
+  STR_ORM_NOTE_EMB_L4
 end note
 
 note bottom of O_PANEL
-  Pure presentation — grouping is
-  done renderer-side from the same
-  shape served by `models.list_running`
-  to MCP callers.
-  Header is no longer clickable
-  (chevron + localStorage state removed
-  on 2026-05-24). The list is always
-  visible; long catalogues are
-  handled via bounded scroll.
+  STR_ORM_NOTE_PANEL_L1
+  STR_ORM_NOTE_PANEL_L2
+  STR_ORM_NOTE_PANEL_L3
+  STR_ORM_NOTE_PANEL_L4
+  STR_ORM_NOTE_PANEL_L5
+  STR_ORM_NOTE_PANEL_L6
+  STR_ORM_NOTE_PANEL_L7
+  STR_ORM_NOTE_PANEL_L8
 end note
 
 @enduml

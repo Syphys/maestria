@@ -1,0 +1,1091 @@
+' ───────────────────────────────────────────────────────────────
+' Catalogue de chaînes français (style legacy !define).
+' Les clés reflètent strings_en.iuml à l'identique — même ordre,
+' même ensemble. Les sections sont groupées par fichier source via
+' des bannières `' === <fichier> ===` pour la navigation. Ajoutez
+' toute nouvelle entrée STR_ dans LES DEUX strings_en.iuml ET
+' strings_fr.iuml lorsque vous introduisez une chaîne traduisible.
+' ───────────────────────────────────────────────────────────────
+
+' === _includes/actors.iuml ===
+!define STR_ACTORS_USER Utilisateur
+!define STR_ACTORS_MCP_CLIENT Client MCP\n(Claude Code,\nCursor,\ndeer-flow, …)
+!define STR_ACTORS_LLAMA_CHAT llama-server\n(modèle chat)
+!define STR_ACTORS_LLAMA_EMBED llama-server\n--embedding\n(embedder de routing)
+!define STR_ACTORS_PYTHON_SANDBOX python3\n(sandboxé, slice 2d)
+!define STR_ACTORS_SIDECARS sidecars .ts/\n(signatures,\nautoTags)
+
+' === _includes/legend.iuml ===
+!define STR_LEGEND_HDR_SYMBOL symbole
+!define STR_LEGEND_HDR_MEANING signification
+!define STR_LEGEND_RUNG_DESC montée réelle de l'escalier (réussites enregistrées)
+!define STR_LEGEND_PRIOR_DESC prior QCM/branche faible confiance (discount Dyy/D12)
+!define STR_LEGEND_NONE_DESC jamais mesuré (D8.B : laisser vide, jamais zéro)
+!define STR_LEGEND_SCHEME_DESC `beta-laplace-v1` (actuel) ou `breaking-rung-v0` (legacy)
+
+' === _includes/classes/competence-tree.iuml ===
+!define STR_CTREE_BTYPE **type CompetenceBranch**\n=\n9 littéraux string
+!define STR_CTREE_REL_KEYS_OF clés de
+!define STR_CTREE_REL_DERIVED_FROM dérivé de
+!define STR_CTREE_ROOT_LABEL **Arbre de compétence**\n9 branches
+!define STR_CTREE_REL_EQUALS égale
+
+' === _includes/classes/routing-types.iuml ===
+!define STR_RTYPES_HDR_TREE_FIELDS Champs tree-routing (slice 4c+)
+!define STR_RTYPES_NOTE_SEE_SCHEME (0..1 — voir scheme)
+!define STR_RTYPES_NOTE_BETA_ONLY (beta-laplace seulement)
+!define STR_RTYPES_HDR_FREEGEN Sonde Free-gen (slice 7c)
+!define STR_RTYPES_NOTE_COSINES (cosinus)
+!define STR_RTYPES_NOTE_DISPLAY_ONLY (affichage seul — N'ENTRE JAMAIS dans le routing)
+
+' === _includes/classes/sandbox-posix.iuml ===
+!define STR_SBXPOSIX_TEST_SEAM (seam de test)
+!define STR_SBXPOSIX_LAZY_PROBED (sondé en lazy)
+!define STR_SBXPOSIX_BOUNDARIES Frontières (kernel) :
+!define STR_SBXPOSIX_PLUS_L1 Plus : pgrp détaché + kill(-pgid),
+!define STR_SBXPOSIX_PLUS_L2 env vide, workdir jetable,
+!define STR_SBXPOSIX_SPAWNER_REEXPORT Ré-exporté par windows.ts pour symétrie
+
+' === _includes/classes/sandbox-types.iuml ===
+!define STR_SBXTYPES_CAPPED (cappé)
+!define STR_SBXTYPES_DEFAULT_10K (défaut 10_000)
+!define STR_SBXTYPES_DEFAULT_1M (défaut 1_000_000)
+!define STR_SBXTYPES_DEFAULT_10 (défaut 10)
+!define STR_SBXTYPES_DEFAULT_512 (défaut 512 MiB)
+!define STR_SBXTYPES_THROWN_L1 Levé quand la frontière OS-level
+!define STR_SBXTYPES_THROWN_L2 NE PEUT PAS être établie. L'appelant
+!define STR_SBXTYPES_THROWN_L3 map vers UNMEASURED (prior D12).
+!define STR_SBXTYPES_REASONS_L1 Raisons : opt-in off, pas de python,
+!define STR_SBXTYPES_REASONS_L2 pas de module `resource`, mkdtemp KO,
+!define STR_SBXTYPES_REASONS_L3 Job Object échoué, mauvaise plateforme.
+
+' === _includes/classes/sandbox-unsafe.iuml ===
+!define STR_SBXUNSAFE_DEFAULT_LINE Défaut quand `enableSandbox: false`.
+!define STR_SBXUNSAFE_THROWS_LINE Throw toujours SandboxUnavailable.
+
+' === _includes/classes/sandbox-windows.iuml ===
+!define STR_SBXWIN_SPAWN_LINE Spawn powershell.exe -File win-job.ps1.
+!define STR_SBXWIN_KERNEL_HDR Limites kernel via Job Object :
+!define STR_SBXWIN_PLUS_L1 Plus : env vidé, protocole de stream par
+!define STR_SBXWIN_PLUS_L2 lignes marqueurs, exit 124 sur timeout interne.
+!define STR_SBXWIN_PS1_LABEL win-job.ps1\n(launcher Add-Type P/Invoke)
+
+' === _includes/components/characterization-stack.iuml ===
+!define STR_CHAR_STACK_PKG_LABEL src/main/modelhub/routing/ (caractérisation)
+!define STR_CHAR_STACK_CMP_RUNNER characterizeRunner.ts\n(orchestrateur haut niveau)
+!define STR_CHAR_STACK_CMP_R5 characterize.ts\n(passe R5)
+!define STR_CHAR_STACK_CMP_TREE characterizeTree.ts\n(passe arbre,\nR5-gated)
+!define STR_CHAR_STACK_CMP_STAIR staircase.ts\n(escalier style CAT,\nBeta-Laplace)
+!define STR_CHAR_STACK_CMP_FG freegen.ts\n(sonde slice 7c)
+!define STR_CHAR_STACK_CMP_STORE signatureStore.ts\n(I/O .ts/<fichier>.json)
+!define STR_CHAR_STACK_CMP_CHAT chat.ts\n(ChatClient,\ntimeout 4 min)
+!define STR_CHAR_STACK_CMP_SC_CORE checkSpec.ts\n(dispatch runCheck)
+!define STR_CHAR_STACK_CMP_SC_DET 10 scorers\ndéterministes
+!define STR_CHAR_STACK_CMP_SC_AXIS 4 scorers d'axe
+!define STR_CHAR_STACK_CMP_SC_INFO scorer informatique
+!define STR_CHAR_STACK_CMP_SC_PEND scorers\nsandbox-pending (slice 2d)
+
+' === _includes/components/embedder-stack.iuml ===
+!define STR_EMB_STACK_CMP_LC embedderLifecycle.ts\n• ensureEmbedderReady\n• promesse in-flight\n• stopManagedEmbedders
+
+' === _includes/components/mcp-stack.iuml ===
+!define STR_MCP_STACK_CMP_INDEX index.ts\n• import side-effect\n  de chaque module tool\n• re-exporte start/stop\n  + helpers tokens
+!define STR_MCP_STACK_CMP_SERVER server.ts\n• HTTP+SSE sur\n  127.0.0.1:41541\n• middleware Bearer\n  (deux tokens —\n   user + admin)\n• callerLabelFor(req)\n  depuis User-Agent
+!define STR_MCP_STACK_CMP_REG registry.ts\n• Map<name,ToolDefinition>\n• flag requiresAdmin\n• isAdmin dans ctx\n• ListTools trié par\n  nom\n• 403 sur admin gate
+!define STR_MCP_STACK_CMP_TOKEN token.ts\n• Bearer user\n  (création lazy)\n• Bearer admin\n  (opt-in, regen,\n   revoke)\n• toggle autoStart
+!define STR_MCP_STACK_CMP_LOG logger.ts\n• appendCallLog()\n• rotatif\n  ~/.tagspaces/mcp.log
+!define STR_MCP_STACK_PKG_TOOLS_LABEL tools/ (auto-enregistrement à l'import)
+!define STR_MCP_STACK_CMP_T_MODELS models.ts\n7 tools\n  · admin:true sur run\n    déclenche UAC/pkexec
+!define STR_MCP_STACK_CMP_T_META meta.ts ⚠ admin\n  · meta.patch (ouvert)\n  · meta.enrich (ouvert)\n  · enrich.folder_start ⚠\n  · clear_folder ⚠
+!define STR_MCP_STACK_CMP_T_RUNN runners.ts ⚠ admin\n  · list/dismiss/\n    open_chat/build_cmd/\n    fit_probe (ouvert)\n  · save/remove/detect/\n    reprobe ⚠
+!define STR_MCP_STACK_CMP_T_CFG configs.ts ⚠ admin\n  · hardware.detect_raw\n  · get_override (ouvert)\n  · set_override ⚠\n  · routing.get_config\n  · set_config ⚠
+!define STR_MCP_STACK_CMP_USE useMcp.ts\n(hook renderer,\npoll toutes les 5 s)
+!define STR_MCP_STACK_REL_VERIFY_BEARER vérifie Bearer\n(user OU admin)
+!define STR_MCP_STACK_REL_APPEND_LOG appendCallLog\n(par tool call)
+!define STR_MCP_STACK_REL_USE_INDEX start / stop / status\n+ tokens user/admin\n(IPC + poll 5 s)
+
+' === _includes/components/routing-stack.iuml ===
+!define STR_RT_STACK_DECISION routeDecision.ts\n(orchestrateur)
+!define STR_RT_STACK_VEC routeByVectors.ts\n(cœur slice 5b)
+!define STR_RT_STACK_R5 classifyQuery.ts\n(R5 déterministe)
+!define STR_RT_STACK_PROJECT embedProject.ts\n(query → 32 ancres)
+!define STR_RT_STACK_RELY embedDetect.ts\n(gate de fiabilité)
+!define STR_RT_STACK_MEM freeMemory.ts\n(sonde VRAM/RAM)
+!define STR_RT_STACK_COMMON routingCommon.ts\n(éligibilité,\nnormalisation)
+
+' === _includes/components/sandbox-stack.iuml ===
+!define STR_SBX_STACK_CMP_PS1 win-job.ps1\nlauncher PowerShell\nP/Invoke
+
+' === _includes/components/ui-stack.iuml ===
+!define STR_UI_STACK_PANEL ModelHubPanel\n+ onglet Inférence
+!define STR_UI_STACK_RADAR CompetenceSection\n(radar R5 + arbre)
+!define STR_UI_STACK_SETTINGS Paramètres ▸ IA ▸ Routing\n(sélecteur .gguf,\ntoggle sandbox)
+!define STR_UI_STACK_RUNNING Superviseur\n(RunningModelsPanel,\nnon-escamotable,\ngroupé par launchedBy,\n2026-05-24)
+!define STR_UI_STACK_CHARALL CharacterizeAllPanel\n+ CharacterizeAllLogsTabs\n(3 onglets : Erreurs / Logs\nserveur / Interactions —\nstream prompt-par-prompt\nlive, 2026-05-24)
+
+' === _includes/sequences/participants.iuml ===
+!define STR_PARTS_USER Utilisateur\n(onglet Inférence)
+!define STR_PARTS_MCP_CLI Client MCP\n(Claude Code,\nCursor, deer-flow)
+!define STR_PARTS_MCP_SRV Serveur MCP\n+ registry
+!define STR_PARTS_SBX Provider sandbox\n(dispatch getSandbox)
+!define STR_PARTS_PY child python\n(sandboxé)
+
+' === _includes/usecase/actors.iuml ===
+!define STR_UCACTORS_USER Utilisateur humain\n(onglet Inférence)
+!define STR_UCACTORS_MCP_CLI Client MCP\n(Claude Code,\nCursor, deer-flow,\nscripts bash)
+!define STR_UCACTORS_EXT_EMB Embedder externe\n(setup avancé)
+
+' === classes/competence-tree.puml ===
+!define STR_CTREE_DIAG_TITLE COMPETENCE_TREE — taxonomie figée\nsource : `src/shared/RoutingTypes.ts` (include DRY)
+!define STR_CTREE_DIAG_NOTE_SAFE_L1 Safety reste **binaire** 0/1
+!define STR_CTREE_DIAG_NOTE_SAFE_L2 (item unique, pas de lissage
+!define STR_CTREE_DIAG_NOTE_SAFE_L3 Beta-Laplace — user 2026-05-19).
+!define STR_CTREE_DIAG_NOTE_INFO_L1 Slice 7a — domaine de connaissance
+!define STR_CTREE_DIAG_NOTE_INFO_L2 au-delà de la programmation.
+!define STR_CTREE_DIAG_NOTE_TOOLS_L1 Slice 7b — function-call /
+!define STR_CTREE_DIAG_NOTE_TOOLS_L2 abstention / résumé avec
+!define STR_CTREE_DIAG_NOTE_TOOLS_L3 source citée, niveau arbre.
+!define STR_CTREE_DIAG_NOTE_LANG_L1 Collapse affichage seul dans le radar
+!define STR_CTREE_DIAG_NOTE_LANG_L2 R5 (slice 6c) — le routing utilise
+!define STR_CTREE_DIAG_NOTE_LANG_L3 les feuilles par-langue intactes.
+
+' === classes/sandbox-providers.puml ===
+!define STR_SBXPROV_TITLE Providers sandbox — slice 2d\ndéfinitions de classes importées depuis\n_includes/classes/sandbox-*.iuml (DRY)
+!define STR_SBXPROV_REL_RETURNS retourne
+!define STR_SBXPROV_REL_ACCEPTS accepte
+!define STR_SBXPROV_REL_THROWS throw
+!define STR_SBXPROV_REL_INJECTS injecte
+!define STR_SBXPROV_REL_DISP_UNSAFE enabled:false\nou OS inconnu
+!define STR_SBXPROV_NOTE_L1 Point de dispatch unique. Les appelants
+!define STR_SBXPROV_NOTE_L2 (characterizeRunner) n'importent jamais
+!define STR_SBXPROV_NOTE_L3 les providers concrets — ils passent
+!define STR_SBXPROV_NOTE_L4 uniquement par cette factory.
+
+' === classes/signature.puml ===
+!define STR_SIGNATURE_TITLE BehavioralSignature — forme sur disque (`.ts/<fichier>.json`)
+!define STR_SIGNATURE_STORE_LABEL signatureStore.ts\nloadSignature() / writeSignature()
+!define STR_SIGNATURE_DISK_LABEL .ts/<fichier-modèle>.json\n(sidecar par modèle)
+!define STR_SIGNATURE_MULT_MANY plusieurs
+!define STR_SIGNATURE_REL_SERIALISE sérialise / parse
+!define STR_SIGNATURE_NOTE_LEAF_L1 Beta-Laplace `(1+passes)/(2+asked)` ∈ (0, 1].
+!define STR_SIGNATURE_NOTE_LEAF_L2 3/3 ⇒ 0.80, jamais 1.0 en Phase A.
+!define STR_SIGNATURE_NOTE_LEAF_L3 Coexiste avec `scores_per_axis` (fallback R5).
+!define STR_SIGNATURE_NOTE_COV_L1 DCC §4 carve-out. 32 cosinus contre
+!define STR_SIGNATURE_NOTE_COV_L2 les MÊMES ancres partagées utilisées par le routing —
+!define STR_SIGNATURE_NOTE_COV_L3 même espace d'index que `scores_per_leaf`.
+!define STR_SIGNATURE_NOTE_COV_L4 Évidence supplémentaire, jamais remplacement.
+!define STR_SIGNATURE_NOTE_QCM_L1 SPEC §6bis : l'aptitude QCM est un
+!define STR_SIGNATURE_NOTE_QCM_L2 signal de candidature de juge, jamais
+!define STR_SIGNATURE_NOTE_QCM_L3 un signal de compétence pour le routing.
+
+' === components/characterization.puml ===
+!define STR_CHARDIA_TITLE Caractérisation — runner → arbre → escalier → scorers (single-pass)
+!define STR_CHARDIA_LOG_STORE modelLogStore.ts\n(2026-05-23)\n• .ts/<fichier>.log\n  (stdout/stderr llama-server)\n• .ts/<fichier>.error\n  (échecs timestampés)\n• rotation 4 MiB,\n  écritures best-effort
+!define STR_CHARDIA_ALL characterizeAll.ts\n(single-pass, 2026-05-23)\n• énumération triée par taille\n• par modèle : test → si\n  freegen_text → projection\n• gate skipProjection\n• fallback silencieux quand\n  embedder indisponible
+!define STR_CHARDIA_RUNNER characterizeRunner.ts\n• ensureChatLive\n  (spawn llama-server\n  si besoin)\n• construit les seams\n  (embed=undefined ici,\n   runSandbox)\n• timeoutMs 600_000\n• runFreeGenGenerate\n• runFreeGenProject\n• resolveEmbedderFn
+!define STR_CHARDIA_R5_RUN characterize.ts\n(passe R5 — 16 axes R5,\nslice 6c collapse fr/en/zh,\naptitude QCM)
+!define STR_CHARDIA_TREE characterizeTree.ts\n• lit signature R5\n• gate les branches\n  avec θ_open\n• boucle sur branches\n• free-gen TEXTE seul\n  (phase 1)
+!define STR_CHARDIA_STAIR staircase.ts\n• escalier style CAT\n• early-stop sur fail\n• moyenne posterior\n  Beta-Laplace
+!define STR_CHARDIA_SCORER_CORE _types.ts\n+ checkSpec.ts\n(dispatch runCheck)
+!define STR_CHARDIA_DET_SCORERS 10 scorers\ndéterministes\n(math, factual,\nlogic, longctx,\ninstruction, meta, …)
+!define STR_CHARDIA_AXIS_SCORERS 4 scorers d'axe\n(tooluse, robustness,\ncalibration,\nsummarization)
+!define STR_CHARDIA_INFO_SCORER scorer informatique\n(network/OS/sec/hw/théorie)
+!define STR_CHARDIA_PEND_SCORERS scorers\nsandbox-pending\n(code-debug/fim/refactor)\n→ slice 2d
+!define STR_CHARDIA_FREEGEN freegen.ts\n(2 phases, 2026-05-22)\n• generateFreeGenText\n  (chat seul, pas d'embedder)\n• projectFreeGenText\n  (embedder seul)
+!define STR_CHARDIA_STORE signatureStore.ts\n(lecture / écriture\n.ts/<fichier>.json)
+!define STR_CHARDIA_REL_ALL_RUNNER par modèle :\nfull / gen / project-only
+!define STR_CHARDIA_REL_ALL_EMB resolveEmbedderCliFn()\n(une fois au début du bulk)
+!define STR_CHARDIA_REL_ALL_FG runFreeGenProject\n(par modèle après le test)
+!define STR_CHARDIA_REL_R5 R5 d'abord\n(passe grossière)
+!define STR_CHARDIA_REL_TREE puis arbre\n(passe fine, R5-gated)
+!define STR_CHARDIA_REL_TREE_FG generateFreeGenText\n(phase 1 seule — embed undefined)
+!define STR_CHARDIA_REL_TREE_STAIR par branche\n(ouvertes seulement)
+!define STR_CHARDIA_REL_PEND_SBX seam `runSandbox`\n(slice 2d)
+!define STR_CHARDIA_REL_TREE_STORE merge champs arbre\n(scores_per_leaf,\nbranch_scores,\npasses_per_leaf,\nfreegen_text)
+!define STR_CHARDIA_REL_FG_STORE patch avec\ntopic_coverage_*
+!define STR_CHARDIA_REL_ALL_LOG appendErrorLog(fichier, raison)
+!define STR_CHARDIA_REL_RUNNER_LOG appendServerLog\n(via hook logChunk de launch.ts)
+!define STR_CHARDIA_NOTE_RUNNER_L1 Isolé en cas d'échec :
+!define STR_CHARDIA_NOTE_RUNNER_L2 R5 ✓ même si l'arbre échoue ;
+!define STR_CHARDIA_NOTE_RUNNER_L3 arbre ✓ même si freegen échoue ;
+!define STR_CHARDIA_NOTE_RUNNER_L4 escalier ✓ même si une feuille
+!define STR_CHARDIA_NOTE_RUNNER_L5 passe UNMEASURED (prior D12) ;
+!define STR_CHARDIA_NOTE_RUNNER_L6 append log/error est best-effort
+!define STR_CHARDIA_NOTE_RUNNER_L7 (une erreur disque ne coule jamais un run).
+!define STR_CHARDIA_NOTE_STAIR_L1 étape 1 (Beta-Laplace) :
+!define STR_CHARDIA_NOTE_STAIR_L3 3/3 ⇒ 0.80, jamais 1.0 en Phase A.
+!define STR_CHARDIA_NOTE_STAIR_L4 Saturation Phase B = différée.
+!define STR_CHARDIA_NOTE_ALL_L1 Boucle single-pass, par modèle :
+!define STR_CHARDIA_NOTE_ALL_L2 1. test (llama-server, pas d'embedder)
+!define STR_CHARDIA_NOTE_ALL_L3 2. si freegen_text présent
+!define STR_CHARDIA_NOTE_ALL_L4 ET skipProjection=false
+!define STR_CHARDIA_NOTE_ALL_L5 ET embedder disponible
+!define STR_CHARDIA_NOTE_ALL_L6 → spawn llama-embedding (CLI),
+!define STR_CHARDIA_NOTE_ALL_L7 projette, exit.
+!define STR_CHARDIA_NOTE_ALL_L8 3. modèle suivant.
+!define STR_CHARDIA_NOTE_ALL_L9 La RAM retourne à ~0 entre modèles.
+
+' === components/embedder.puml ===
+!define STR_EMBDIA_TITLE Embedder — double mode : serveur (interactif) + CLI (bulk)
+!define STR_EMBDIA_EMBED_LC embedderLifecycle.ts\n• ensureEmbedderReady(filePath)\n• promesse de lancement\n  in-flight (concurrency-safe)\n• stopManagedEmbedders()
+!define STR_EMBDIA_EMBED_CLI embedderCli.ts\n(2026-05-23)\n• embedViaLlamaCli(opts)\n  spawn → JSON → exit\n• resolveEmbedderCliFn()\n  dérive llama-embedding\n  depuis le runner llama-server\n• deriveLlamaEmbeddingPath
+!define STR_EMBDIA_CHAR_ALL characterizeAll\n(bulk, boucle par modèle)
+!define STR_EMBDIA_ROUTE routeByVectors\n(query interactive)
+!define STR_EMBDIA_REL_CHAR_EMB resolveEmbedderCliFn() une fois\npuis embed() par modèle
+!define STR_EMBDIA_REL_SPAWN_IF spawn si pas en cours
+!define STR_EMBDIA_REL_READY_PROBE /v1/models OK\n(sonde readiness, timeout 60 s)
+!define STR_EMBDIA_LLAMA_CLI llama-embedding.exe\n(CLI one-shot)
+!define STR_EMBDIA_REL_SPAWN_ONESHOT spawn one-shot par appel
+!define STR_EMBDIA_NOTE_CLI_L1 Sibling de llama-server dans le
+!define STR_EMBDIA_NOTE_CLI_L2 même dossier de build llama.cpp.
+!define STR_EMBDIA_NOTE_CLI_L3 Spawné par appel, imprime JSON
+!define STR_EMBDIA_NOTE_CLI_L4 sur stdout, exit.
+!define STR_EMBDIA_NOTE_LC_L1 Mode SERVEUR (routing interactif) :
+!define STR_EMBDIA_NOTE_LC_L2 processus résident, queries basse-latence,
+!define STR_EMBDIA_NOTE_LC_L3 réutilisé entre appels. Idempotent + crash-
+!define STR_EMBDIA_NOTE_LC_L4 safe (boot crash ⇒ null ⇒ fallback R5).
+!define STR_EMBDIA_NOTE_CLI2_L1 Mode CLI (caractérisation bulk) :
+!define STR_EMBDIA_NOTE_CLI2_L2 spawn → embed → exit par modèle.
+!define STR_EMBDIA_NOTE_CLI2_L3 Zéro RAM résidente entre modèles —
+!define STR_EMBDIA_NOTE_CLI2_L4 le modèle de test est le seul gros
+!define STR_EMBDIA_NOTE_CLI2_L5 GGUF chargé à un moment donné.
+!define STR_EMBDIA_NOTE_CLI2_L6 Les deux modes utilisent le MÊME GGUF d'embedder (routingEmbedderPath).
+!define STR_EMBDIA_NOTE_LLAMA_L1 Visible dans RunningModelsPanel,
+!define STR_EMBDIA_NOTE_LLAMA_L2 groupé par `launchedBy: 'embedder'`,
+!define STR_EMBDIA_NOTE_LLAMA_L3 à côté des modèles chat.
+
+' === components/freegen.puml ===
+!define STR_FGDIA_TITLE Sonde free-gen — slice 7c, séparation 2 phases (2026-05-22)
+!define STR_FGDIA_TREE_DONE Caractérisation arbre\nterminée (slice 4c)
+!define STR_FGDIA_PHASE1 PHASE 1 — texte seul\nfreegen.generateFreeGenText(ask)
+!define STR_FGDIA_ASK 1× appel modèle\nFREEGEN_PROMPT\n(topic-neutre,\n~600–800 mots)
+!define STR_FGDIA_TEXT_OUT Sortie :\n• freegen_text (verbatim)\n• freegen_words
+!define STR_FGDIA_MERGE_TEXT merge dans signature\n(texte seul,\nPAS de projection encore)
+!define STR_FGDIA_PHASE2 PHASE 2 — projection\nfreegen.projectFreeGenText(\n  text, embed, anchors\n)
+!define STR_FGDIA_EMB_TEXT 1× appel embed\n(freegen_text stocké)
+!define STR_FGDIA_EMB_ANCHORS K× appels embed\n(17 ancres feuilles —\nbatched dans un seul\nspawn llama-embedding)
+!define STR_FGDIA_PROJECT Projection cosinus\nsur chaque ancre\n(probe-anchors.json)
+!define STR_FGDIA_PROJ_OUT Sortie :\n• topic_coverage_per_leaf\n• topic_coverage_per_branch
+!define STR_FGDIA_MERGE_PROJ merge projection dans\nsignature (additif)
+!define STR_FGDIA_SKIP_FG freegen désactivé\n(opts.freegen === false)
+!define STR_FGDIA_SKIP_E phase 1 throw\n(réponse vide, etc.) →\nisolé, passe arbre conservée
+!define STR_FGDIA_REL_FREEGEN_ON freegen ON\n(défaut true)
+!define STR_FGDIA_REL_EXPLICIT_OFF explicitement OFF
+!define STR_FGDIA_BULK_LOOP characterizeAll\n(bulk, boucle par modèle)
+!define STR_FGDIA_PROJ_GATE skipProjection ?\nOU embedder indisponible ?
+!define STR_FGDIA_REL_SIG_SAVED signature sauvée avec\nfreegen_text seul
+!define STR_FGDIA_REL_EMB_AVAIL embedder disponible\nET !skipProjection
+!define STR_FGDIA_REL_SKIP_PROJ skip projection\n(texte reste, projetable\nplus tard)
+!define STR_FGDIA_REL_THROW_CAUGHT throw catché\npar characterizeTree
+!define STR_FGDIA_NOTE_PH1_L1 AUCUN EMBEDDER touché ici.
+!define STR_FGDIA_NOTE_PH1_L2 Le modèle de test est la seule
+!define STR_FGDIA_NOTE_PH1_L3 chose en RAM pendant la phase 1.
+!define STR_FGDIA_NOTE_PH2_L1 Chemin bulk : un spawn llama-embedding
+!define STR_FGDIA_NOTE_PH2_L2 par modèle (embedderCli.ts), le
+!define STR_FGDIA_NOTE_PH2_L3 processus exit → RAM libérée.
+!define STR_FGDIA_NOTE_PH2_L4 Le modèle de test n'est JAMAIS
+!define STR_FGDIA_NOTE_PH2_L5 coexistant avec l'embedder.
+!define STR_FGDIA_NOTE_MP_L1 Les champs sont une **évidence
+!define STR_FGDIA_NOTE_MP_L2 supplémentaire** dans le routing
+!define STR_FGDIA_NOTE_MP_L3 (blend α=0.7 déterministe,
+!define STR_FGDIA_NOTE_MP_L4 β=0.3 coverage). Ne remplacent jamais `scores_per_leaf`.
+!define STR_FGDIA_NOTE_SE_L1 DECISIONS.md DCC §5 —
+!define STR_FGDIA_NOTE_SE_L2 échec de sonde NE coule JAMAIS
+!define STR_FGDIA_NOTE_SE_L3 la passe arbre qui a déjà calculé
+!define STR_FGDIA_NOTE_SE_L4 scores_per_leaf.
+
+' === components/mcp-server.puml ===
+!define STR_MCPDIA_TITLE Serveur MCP — surface parité UI complète + auth à deux tokens (2026-05-24)
+!define STR_MCPDIA_INDEX index.ts\n• imports side-effect\n  de chaque module tool\n  (auto-enregistrement)\n• re-exporte start/stop\n  + tokens user/admin
+!define STR_MCPDIA_SERVER server.ts\n• HTTP+SSE sur\n  127.0.0.1:41541\n• Express + middleware\n  Bearer (deux niveaux)\n• callerLabelFor(req)\n  depuis User-Agent\n• stash ctx.isAdmin\n  sur le transport
+!define STR_MCPDIA_REG registry.ts\n• Map<name,\n  ToolDefinition>\n• flag requiresAdmin\n• isAdmin dans ctx\n• ListTools trié par\n  nom\n• court-circuit 403\n  sur admin gate
+!define STR_MCPDIA_TOKEN token.ts\n• Bearer user\n  (création lazy)\n• Bearer admin\n  (opt-in,\n   regénérer,\n   révoquer)\n• toggle autoStart
+!define STR_MCPDIA_LOGGER logger.ts\n• appendCallLog()\n• rotatif\n  ~/.tagspaces/mcp.log\n• caller / tool /\n  durée / ok|err\n  / admin-rejeté
+!define STR_MCPDIA_TOOLS_PKG_LABEL tools/ (auto-enregistrement à l'import) — ~40 au total
+!define STR_MCPDIA_T_MODELS models.ts (7)\n• search\n• get  (KV brut opt-in)\n• list_running\n• run (admin? ⇒ UAC)\n• stop\n• get_run_params\n• list_runner_flags
+!define STR_MCPDIA_T_ROUTE route.ts (1)\n• models.route\n  · embedder-gated\n  · projection vectorielle\n  · fallback R5
+!define STR_MCPDIA_T_META meta.ts (4) ⚠\n• meta.patch (ouvert)\n• meta.enrich (ouvert)\n• enrich.folder_start ⚠\n• meta.clear_folder ⚠
+!define STR_MCPDIA_T_RUNN runners.ts (9) ⚠\n• list / dismiss /\n  open_chat /\n  build_command /\n  fit_probe (ouvert)\n• save / remove /\n  detect / reprobe ⚠
+!define STR_MCPDIA_UI_SETTINGS_R Paramètres ▸ IA ▸ MCP\n(hook useMcp.ts,\nrenderer — générateur\nde token admin)
+!define STR_MCPDIA_REL_VERIFY_BEARER vérifie Bearer\n(les deux tokens lus à\n chaque requête — révoke\n prend effet immédiat)
+!define STR_MCPDIA_REL_DISPATCH dispatch CallTool\n(ctx.isAdmin selon le tier de token)
+!define STR_MCPDIA_REL_APPEND_LOG appendCallLog(caller,\n  tool, args, durée, ok|err)
+!define STR_MCPDIA_REL_ADMIN_GATED (sous-ensemble admin-gated)
+!define STR_MCPDIA_REL_T_MODELS_LAUNCH list / spawn (launchedBy =\n  ctx.callerLabel) / stop\n  / launchProcessElevated\n  quand admin:true
+!define STR_MCPDIA_REL_T_MODELS_SIDE resolveCanonicalShardPath\n+ loadModelMeta\n+ aperçu autotune
+!define STR_MCPDIA_REL_T_ROUTE decideRoute\n(probeFreeMemory + gate embedder)
+!define STR_MCPDIA_HW_LABEL Profileur\nhardware
+!define STR_MCPDIA_REL_T_HW detect + aperçu autotune
+!define STR_MCPDIA_REL_UI_SETTINGS start / stop /\nregénère token user /\nget|create|regénère|\nrévoque token admin\n(IPC, statut polled 5 s)
+!define STR_MCPDIA_NOTE_REG_L1 Authentification à deux niveaux.
+!define STR_MCPDIA_NOTE_REG_L2 Chaque ToolDefinition opt-in
+!define STR_MCPDIA_NOTE_REG_L3 `requiresAdmin: true`. Token par
+!define STR_MCPDIA_NOTE_REG_L4 défaut (user) : chaque tool SAUF
+!define STR_MCPDIA_NOTE_REG_L5 ceux-là. Token admin : chaque tool
+!define STR_MCPDIA_NOTE_REG_L6 ET la branche `admin: true` de
+!define STR_MCPDIA_NOTE_REG_L7 models.run (élévation niveau OS).
+!define STR_MCPDIA_NOTE_REG_L8 Le check serveur retourne une
+!define STR_MCPDIA_NOTE_REG_L9 réponse MCP `isError: true`,
+!define STR_MCPDIA_NOTE_REG_L10 PAS HTTP 401 — la session reste
+!define STR_MCPDIA_NOTE_REG_L11 vivante, seul l'appel spécifique
+!define STR_MCPDIA_NOTE_REG_L12 est interdit.
+!define STR_MCPDIA_NOTE_SRV_L1 callerLabel dérivé du header
+!define STR_MCPDIA_NOTE_SRV_L2 User-Agent de la requête
+!define STR_MCPDIA_NOTE_SRV_L3 (trimé au premier espace/`(`) —
+!define STR_MCPDIA_NOTE_SRV_L4 fallback vers le hash court de
+!define STR_MCPDIA_NOTE_SRV_L5 sessionId. Surface comme
+!define STR_MCPDIA_NOTE_SRV_L6 `launchedBy` sur chaque modèle
+!define STR_MCPDIA_NOTE_SRV_L7 que l'appelant spawne, donc le
+!define STR_MCPDIA_NOTE_SRV_L8 Superviseur les groupe par provenance.
+!define STR_MCPDIA_NOTE_SRV_L9 ⚠ Les tokens admin déverrouillent
+!define STR_MCPDIA_NOTE_SRV_L10 les ops destructives ET
+!define STR_MCPDIA_NOTE_SRV_L11 l'élévation de privilège OS-level
+!define STR_MCPDIA_NOTE_SRV_L12 pour les processus llama-server spawnés.
+
+' === components/routing.puml ===
+!define STR_RTDIA_TITLE Routing — pipeline `models.route` (slice 5b + 7)
+!define STR_RTDIA_ENTRY tool MCP models.route
+!define STR_RTDIA_CFG charge routing config\n+ effectiveRoutingParams()
+!define STR_RTDIA_CANDS liste modèles candidats\n(seulement signatures complètes — D9)
+!define STR_RTDIA_PROBE Sonde mémoire libre\n(VRAM/RAM, ensemble résident)
+!define STR_RTDIA_Q_EMBED Embedder configuré ?
+!define STR_RTDIA_Q_GATE Gate de fiabilité ≥ θ
+!define STR_RTDIA_VEC Chemin VECTEUR (routedBy:'vector')
+!define STR_RTDIA_EMBED_Q EmbedClient → vecteur query\n(slice 7e ensureEmbedderReady)
+!define STR_RTDIA_PROJECT Projette sur 32 ancres feuilles\n(`probe-anchors.json`)
+!define STR_RTDIA_R5 Chemin R5 (routedBy:'r5')
+!define STR_RTDIA_CLASSIFY classifyQuery()\npoids d'axes déterministes
+!define STR_RTDIA_MAP_BRANCH Map sur priors de branche
+!define STR_RTDIA_SCORE Score chaque candidat\nC_m = Σ q[i]·v_m[i]\n+ w_fit·fit + w_hot·hot
+!define STR_RTDIA_RANK rank + sélection meilleur\nfiltre vers éligibles (D9)
+!define STR_RTDIA_OUT retourne {routedBy, gateReason,\n best, ranked, resources, …}
+!define STR_RTDIA_REL_CONFIGURED configuré\n(managed ou external)
+!define STR_RTDIA_REL_ABSENT absent\n(fallback R5)
+!define STR_RTDIA_REL_RELY_OK embeddingReliability\n≥ seuil
+!define STR_RTDIA_REL_BELOW_THR sous le seuil\n(gateReason explique)
+!define STR_RTDIA_NOTE_BLEND_L1 topic_coverage_per_leaf
+!define STR_RTDIA_NOTE_BLEND_L2 (slice 7c) est une **évidence
+!define STR_RTDIA_NOTE_BLEND_L3 supplémentaire**, ne remplace
+!define STR_RTDIA_NOTE_BLEND_L4 jamais la compétence déterministe.
+!define STR_RTDIA_NOTE_BLEND_L5 Voir DECISIONS.md DCC.
+!define STR_RTDIA_NOTE_QGATE_L1 Échec d'embed de query ou de
+!define STR_RTDIA_NOTE_QGATE_L2 lecture de fiabilité ⇒ fallback
+!define STR_RTDIA_NOTE_QGATE_L3 silencieux vers R5. Le routing
+!define STR_RTDIA_NOTE_QGATE_L4 n'est **jamais bloquant**.
+
+' === components/sandbox.puml ===
+!define STR_SBXDIA_TITLE Sandbox — isolation tests-code slice 2d (Dαα, opt-in, fail-closed)
+!define STR_SBXDIA_IDX index.ts\n• getSandbox({enabled})\n• dispatch par\n  process.platform
+!define STR_SBXDIA_UNSAFE unsafe.ts\n• UnsafeSandbox\n• throw à chaque fois\n• défaut quand opt-in off
+!define STR_SBXDIA_POSIX posix.ts\n• PosixSandbox\n• rlimits NPROC=cur,\n  AS/DATA=512 MiB,\n  CPU=10s, FSIZE=0\n• pgrp détaché\n• kill -pgid sur timeout\n• `python -I -S -B`
+!define STR_SBXDIA_WIN windows.ts\n• WindowsSandbox\n• dispatche vers PS1
+!define STR_SBXDIA_PS1 win-job.ps1\n• Add-Type P/Invoke\n• CreateJobObject\n• ActiveProcessLimit=1\n• ProcessMemoryLimit\n  =512 MiB\n• KILL_ON_JOB_CLOSE\n• streams marker-line
+!define STR_SBXDIA_RUNNER characterizeRunner.ts\n(construit le seam runSandbox)
+!define STR_SBXDIA_STAIR staircase.evaluateItem()\n(catch le throw ⇒ UNMEASURED)
+!define STR_SBXDIA_REL_UNSAFE enabled:false\n(défaut) OU\nOS inconnu
+!define STR_SBXDIA_PY_LABEL python3\n(enfant)
+!define STR_SBXDIA_PYEXE_LABEL python.exe\n(enfant)
+!define STR_SBXDIA_REL_UNSAFE_STAIR throw\nSandboxUnavailable
+!define STR_SBXDIA_REL_POSIX_STAIR {pass:bool} OU\nthrow sur\nUNMEASURED
+!define STR_SBXDIA_REL_WIN_STAIR {pass:bool} OU\nthrow sur\nUNMEASURED
+!define STR_SBXDIA_NOTE_IDX_L1 Fail-closed (Dαα §3) :
+!define STR_SBXDIA_NOTE_IDX_L2 TOUTE impossibilité d'établir
+!define STR_SBXDIA_NOTE_IDX_L3 la frontière kernel ⇒ throw
+!define STR_SBXDIA_NOTE_IDX_L4 SandboxUnavailable ⇒ l'appelant
+!define STR_SBXDIA_NOTE_IDX_L5 marque l'item UNMEASURED.
+!define STR_SBXDIA_NOTE_IDX_L6 **Jamais** un faux pass.
+!define STR_SBXDIA_NOTE_POSIX_L1 Préambule défense-en-profondeur bloque
+!define STR_SBXDIA_NOTE_POSIX_L2 les imports (socket, subprocess,
+!define STR_SBXDIA_NOTE_POSIX_L3 ctypes, …) — trivialement contournable,
+!define STR_SBXDIA_NOTE_POSIX_L4 les rlimits SONT la frontière.
+
+' === sequences/characterization-flow.puml ===
+!define STR_CFLOW_TITLE Caractériser UN modèle — flux complet (2026-05-23 single-pass)
+!define STR_CFLOW_ACTOR_USER Utilisateur
+!define STR_CFLOW_UI UI\n(onglet Inférence)
+!define STR_CFLOW_LOG modelLogStore\n(.ts/<fichier>.log)
+!define STR_CFLOW_R5 characterize.ts\n(passe R5)
+!define STR_CFLOW_FG freegen.ts\n(2 phases, 2026-05-22)
+!define STR_CFLOW_SIG signatureStore\n(.ts/<fichier>.json)
+!define STR_CFLOW_MSG_CHAR Caractériser" / "Re-caractériser
+!define STR_CFLOW_GRP_PRELAUNCH Filtre non-chat pré-lancement (2026-05-24)
+!define STR_CFLOW_MSG_READ_HDR readModelHeader(filePath) UNE FOIS
+!define STR_CFLOW_ALT_NON_CHAT arch ∈ NON_GENERATIVE_ARCH\nOU nom matche /tokenizer|codec|vocoder|vq|cfm|tts/\nOU pooling_type ≥ 1
+!define STR_CFLOW_MSG_MARKUNSUP markUnsupported(raison)
+!define STR_CFLOW_NOTE_COSYV_L1 Cosyvoice3 = nom "Llamacpp_Tokenizer"
+!define STR_CFLOW_NOTE_COSYV_L2 est catché ICI → pas de boot llama-server,
+!define STR_CFLOW_NOTE_COSYV_L3 pas de suite 28-prompts gaspillée.
+!define STR_CFLOW_ELSE_GEN_OK chat génératif OK
+!define STR_CFLOW_MSG_ARCHIVE_LOG archiveServerLog(filePath)\n(rotate prev .log → .ts/<fichier>.<ISO>.log)
+!define STR_CFLOW_MSG_ENSURE_CHAT assure chat vivant (spawn si besoin)\navec --timeout 86400
+!define STR_CFLOW_MSG_APPEND_STREAMS append stdout/stderr\n(append-only, rotation 4 MiB)
+!define STR_CFLOW_MSG_RUNR5 runR5(ask=chatClient,\n  pas de timeout wall-clock)
+!define STR_CFLOW_LOOP_PROMPT par prompt (v1-30)
+!define STR_CFLOW_MSG_CONTENT_REASONING content (+ reasoning_content\n  wrappé comme <think>…</think>\n  si le modèle l'émet)
+!define STR_CFLOW_MSG_PROMPT_DONE événement prompt_done\navec DiagnosticRunEntry COMPLET\n(onglet « Interactions » live,\n2026-05-24)
+!define STR_CFLOW_ALT_STOP_TOKENS réponse = uniquement tokens `<|stop_…|>`\nOU 5 vides consécutifs
+!define STR_CFLOW_NOTE_TIER3_L1 Quarantaine adaptative Tier 3 —
+!define STR_CFLOW_NOTE_TIER3_L2 attrape les GGUFs TTS / audio-codec
+!define STR_CFLOW_NOTE_TIER3_L3 qui ont échappé au filtre
+!define STR_CFLOW_NOTE_TIER3_L4 pré-lancement arch+nom.
+!define STR_CFLOW_MSG_BEHAV_R5 behavioral (vecteur R5)
+!define STR_CFLOW_GRP_TREE Arbre (slice 4c)
+!define STR_CFLOW_NOTE_TREE_L1 Embedder NON touché ici —
+!define STR_CFLOW_NOTE_TREE_L2 le modèle de test est le seul
+!define STR_CFLOW_NOTE_TREE_L3 processus résident. Projection différée.
+!define STR_CFLOW_LOOP_BRANCH par branche OUVERTE (R5 ≥ θ_open)
+!define STR_CFLOW_LOOP_LEAF par feuille, monte niveau 1→N jusqu'au 1er fail
+!define STR_CFLOW_MSG_RESPONSE réponse
+!define STR_CFLOW_ALT_REG_SCORER check est un scorer enregistré
+!define STR_CFLOW_ELSE_SBX_REQ check est requête sandbox (tests code)
+!define STR_CFLOW_ALT_OPTIN_OFF opt-in OFF ou boundary échoue
+!define STR_CFLOW_MSG_MARK_UNMEAS marque UNMEASURED\n(prior de branche D12)
+!define STR_CFLOW_MSG_SPAWN_PY spawn python (rlimits POSIX / Job Win)
+!define STR_CFLOW_GRP_FG1 Free-gen phase 1 — TEXTE seul (pas d'embedder)
+!define STR_CFLOW_MSG_FG_WORDS ~600-800 mots
+!define STR_CFLOW_MSG_SIG_WITH_TEXT signature avec\nfreegen_text (pas encore de projection)
+!define STR_CFLOW_GRP_FG2 Free-gen phase 2 — PROJECTION (par modèle, différée)
+!define STR_CFLOW_NOTE_FG2_L1 Boucle par-modèle de characterizeAll :
+!define STR_CFLOW_NOTE_FG2_L2 session de test terminée ⇒ chat server stoppé ⇒
+!define STR_CFLOW_NOTE_FG2_L3 embedder CLI est la seule chose en RAM.
+!define STR_CFLOW_ALT_PROJ_RUN skipProjection=false ET embedder disponible
+!define STR_CFLOW_MSG_EMBED_CALL embed([freegen_text, ...17 ancres])
+!define STR_CFLOW_MSG_FLOAT32_RAM Float32Array[]\n(processus exit, RAM libérée)
+!define STR_CFLOW_MSG_TOPIC_COV topic_coverage_*\n(par feuille + par branche)
+!define STR_CFLOW_MSG_PATCH_SIG patch signature\n(topic_coverage_per_leaf,\n topic_coverage_per_branch)
+!define STR_CFLOW_NOTE_SKIP_L1 skipProjection=true OU pas d'embedder
+!define STR_CFLOW_NOTE_SKIP_L2 configuré ⇒ texte sauvé, projection
+!define STR_CFLOW_NOTE_SKIP_L3 différée (peut tourner plus tard à la demande).
+!define STR_CFLOW_MSG_REFRESH_RADAR rafraîchit radar (R5 + arbre + projection)
+
+' === sequences/embedder-startup.puml ===
+!define STR_ESEQ_TITLE Embedder — deux routes (réécriture single-pass 2026-05-23)
+!define STR_ESEQ_GRP_ROUTE_A Route A — `ensureEmbedderReady()` (serveur, utilisé par routeByVectors)
+!define STR_ESEQ_ROUTE routeByVectors\n(query interactive)
+!define STR_ESEQ_INFLIGHT promesse de\nlancement in-flight
+!define STR_ESEQ_ALT_OTHER_LAUNCHING un autre appelant lance déjà
+!define STR_ESEQ_MSG_AWAIT_PROMISE await la même promesse
+!define STR_ESEQ_MSG_REUSED résultat (réutilisé)
+!define STR_ESEQ_ELSE_FIRST premier/seul appelant
+!define STR_ESEQ_MSG_LOOK_LAUNCHEDBY cherche `launchedBy: 'embedder'`\n+ match filePath + vivant
+!define STR_ESEQ_ALT_ALREADY_RUNNING déjà en cours
+!define STR_ESEQ_ELSE_NEEDS_SPAWN doit spawn
+!define STR_ESEQ_MSG_SET_INFLIGHT pose promesse INFLIGHT
+!define STR_ESEQ_ALT_LAUNCH_FAILED lancement échoué
+!define STR_ESEQ_MSG_NULL_FALLBACK null (fallback silencieux vers R5)
+!define STR_ESEQ_ELSE_LAUNCHED lancé
+!define STR_ESEQ_LOOP_UNTIL_READY jusqu'à /v1/models OK ou timeout 60 s
+!define STR_ESEQ_MSG_FETCH_MODELS fetch /v1/models (budget 4 s)
+!define STR_ESEQ_ALT_RESPONSE_OK réponse OK
+!define STR_ESEQ_ELSE_PROC_EXITED processus exited
+!define STR_ESEQ_ELSE_STILL_WARMING encore en chauffe
+!define STR_ESEQ_MSG_SLEEP_1S sleep 1 s
+!define STR_ESEQ_NOTE_LC_L1 Concurrency-safe : les queries parallèles
+!define STR_ESEQ_NOTE_LC_L2 partagent UN lancement — jamais spawn deux fois.
+!define STR_ESEQ_NOTE_LC_L3 Le serveur reste résident pour queries basse-latence.
+!define STR_ESEQ_NOTE_LC_L4 Échec ⇒ null ⇒ fallback silencieux. NE throw JAMAIS.
+!define STR_ESEQ_GRP_ROUTE_B Route B — `embedViaLlamaCli()` (one-shot, utilisé par characterizeAll bulk)
+!define STR_ESEQ_CHAR_ALL characterizeAll\n(boucle par modèle)
+!define STR_ESEQ_TMP fichier tmp\n(maestria-embed-*.txt)
+!define STR_ESEQ_MSG_RESOLVE_FN resolveEmbedderCliFn()\n→ EmbedFn (binPath + modelPath en cache)
+!define STR_ESEQ_NOTE_RESOLVE_L1 Résolu une fois au début du run bulk :
+!define STR_ESEQ_NOTE_RESOLVE_L2 valide le GGUF configuré + le binaire
+!define STR_ESEQ_NOTE_RESOLVE_L3 llama-embedding dérivé du runner
+!define STR_ESEQ_NOTE_RESOLVE_L4 llama-server. Throw sur config manquante
+!define STR_ESEQ_NOTE_RESOLVE_L5 (l'appelant skip silencieusement les projections).
+!define STR_ESEQ_LOOP_PER_MODEL par modèle avec freegen_text à projeter
+!define STR_ESEQ_MSG_EMBED_CALL embed([freegen_text, ...17 ancres])
+!define STR_ESEQ_MSG_WRITE_TEXTS écrit les textes joints par <#sep#>
+!define STR_ESEQ_MSG_SPAWN_EMBED spawn :\n  -m model.gguf\n  -f tmp.txt\n  --embd-separator <#sep#>\n  --embd-output-format json\n  --embd-normalize 2\n  --log-disable
+!define STR_ESEQ_MSG_JSON_EXIT JSON {data:[{embedding}]}\n(processus exit, RAM libérée)
+!define STR_ESEQ_MSG_FLOAT32_SORTED Float32Array[]\n(trié par index)
+!define STR_ESEQ_NOTE_CLI_PROC_L1 Zéro mémoire résidente entre appels.
+!define STR_ESEQ_NOTE_CLI_PROC_L2 Coût : ~3 s de démarrage × N modèles, mais
+!define STR_ESEQ_NOTE_CLI_PROC_L3 le modèle de test ne coexiste jamais avec
+!define STR_ESEQ_NOTE_CLI_PROC_L4 l'embedder en RAM — résout le problème
+!define STR_ESEQ_NOTE_CLI_PROC_L5 "concurrence VRAM" du bulk.
+
+' === sequences/mcp-call.puml ===
+!define STR_MCALL_TITLE `models.run` via MCP — auth deux-niveaux + élévation optionnelle (2026-05-24)
+!define STR_MCALL_USR Utilisateur dans Claude Code
+!define STR_MCALL_CC Client MCP\nClaude Code
+!define STR_MCALL_MCP Serveur MCP\n(127.0.0.1:41541)
+!define STR_MCALL_AUTH Middleware Bearer\n(user OU admin)
+!define STR_MCALL_REG registry des tools\n(Map<name,def>)
+!define STR_MCALL_LAUNCH launchModelByPath\n(+ branche Elevated)
+!define STR_MCALL_PANEL RunningModelsPanel\n(renderer, poll\nchaque 5 s)
+!define STR_MCALL_GRP_SESSION_OPEN La session s'ouvre (auth Bearer — user OU admin)
+!define STR_MCALL_MSG_RUN_MODEL Lance le modèle X pour moi
+!define STR_MCALL_MSG_VERIFY_BEARER_FRESH vérifie Bearer\n(les deux tokens lus à chaque fois)
+!define STR_MCALL_MSG_OK_FLAG OK\n+ flag isAdmin = (token admin ?)
+!define STR_MCALL_MSG_SSE_REG SSEServerTransport\n(enregistre sessionId,\n stash defaultIsAdmin)
+!define STR_MCALL_MSG_SSE_OPEN stream SSE ouvert
+!define STR_MCALL_GRP_NORMAL_CALL Appel tool normal (non-élevé)
+!define STR_MCALL_MSG_VERIFY_BEARER vérifie Bearer
+!define STR_MCALL_MSG_CALLERLABEL callerLabelFor(req, sessionId)\n  ← tête User-Agent\n  ← stash ctx sur transport
+!define STR_MCALL_MSG_REQ_ADMIN_GATE tool.requiresAdmin ?\n  court-circuit 403 ici
+!define STR_MCALL_MSG_COERCE coerceRunParamsArg(args.params)\n  ← typecheck strict par champ
+!define STR_MCALL_MSG_ADMIN_GATE args.admin ? exige ctx.isAdmin\n  ← throw "forbidden" avec token user
+!define STR_MCALL_MSG_SPAWN spawn (auto-port,\n  --timeout 86400 depuis 2026-05-24)
+!define STR_MCALL_MSG_ACTIVE_ENTRY ActiveEntry\n(launchedBy porté,\n elevated:false)
+!define STR_MCALL_MSG_JSONRPC réponse JSON-RPC sur SSE
+!define STR_MCALL_MSG_STARTED Lancé ! Chat à <url>
+!define STR_MCALL_GRP_ELEVATED_CALL Appel tool élevé (token admin + admin:true)
+!define STR_MCALL_NOTE_ELEV_L1 L'appelant est authentifié avec le Bearer ADMIN
+!define STR_MCALL_NOTE_ELEV_L2 ET passe `admin: true` dans les args. Les deux
+!define STR_MCALL_NOTE_ELEV_L3 gates doivent passer ; si l'un échoue, retourne
+!define STR_MCALL_NOTE_ELEV_L4 une erreur niveau-tool "forbidden" (PAS HTTP 401 —
+!define STR_MCALL_NOTE_ELEV_L5 la session elle-même reste valide).
+!define STR_MCALL_MSG_VERIFY_ADMIN vérifie Bearer (admin)
+!define STR_MCALL_MSG_WIN_UAC powershell Start-Process\n  -Verb RunAs -PassThru\n  → prompt UAC
+!define STR_MCALL_MSG_PKEXEC pkexec <bin> <args>\n  → prompt polkit
+!define STR_MCALL_MSG_ELEV_SPAWN spawn élevé\n(stdio PAS pipé vers nous)
+!define STR_MCALL_MSG_PID_ONLY pid seul (pas de handle enfant)
+!define STR_MCALL_MSG_ELEV_ACTIVE ActiveEntry\n(elevated:true,\n ring buffer vide)
+!define STR_MCALL_MSG_ELEV_WARN {pid, url, elevated:true,\n  warnings: ["stdio indisponible"]}
+!define STR_MCALL_GRP_ADMIN_GATED Tool admin-gated avec token user
+!define STR_MCALL_NOTE_FORB_L1 Exemple tier-forbidden : clear_folder, set_override,
+!define STR_MCALL_NOTE_FORB_L2 runners.save — l'appelant est sur le token user. Le
+!define STR_MCALL_NOTE_FORB_L3 registry refuse AVANT que le handler tourne.
+!define STR_MCALL_MSG_VERIFY_USER vérifie Bearer (user)
+!define STR_MCALL_MSG_REQ_ADMIN_RETURN tool.requiresAdmin && !ctx.isAdmin\n  → retourne isError:true
+!define STR_MCALL_MSG_ISERR isError:true,\n content:[{text:"forbidden …"}]
+!define STR_MCALL_MSG_MCP_ERR erreur MCP (PAS HTTP 401)
+!define STR_MCALL_GRP_RENDERER_REFLECTS Le renderer reflète le nouveau spawn
+!define STR_MCALL_MSG_ENTRIES entries[] (incl. flag `elevated`)
+!define STR_MCALL_MSG_GROUP_BY groupe par launchedBy\n→ headers en sidebar\n  (badge : ⚠ admin sur\n   entrées élevées)
+!define STR_MCALL_GRP_ELEV_EXIT Détection d'exit pour les élevés
+!define STR_MCALL_NOTE_ELEXIT_L1 Les processus élevés ne déclenchent
+!define STR_MCALL_NOTE_ELEXIT_L2 jamais child.on('exit') — on n'a pas
+!define STR_MCALL_NOTE_ELEXIT_L3 de handle ChildProcess. Le poller
+!define STR_MCALL_NOTE_ELEXIT_L4 (démarré au boot de l'app) appelle
+!define STR_MCALL_NOTE_ELEXIT_L5 process.kill(pid, 0) toutes les 10 s
+!define STR_MCALL_NOTE_ELEXIT_L6 sur chaque entrée élevée et émet
+!define STR_MCALL_NOTE_ELEXIT_L7 un événement exit synthétique quand
+!define STR_MCALL_NOTE_ELEXIT_L8 le pid est parti. L'UI converge en
+!define STR_MCALL_NOTE_ELEXIT_L9 ~10 s après l'exit réel.
+!define STR_MCALL_GRP_STOP Plus tard : stop
+!define STR_MCALL_ALT_NONELEV non-élevé
+!define STR_MCALL_MSG_SIGTERM SIGTERM (puis SIGKILL via\n  child.kill — handle gardé)
+!define STR_MCALL_ELSE_ELEV élevé
+!define STR_MCALL_MSG_TASKKILL taskkill /F /PID <pid> /T\n  (Windows) ou process.kill\n  (POSIX)
+
+' === sequences/routing-flow.puml ===
+!define STR_RFLOW_TITLE `models.route` — chemin vecteur avec fallback R5
+!define STR_RFLOW_CLI_ACTOR Client MCP
+!define STR_RFLOW_MCP Serveur MCP\n+ registry
+!define STR_RFLOW_TOOL route.ts\n(tool MCP)
+!define STR_RFLOW_SIG signatureStore\n(.ts/ sur disque)
+!define STR_RFLOW_MSG_DISPATCH dispatch + validation JSON-Schema
+!define STR_RFLOW_MSG_LIST_CANDS liste candidats (signatures complètes seulement — D9)
+!define STR_RFLOW_ALT_EMB_CONFIG embedder configuré
+!define STR_RFLOW_MSG_ENSURE_READY ensureEmbedderReady(filePath)\nOU baseUrl external
+!define STR_RFLOW_MSG_SPAWN_IF_MANAGED spawn si managed
+!define STR_RFLOW_MSG_MEASURE_REL mesure fiabilité\n(par langue)
+!define STR_RFLOW_MSG_COSINES cosinus {fr, zh, en}
+!define STR_RFLOW_ALT_ALL_LANGS_OK toutes langues ≥ seuil
+!define STR_RFLOW_MSG_QUERY_VEC vecteur query
+!define STR_RFLOW_MSG_PROJ_BLEND projette sur 32 ancres\n+ blend α/β avec topic_coverage
+!define STR_RFLOW_ELSE_LANG_BELOW une langue sous le seuil
+!define STR_RFLOW_MSG_CLASSIFY_FALLBACK classifyQuery(query)\n(fallback)
+!define STR_RFLOW_MSG_SCORE_R5 score par poids R5\n+ fit + hot
+!define STR_RFLOW_ELSE_NO_EMB pas d'embedder
+!define STR_RFLOW_MSG_CLASSIFY_DEFAULT classifyQuery(query)\n(fallback par défaut)
+!define STR_RFLOW_MSG_JSON_RESP réponse JSON
+!define STR_RFLOW_NOTE_ADVICE_L1 Conseil seul : ce tool NE lance RIEN.
+!define STR_RFLOW_NOTE_ADVICE_L2 L'appelant fait typiquement suivre par
+!define STR_RFLOW_NOTE_ADVICE_L3 `models.run({path: best.id})`.
+!define STR_RFLOW_NOTE_ELC_L1 Mode SERVEUR (llama-server résident
+!define STR_RFLOW_NOTE_ELC_L2 --embedding) — choisi pour le routing
+!define STR_RFLOW_NOTE_ELC_L3 INTERACTIF parce que les queries sont
+!define STR_RFLOW_NOTE_ELC_L4 répétées et la basse latence compte.
+!define STR_RFLOW_NOTE_ELC_L5 La caractérisation bulk utilise plutôt
+!define STR_RFLOW_NOTE_ELC_L6 le chemin CLI (embedderCli.ts → spawn
+!define STR_RFLOW_NOTE_ELC_L7 llama-embedding.exe → exit) pour que
+!define STR_RFLOW_NOTE_ELC_L8 le modèle de test ne coexiste jamais
+!define STR_RFLOW_NOTE_ELC_L9 avec l'embedder en RAM. Voir sequences/ embedder-startup.puml pour les deux routes.
+
+' === sequences/sandbox-execution.puml ===
+!define STR_SBXEXEC_TITLE Sandbox — cycle de vie isolation par OS (slice 2d)
+!define STR_SBXEXEC_RUN characterizeRunner\n(construit le seam)
+!define STR_SBXEXEC_PY child python
+!define STR_SBXEXEC_MSG_ITEM_SBX item est sandbox-request\n(a besoin du seam runSandbox)
+!define STR_SBXEXEC_MSG_ENABLED_Q params.enableSandbox ?
+!define STR_SBXEXEC_MSG_PROV_INSTANCE instance provider
+!define STR_SBXEXEC_ALT_UNSAFE UnsafeSandbox (opt-in OFF, défaut)
+!define STR_SBXEXEC_MSG_ITEM_UNMEAS item ⇒ UNMEASURED (prior D12)
+!define STR_SBXEXEC_ELSE_POSIX PosixSandbox (linux/darwin, opt-in ON)
+!define STR_SBXEXEC_MSG_FINDPY sonde findPython()
+!define STR_SBXEXEC_ALT_PROBE_FAILS sonde échoue
+!define STR_SBXEXEC_ELSE_PROBE_OK sonde OK
+!define STR_SBXEXEC_MSG_MKDTEMP mkdtemp + écrit script\n  (préambule + code + tests)
+!define STR_SBXEXEC_MSG_PYTHON_ISB python -I -S -B script.py\n  detached:true (pgrp propre)\n  env minimal
+!define STR_SBXEXEC_MSG_ARM_LIMITS arme les limites
+!define STR_SBXEXEC_MSG_RUN_CODE exécute le code du modèle + asserts
+!define STR_SBXEXEC_ELSE_ASSERT_FAIL assert fail / exception
+!define STR_SBXEXEC_ELSE_TIMEOUT timeout (parent enforce)
+!define STR_SBXEXEC_ELSE_OVERFLOW overflow d'output
+!define STR_SBXEXEC_ELSE_WIN WindowsSandbox (win32, opt-in ON)
+!define STR_SBXEXEC_MSG_JOB_HANDLE handle de job
+!define STR_SBXEXEC_MSG_RUN_SCRIPT exécute script
+!define STR_SBXEXEC_ALT_WAIT_OK WaitForExit retourne à temps
+!define STR_SBXEXEC_MSG_EXIT_CODE code d'exit
+!define STR_SBXEXEC_MSG_EXIT_CODE_MARKER code d'exit + marker-line\n  stdout/stderr
+
+' === activities/characterization-escalation.puml ===
+!define STR_CHESC_TITLE Activité — escalade de caractérisation\nR5 → arbre → freegen avec deepening R5-gated
+!define STR_CHESC_YES oui
+!define STR_CHESC_NO non
+!define STR_CHESC_SUCCEEDS réussit
+!define STR_CHESC_THROWS throw
+!define STR_CHESC_STEP_START L'utilisateur clique "Caractériser"\nOU requête MCP
+!define STR_CHESC_PART_PRELAUNCH Filtre non-chat pré-lancement (2026-05-24)
+!define STR_CHESC_STEP_READ_HDR Lit le header GGUF UNE FOIS\n  (arch + general.name + pooling)
+!define STR_CHESC_IF_ARCH_NON_GEN arch ∈ NON_GENERATIVE_ARCH ?\n    whisper/clip/bert/t5/...\n    + qwen3tts/outetts/parlertts/\n    kokoro/mossttts/snactts
+!define STR_CHESC_IF_NAME_REGEX general.name matche\n    /[_\W](tokenizer|codec|vocoder|\n    vq|cfm|tts)[_\W]/i ?
+!define STR_CHESC_NOTE_COSY_L1 Cosyvoice3 = nom
+!define STR_CHESC_NOTE_COSY_L2 "Llamacpp_Tokenizer"
+!define STR_CHESC_NOTE_COSY_L3 → catché ici, ne boote
+!define STR_CHESC_NOTE_COSY_L4 jamais llama-server.
+!define STR_CHESC_IF_POOLING pooling_type ≥ 1 ?\n    Qwen3-Embedding-N etc.
+!define STR_CHESC_STEP_THROW_EMB throw UnsupportedModelError\n    ("modèle d'embedding")
+!define STR_CHESC_STEP_ENSURE_CHAT characterizeRunner assure que\nle processus chat est vivant
+!define STR_CHESC_STEP_ARCHIVE_LOG archiveServerLog\n(rotate le .log précédent →\n .ts/<fichier>.<ISO>.log,\n session fraîche démarre propre)
+!define STR_CHESC_PART_R5 Passe R5 (grossière, toujours)
+!define STR_CHESC_STEP_ITER_PROMPTS Itère sur les prompts v1-30.json
+!define STR_CHESC_STEP_ASK ask.complete(prompt)\n    (pas de timeout client — attend\n     aussi longtemps que le modèle a besoin)
+!define STR_CHESC_STEP_EMIT_DONE émet événement prompt_done\n    avec DiagnosticRunEntry COMPLET\n    (onglet Interactions live,\n     2026-05-24)
+!define STR_CHESC_STEP_RUN_SCORER Lance le scorer enregistré
+!define STR_CHESC_STEP_UPD_AXIS Met à jour scores_per_axis
+!define STR_CHESC_IF_TIER3 Tier 3 — quarantaine adaptative ?\n      réponse uniquement tokens `<|stop_…|>`\n      OU 5 vides consécutifs
+!define STR_CHESC_NOTE_TIER3_L1 Attrape les GGUFs TTS / audio-codec
+!define STR_CHESC_NOTE_TIER3_L2 que les filtres arch+nom ont raté
+!define STR_CHESC_NOTE_TIER3_L3 (ex. une variante Cosyvoice
+!define STR_CHESC_NOTE_TIER3_L4 avec un general.name innocent).
+!define STR_CHESC_WHILE_MORE encore des prompts ?
+!define STR_CHESC_ARR_R5_DONE R5 fini
+!define STR_CHESC_STEP_PERSIST_BEHAV Persiste behavioral\n+ characterization_state = 'incomplete'
+!define STR_CHESC_IF_TREE_AVAIL characterizeTreeFn disponible ?
+!define STR_CHESC_STEP_STATE_INC L'état reste 'incomplete'
+!define STR_CHESC_PART_TREE Passe arbre (R5-gated, Dββ)
+!define STR_CHESC_STEP_READ_AXIS Lit scores_per_axis
+!define STR_CHESC_STEP_BRANCH_GATE branchGateFromAxes()\nmap R5 → 9 branches
+!define STR_CHESC_STEP_FOR_OPEN Pour chaque branche où\n  R5 mapped score ≥ θ_open
+!define STR_CHESC_STEP_CHAR_BRANCH characterizeBranch\n(Phase A : sonde niveau 1,\npuis monte jusqu'au 1er fail)
+!define STR_CHESC_STEP_BETA_POST Posterior Beta-Laplace\n(1+passes)/(2+asked)
+!define STR_CHESC_STEP_MARK_UNMEAS Marque UNMEASURED\n→ prior de branche D12
+!define STR_CHESC_STEP_FOR_CLOSED Pour chaque branche où R5 < θ_open
+!define STR_CHESC_STEP_LEAVES_QCM Les feuilles restent au\nQCM-prior (qcmDiscount · pass)
+!define STR_CHESC_STEP_MERGE_BEHAV Merge dans BehavioralSignature\n(scores_per_leaf, branch_scores,\npasses_per_leaf, n_per_leaf)
+!define STR_CHESC_IF_TREE_FAIL passe arbre catastrophiquement échouée ?
+!define STR_CHESC_STEP_LOG_KEEP_R5 Log + GARDE résultat R5
+!define STR_CHESC_PART_FG1 Free-gen PHASE 1 — texte seul (split 2026-05-22)
+!define STR_CHESC_STEP_SKIP_SILENT Skip silencieusement
+!define STR_CHESC_STEP_ASK_FREEGEN ask.complete(FREEGEN_PROMPT)\n~600-800 mots\nPAS besoin d'embedder
+!define STR_CHESC_STEP_PERSIST_FG Persiste freegen_text + freegen_words
+!define STR_CHESC_STEP_LOG_SKIP_FG Log + skip (DCC §5\nisolation : arbre gardé)
+!define STR_CHESC_STEP_PERSIST_SIG Persiste signature (passe test finie)
+!define STR_CHESC_STEP_STOP_SRV Stop test server\n(libère RAM modèle)
+!define STR_CHESC_PART_FG2 Free-gen PHASE 2 — projection (par modèle, single-pass)
+!define STR_CHESC_IF_SKIP_PROJ opts.skipProjection OU\nembedder injoignable ?
+!define STR_CHESC_STEP_DEFER_PROJ Diffère projection\n(texte déjà sauvé)
+!define STR_CHESC_STEP_EMBED_CLI embedderCli.embedViaLlamaCli\n(spawn llama-embedding.exe,\nbatch texte + 17 ancres,\nJSON out, processus exit)
+!define STR_CHESC_STEP_PROJECT projectFreeGenText\n(projection cosinus)
+!define STR_CHESC_STEP_PATCH_SIG Patch signature :\ntopic_coverage_per_leaf,\ntopic_coverage_per_branch
+!define STR_CHESC_STEP_REFRESH_RADAR Rafraîchit radar UI (R5 + arbre + projection)
+!define STR_CHESC_NOTE_FINAL_L1 Trois passes indépendantes,
+!define STR_CHESC_NOTE_FINAL_L2 chacune isolée en cas d'échec
+!define STR_CHESC_NOTE_FINAL_L3 de la suivante. La garantie la
+!define STR_CHESC_NOTE_FINAL_L4 plus forte est : un R5 qui marche
+!define STR_CHESC_NOTE_FINAL_L5 atterrit toujours, même si l'arbre
+!define STR_CHESC_NOTE_FINAL_L6 + freegen meurent.
+!define STR_CHESC_NOTE_FINAL_L7 Le split free-gen (2026-05-22) permet
+!define STR_CHESC_NOTE_FINAL_L8 à la phase 1 de toujours tourner (pas
+!define STR_CHESC_NOTE_FINAL_L9 de dépendance embedder) ; la phase 2
+!define STR_CHESC_NOTE_FINAL_L10 peut être différée ou faite plus tard sur le texte stocké sans relancer le modèle de test.
+
+' === activities/routing-decision.puml ===
+!define STR_RTDEC_TITLE Activité — flux de décision `models.route`
+!define STR_RTDEC_YES oui
+!define STR_RTDEC_NO non
+!define STR_RTDEC_STEP_LOAD_CFG Charge `routingConfig`\n+ `effectiveRoutingParams`
+!define STR_RTDEC_STEP_LIST_CANDS Liste candidats éligibles\n(D9 : signature complète seulement)
+!define STR_RTDEC_STEP_PROBE Sonde mémoire libre\n(VRAM/RAM)
+!define STR_RTDEC_IF_EMB_CONFIG Embedder configuré\n(managed ou external) ?
+!define STR_RTDEC_STEP_USE_R5 Utilise le classifieur\ndéterministe R5
+!define STR_RTDEC_NOTE_R5_L1 classifyQuery() retourne
+!define STR_RTDEC_NOTE_R5_L2 axisWeights depuis analyse
+!define STR_RTDEC_NOTE_R5_L3 regex / keyword.
+!define STR_RTDEC_STEP_ENSURE_READY ensureEmbedderReady()\nOU lit URL external
+!define STR_RTDEC_IF_EMB_LIVE Embedder vivant ?
+!define STR_RTDEC_STEP_FALLBACK_DOWN Fallback silencieux vers R5\n(gateReason:'embedder-down')
+!define STR_RTDEC_STEP_MEASURE_REL Mesure la fiabilité\nd'embedding par langue\n(triplets fr/zh/en)
+!define STR_RTDEC_IF_ALL_LANGS Toutes langues ≥ seuil ?
+!define STR_RTDEC_STEP_FALLBACK_THR Fallback vers R5\n(gateReason:\n'reliability-below-threshold')
+!define STR_RTDEC_STEP_EMBED_QUERY Embed query
+!define STR_RTDEC_STEP_PROJECT Projette sur 32 ancres feuilles
+!define STR_RTDEC_IF_PERLEAF_CONF Confiance par-feuille\nq[i] ≥ θ_q ?
+!define STR_RTDEC_STEP_DESC_LEAF Descend au niveau FEUILLE\n(level:'leaf')
+!define STR_RTDEC_STEP_STAY_BRANCH Reste au niveau BRANCHE\n(level:'branch')
+!define STR_RTDEC_STEP_BLEND Blend v = α·v_déterministe\n+ β·max(0, topic_coverage)\n(α=0.7, β=0.3)
+!define STR_RTDEC_STEP_AXIS_TO_PRIORS axisWeights → priors de branche
+!define STR_RTDEC_STEP_SCORE_R5 score_m avec les poids R5
+!define STR_RTDEC_STEP_FILTER_RANK Filtre aux éligibles D9\nclasse par score (desc)
+!define STR_RTDEC_STEP_BUILD_RESP Construit la réponse\n{routedBy, gateReason,\nbest, ranked, resources,\nembeddingReliability?,\nlevel?, axisWeights?}
+!define STR_RTDEC_NOTE_FINAL_L1 routedBy est **toujours** explicite
+!define STR_RTDEC_NOTE_FINAL_L2 dans la réponse : 'vector' (pipeline
+!define STR_RTDEC_NOTE_FINAL_L3 complet) ou 'r5' (fallback).
+!define STR_RTDEC_NOTE_FINAL_L4 gateReason explique pourquoi pour
+!define STR_RTDEC_NOTE_FINAL_L5 chaque résultat non-vector.
+
+' === activities/sandbox-kill-paths.puml ===
+!define STR_SKILL_TITLE Activité — chemins de kill sandbox (POSIX)\nce qui fail l'assert vs ce qui invalide la mesure
+!define STR_SKILL_YES oui
+!define STR_SKILL_NO non
+!define STR_SKILL_OTHER_NONZERO autre non-zéro
+!define STR_SKILL_STEP_BUILD_SEAM characterizeRunner construit\nle seam runSandbox
+!define STR_SKILL_STEP_EVAL_CALL staircase.evaluateItem appelle\nrunSandbox({codeLang, code, tests})
+!define STR_SKILL_STEP_THROW_OPTIN throw SandboxUnavailable\n("opt-in off")
+!define STR_SKILL_IF_FIND_PY trouve python OK ?
+!define STR_SKILL_STEP_THROW_NO_PY throw SandboxUnavailable\n("pas de python")
+!define STR_SKILL_IF_MKDTEMP mkdtemp + writeFile OK ?
+!define STR_SKILL_IF_SETRLIMIT POSIX : setrlimit réussit dans le child ?
+!define STR_SKILL_NOTE_RLIMIT Les échecs rlimit dans\nPython sont silencieusement passés ;\nle vrai échec surface via\nRLIMIT_FSIZE = 0\nou le timer wall-clock.
+!define STR_SKILL_STEP_SPAWN spawn child (Python -I -S -B,\npgrp détaché, env vide)
+!define STR_SKILL_IF_SPAWN_ERR événement erreur spawn ?
+!define STR_SKILL_STEP_THROW_SPAWN throw SandboxUnavailable\n("erreur spawn")
+!define STR_SKILL_STEP_WAIT_CLOSE Attend `close`
+!define STR_SKILL_STEP_TIMER Timer wall-clock\n(timeoutMs défaut 10 s)
+!define STR_SKILL_IF_ELAPSED Écoulé ?
+!define STR_SKILL_STEP_OUT_WATCHER Watcher d'output\n(maxOutputBytes défaut 1 MB)
+!define STR_SKILL_IF_THRESHOLD Seuil atteint ?
+!define STR_SKILL_IF_EXIT0 Code d'exit 0 ?
+!define STR_SKILL_STEP_RET_PASS retourne {pass:true}
+!define STR_SKILL_IF_KILLED_BY_US Tué par nous
+!define STR_SKILL_STEP_RET_FAIL_REASON retourne {pass:false, reason}
+!define STR_SKILL_STEP_RET_FAIL_EXITNZ retourne {pass:false,\nreason:'exit-nonzero'}
+!define STR_SKILL_STEP_ITEM_PASSFAIL Item enregistré avec\n{status: pass/fail}
+!define STR_SKILL_STEP_CATCH L'appelant (staircase) catch\nSandboxUnavailable
+!define STR_SKILL_STEP_ITEM_UNMEAS Item enregistré comme\n{status:'unmeasured',\nreason:'sandbox-pending'}
+!define STR_SKILL_STEP_LEAF_PRIOR Feuille laissée au prior de branche\n(D12, confiance plus faible)
+!define STR_SKILL_NOTE_MEAS_L1 **measured** —
+!define STR_SKILL_NOTE_MEAS_L2 VRAI signal de mesure :
+!define STR_SKILL_NOTE_MEAS_L3 entre dans scores_per_leaf via
+!define STR_SKILL_NOTE_MEAS_L4 Beta-Laplace (passes_per_leaf
+!define STR_SKILL_NOTE_MEAS_L5 incrémenté si pass).
+!define STR_SKILL_NOTE_UNAV_L1 **unavailable** —
+!define STR_SKILL_NOTE_UNAV_L2 PAS une mesure —
+!define STR_SKILL_NOTE_UNAV_L3 passes_per_leaf n'est PAS
+!define STR_SKILL_NOTE_UNAV_L4 touché (seules les vraies
+!define STR_SKILL_NOTE_UNAV_L5 montées comptent vers la saturation).
+
+' === states/embedder-process.puml ===
+!define STR_EMBPROC_TITLE Machine à états — cycle de vie embedder managé (mode serveur)
+!define STR_EMBPROC_S_IDLE Idle (non configuré)
+!define STR_EMBPROC_DESC_IDLE routingEmbedderPath vide\nET routingEmbedderBaseUrl vide.\nLe routing fallback vers R5 silencieusement.
+!define STR_EMBPROC_REL_ENSURE ensureEmbedderReady(filePath)\nappelé par routeByVectors\nou characterizeTree
+!define STR_EMBPROC_S_PROBING Sonde existant
+!define STR_EMBPROC_DESC_PROBING check listRunning() pour un\nprocessus en cours avec\n`launchedBy: 'embedder'`\n+ même filePath canonique.
+!define STR_EMBPROC_REL_FOUND_ALIVE trouvé vivant
+!define STR_EMBPROC_REL_NOTFOUND pas trouvé,\npose promesse in-flight
+!define STR_EMBPROC_S_REUSED Réutilisé
+!define STR_EMBPROC_DESC_REUSED retourne {baseUrl, pid,\nsource:'reused'}.\nL'appelant continue immédiatement.
+!define STR_EMBPROC_S_LAUNCHING Lancement
+!define STR_EMBPROC_REL_SPAWN_OK spawn OK\n(pid reçu)
+!define STR_EMBPROC_REL_SPAWN_NOK spawn a retourné !ok\nOU pas de pid
+!define STR_EMBPROC_S_WAITING Attente /v1/models
+!define STR_EMBPROC_DESC_WAITING boucle jusqu'à\n• response.ok ⇒ Ready\n• entry.exited ⇒ Crashed\n• deadline 60 s ⇒ Timeout\nPoll chaque 1 s avec budget 4 s par sonde.
+!define STR_EMBPROC_REL_EXIT_BOOT processus exited\npendant le boot
+!define STR_EMBPROC_REL_DEADLINE deadline 60 s
+!define STR_EMBPROC_DESC_READY retourne {baseUrl, pid,\nsource:'launched'}.\nVisible dans RunningModelsPanel\nsous le groupe "embedder".
+!define STR_EMBPROC_DESC_CRASHED stopProcess(pid),\nretourne null,\nclear promesse in-flight.\nL'appelant fallback silencieusement vers R5.
+!define STR_EMBPROC_DESC_TIMEDOUT stopProcess(pid),\nretourne null,\nclear promesse in-flight.\nL'appelant fallback silencieusement vers R5.
+!define STR_EMBPROC_DESC_FAILED log + retourne null,\nclear promesse in-flight.\nL'appelant fallback silencieusement vers R5.
+!define STR_EMBPROC_REL_STOP stopManagedEmbedders()\nou processus tué manuellement
+!define STR_EMBPROC_REL_SUBSEQ ensureEmbedderReady\nsubséquent\n(idempotent)
+!define STR_EMBPROC_NOTE_LAUNCH_L1 Les appelants concurrents partagent la MÊME
+!define STR_EMBPROC_NOTE_LAUNCH_L2 promesse in-flight — jamais spawn deux fois.
+!define STR_EMBPROC_NOTE_LAUNCH_L3 C'est la seule section critique dans
+!define STR_EMBPROC_NOTE_LAUNCH_L4 embedderLifecycle.ts.
+
+' === states/runner-process.puml ===
+!define STR_RUNPROC_TITLE Machine à états — processus runner ActiveEntry / llama-server
+!define STR_RUNPROC_DESC_REQUESTED launchModelByPath(path, opts)\nappelé par :\n• bouton UI Run (launchedBy:null)\n• MCP models.run (launchedBy:'via MCP — …')\n• embedderLifecycle (launchedBy:'embedder')
+!define STR_RUNPROC_REL_REJ_EARLY1 args invalides /\nfichier manquant /\nemplacement read-only
+!define STR_RUNPROC_DESC_VALIDATING resolveCanonicalShardPath()\n+ pickRunnerFor(filePath, sidecar)\n+ sélection de port (scan free-port)\n+ autotune + merge override sidecar
+!define STR_RUNPROC_REL_RUNNER_RESOLVED runner résolu\n+ commande construite
+!define STR_RUNPROC_REL_REJ_EARLY2 pas de runner /\nport indisponible /\nerreur de build
+!define STR_RUNPROC_DESC_SPAWNING child_process.spawn(\n  runner.path,\n  buildCommand(params)\n)\n+ append à ActiveEntry[]\n+ démarre ring buffer de log\n\nllama-server reçoit toujours\n--timeout 86400 (24 h,\n2026-05-24) pour que la PR #22907\nn'annule jamais un long chat.\nOverride customArgs autorisé.
+!define STR_RUNPROC_REL_PID_RECV pid reçu
+!define STR_RUNPROC_REL_SPAWN_ERR ENOENT / EACCES /\nerreur spawn
+!define STR_RUNPROC_DESC_BOOTING Processus vivant. Stdout/stderr\nstreamé dans le ring buffer\n(peut-être surfacé live à l'UI).\nlistRunning() le montre mais l'UI\nweb n'est pas encore joignable.
+!define STR_RUNPROC_REL_POLL_OK (impl. par polling)\nport répond
+!define STR_RUNPROC_REL_EARLY_EXIT exited en quelques\nsecondes\n→ auto-ouverture dialog log\n(4.0.15, futur)
+!define STR_RUNPROC_DESC_LIVE llama-server répond.\nURL navigateur ouverte automatiquement\npour le chat. Les appelants routing/embedder\ncontinuent avec des appels API.
+!define STR_RUNPROC_REL_LIST_RUNNING models.list_running\n(lecture snapshot)
+!define STR_RUNPROC_REL_STOP_OR stopProcess(pid)\nOU quit app\nOU appel MCP models.stop
+!define STR_RUNPROC_DESC_STOPPING SIGTERM puis SIGKILL\naprès grâce. ActiveEntry reste\ndans la liste avec exited=true\njusqu'à clear par l'utilisateur / redémarrage.
+!define STR_RUNPROC_DESC_EXITED Processus parti. Ring buffer\nencore visible pour debug.\nRetirable de RunningModelsPanel\nvia l'action "Clear exited".
+!define STR_RUNPROC_REL_CLEARED cleared
+!define STR_RUNPROC_NOTE_LIVE_L1 Trois appelants distincts atteignent ce
+!define STR_RUNPROC_NOTE_LIVE_L2 même état avec la même forme :
+!define STR_RUNPROC_NOTE_LIVE_L3 Direct (Utilisateur), via MCP — Claude
+!define STR_RUNPROC_NOTE_LIVE_L4 Code (provenance), embedder.
+
+' === states/sandbox-dispatch.puml ===
+!define STR_SBXDISP_TITLE Machine à états — dispatch provider sandbox (slice 2d)
+!define STR_SBXDISP_DESC_DISPATCH Lit `params.enableSandbox`\net `process.platform`.
+!define STR_SBXDISP_REL_UNSAFE enabled:false\n(défaut)\nOU OS inconnu
+!define STR_SBXDISP_S_UNSAFE UnsafeSandbox\n(opt-in off)
+!define STR_SBXDISP_DESC_UNSAFE Throw toujours\nSandboxUnavailable\nsur runPythonTests().
+!define STR_SBXDISP_S_POSIX_PROBE trouve python3/python\n+ sonde module resource
+!define STR_SBXDISP_S_POSIX_PREP mkdtemp + écrit script\n(préambule + code + tests)
+!define STR_SBXDISP_S_POSIX_RUN spawn -I -S -B,\npgrp détaché,\nenv vide
+!define STR_SBXDISP_S_POSIX_WAIT attend close /\ntimeout / overflow
+!define STR_SBXDISP_REL_PROBE_OK sonde OK
+!define STR_SBXDISP_REL_NO_PY pas de python\nOU pas de resource
+!define STR_SBXDISP_REL_SCRIPT_WRITTEN script écrit
+!define STR_SBXDISP_REL_MKDTEMP_FAIL mkdtemp échoue\nOU écriture échoue
+!define STR_SBXDISP_S_WIN_PROBE trouve py/python/python3
+!define STR_SBXDISP_S_WIN_PREP mkdtemp + écrit script\nvérifie win-job.ps1 présent
+!define STR_SBXDISP_S_WIN_JOB PS1 : CreateJobObject\n+ SetInformationJobObject\n+ Start python\n+ AssignProcessToJobObject
+!define STR_SBXDISP_REL_NO_PYEXE pas de python.exe\nOU PS1 manquant
+!define STR_SBXDISP_REL_MKDTEMP_FAIL2 mkdtemp échoue
+!define STR_SBXDISP_REL_ASSIGNED assigné\n(petite fenêtre de race)
+!define STR_SBXDISP_REL_JOB_FAIL échec CreateJobObject /\nSetInformationJobObject /\nAdd-Type
+!define STR_SBXDISP_REL_EXIT_124 exit 124\n(TerminateJobObject de PS1)
+!define STR_SBXDISP_NOTE_DISP_L1 Source de vérité unique — seule cette
+!define STR_SBXDISP_NOTE_DISP_L2 machine à états connaît la plateforme
+!define STR_SBXDISP_NOTE_DISP_L3 / l'opt-in. Les appelants (characterizeRunner)
+!define STR_SBXDISP_NOTE_DISP_L4 voient juste une instance SandboxProvider.
+!define STR_SBXDISP_NOTE_UNAV_L1 Fail-closed (Dαα §3) : chaque
+!define STR_SBXDISP_NOTE_UNAV_L2 transition SandboxUnavailable
+!define STR_SBXDISP_NOTE_UNAV_L3 dans l'escalier ⇒ UNMEASURED
+!define STR_SBXDISP_NOTE_UNAV_L4 (prior de branche D12), jamais
+!define STR_SBXDISP_NOTE_UNAV_L5 un faux pass.
+
+' === states/signature-lifecycle.puml ===
+!define STR_SIGLC_TITLE Machine à états — cycle de vie de Signature.characterization_state
+!define STR_SIGLC_REL_MODEL_ADDED modèle ajouté\nau dossier
+!define STR_SIGLC_S_NOTCHAR Non caractérisé
+!define STR_SIGLC_DESC_NOTCHAR sidecar `modelMeta` existe\n(peut-être avec autoTags)\nmais pas de champ `signature`.\nPour le routing : D9 ⇒ INÉLIGIBLE.
+!define STR_SIGLC_REL_USER_CHAR l'utilisateur clique\n"Caractériser"\nOU requête MCP
+!define STR_SIGLC_S_RUNNING Running (en cours)
+!define STR_SIGLC_DESC_RUNNING characterizeRunner actif.\nlistRunning() montre le processus\nchat ; characterization_state\nsur disque encore null (pas d'écriture\npartielle).
+!define STR_SIGLC_REL_ALL_OK R5 + arbre + freegen\n(si seamé)\nTOUS réussis
+!define STR_SIGLC_REL_TREE_FAIL R5 OK\nmais arbre OU freegen\néchoué (isolé)
+!define STR_SIGLC_REL_QUARANTINED R5 lui-même échoué\n(ex. modèle crashé au boot)\nOU erreur IO catastrophique\nOU modèle non-chat détecté\n(filtre 3 niveaux, 2026-05-24)
+!define STR_SIGLC_DESC_COMPLETE éligible au routing (D9).\nTous les champs comportementaux\nrequis présents : `scores_per_axis`,\n`scores_per_leaf`, `branch_scores`.\nmodels.route classe ce candidat.
+!define STR_SIGLC_DESC_INCOMPLETE éligible au routing (D9) ssi\nle scores_per_axis core est posé.\nChamps optionnels manquants ⇒\nconfiance dégradée mais classé.
+!define STR_SIGLC_DESC_QUARANTINED routing INÉLIGIBLE.\nMontré dans le radar avec une\nbannière claire. L'utilisateur\nre-caractérise pour quitter cet état.
+!define STR_SIGLC_REL_RECHAR_CONFIRM Re-caractériser\n(avec confirm)
+!define STR_SIGLC_REL_HASH_DRIFT drift modelHash\n(fichier édité /\nshards changés)
+!define STR_SIGLC_REL_HASH_DRIFT_SHORT drift modelHash
+!define STR_SIGLC_DESC_STALE Pseudo-état : hash sur disque ≠\nhash fichier courant. Le routing\nutilise encore l'ancienne signature mais\nl'UI prompt une re-caractérisation.
+!define STR_SIGLC_NOTE_QUAR_L1 Quarantined reste permanent
+!define STR_SIGLC_NOTE_QUAR_L2 jusqu'à ce que l'utilisateur
+!define STR_SIGLC_NOTE_QUAR_L3 re-caractérise explicitement — même
+!define STR_SIGLC_NOTE_QUAR_L4 si une query de routing arrive.
+!define STR_SIGLC_NOTE_RUN_L1 Effets de bord sur disque :
+!define STR_SIGLC_NOTE_RUN_L2 • `archiveServerLog(...)` au DÉBUT du run
+!define STR_SIGLC_NOTE_RUN_L3   (renomme le `.log` précédent →
+!define STR_SIGLC_NOTE_RUN_L4   `.<ISO>.log`, session fraîche
+!define STR_SIGLC_NOTE_RUN_L5   commence propre — 2026-05-24).
+!define STR_SIGLC_NOTE_RUN_L6 • `appendServerLog(.log, chunk)`
+!define STR_SIGLC_NOTE_RUN_L7   sur chaque chunk stdout/stderr de
+!define STR_SIGLC_NOTE_RUN_L8   llama-server (hooké dans runners/launch.ts).
+!define STR_SIGLC_NOTE_RUN_L9 • Sur Quarantined / Incomplete-avec-erreur :
+!define STR_SIGLC_NOTE_RUN_L10   `appendErrorLog(.ts/<fichier>.error, raison)` avec timestamp ISO.
+
+' === objects/characterized-model.puml ===
+!define STR_OCHAR_TITLE Diagramme d'objet — un modèle entièrement caractérisé dans le sidecar
+!define STR_OCHAR_HDR_TREE arbre (slice 4c+)
+!define STR_OCHAR_ABSENT_SBX (absent — UNMEASURED,\nopt-in sandbox off)
+!define STR_OCHAR_RUN1_RESPONSE Le train A avait une avance de…
+!define STR_OCHAR_RUN2_DETAIL UNMEASURED — opt-in sandbox off
+!define STR_OCHAR_NOTE_BL_L1 Exemple Beta-Laplace :
+!define STR_OCHAR_NOTE_BL_L2 montée 3/3 sur `math.proba`
+!define STR_OCHAR_NOTE_BL_L3 ⇒ (1+3)/(2+3) = 0.80,
+!define STR_OCHAR_NOTE_BL_L4 le plafond Phase-A.
+!define STR_OCHAR_NOTE_PEND_L1 Les items sandbox-pending
+!define STR_OCHAR_NOTE_PEND_L2 apparaissent dans diagnostic_run
+!define STR_OCHAR_NOTE_PEND_L3 avec un détail UNMEASURED
+!define STR_OCHAR_NOTE_PEND_L4 clair — jamais comme un
+!define STR_OCHAR_NOTE_PEND_L5 faux échec.
+
+' === objects/running-models-panel.puml ===
+!define STR_ORM_TITLE Diagramme d'objet — snapshot Superviseur (RunningModelsPanel)\n(état typique pendant une session pilotée par routing)\n2026-05-24 : non-escamotable — toujours ouvert avec scroll borné
+!define STR_ORM_LFM_PARAMS { … (défauts autotune) }
+!define STR_ORM_PANEL_LABEL Superviseur :\nvue renderer\n(RunningModelsPanel.tsx)
+!define STR_ORM_PANEL_SCROLL_COMMENT scroll borné
+!define STR_ORM_REL_DIRECT groupe Direct
+!define STR_ORM_REL_EMB groupe embedder
+!define STR_ORM_REL_MCP groupe MCP
+!define STR_ORM_NOTE_EMB_L1 Processus singleton. Réutilisé par
+!define STR_ORM_NOTE_EMB_L2 characterizeTree (sonde slice 7c)
+!define STR_ORM_NOTE_EMB_L3 ET le chemin de query routing (slice 7e).
+!define STR_ORM_NOTE_EMB_L4 Les appelants concurrents partagent un lancement.
+!define STR_ORM_NOTE_PANEL_L1 Présentation pure — le groupement est
+!define STR_ORM_NOTE_PANEL_L2 fait côté renderer depuis la même
+!define STR_ORM_NOTE_PANEL_L3 shape servie par `models.list_running`
+!define STR_ORM_NOTE_PANEL_L4 aux appelants MCP.
+!define STR_ORM_NOTE_PANEL_L5 Le header n'est plus cliquable
+!define STR_ORM_NOTE_PANEL_L6 (chevron + état localStorage retirés
+!define STR_ORM_NOTE_PANEL_L7 le 2026-05-24). La liste est toujours
+!define STR_ORM_NOTE_PANEL_L8 visible ; les longs catalogues sont gérés via scroll borné.
+
+' === c4/context.puml ===
+!define STR_C4CTX_TITLE Maestria — Contexte C4
+!define STR_C4CTX_USER Utilisateur humain
+!define STR_C4CTX_SYS_LABEL **Maestria**\n<size:10>navigateur et gestionnaire de modèles IA locaux</size>\n<size:10>AGPL-3.0, offline, pas de télémétrie</size>
+!define STR_C4CTX_MCP_LABEL Clients MCP externes
+!define STR_C4CTX_MCP_SH scripts / curl
+!define STR_C4CTX_LLAMA_LABEL llama.cpp\n(binaire `llama-server`)
+!define STR_C4CTX_FS_LABEL Système de fichiers utilisateur\n(D:\\models, sidecars .ts/,\ndonnées app ~/.tagspaces/)
+!define STR_C4CTX_REL_USER_SYS Ouvre .gguf, caractérise,\ntague, configure routing,\nchat ouvert-dans-navigateur
+!define STR_C4CTX_REL_SYS_LLAMA Spawn processus enfant,\nmonitore PID + URL
+!define STR_C4CTX_REL_SYS_FS Lit modèles,\nécrit sidecars / logs
+!define STR_C4CTX_REL_MCP_SYS HTTP+SSE sur 127.0.0.1:41541\nauth Bearer-token,\ntools/call
+!define STR_C4CTX_NOTE_SYS_L1 Rien ne quitte 127.0.0.1.
+!define STR_C4CTX_NOTE_SYS_L2 Pas de télémétrie, pas d'auto-update.
+!define STR_C4CTX_NOTE_LLAMA_L1 Binaire externe, non bundlé.
+!define STR_C4CTX_NOTE_LLAMA_L2 L'utilisateur l'installe lui-même.
+!define STR_C4CTX_NOTE_LLAMA_L3 Maestria le détecte + autotune
+!define STR_C4CTX_NOTE_LLAMA_L4 selon le hardware.
+
+' === deployment.puml ===
+!define STR_DEPL_TITLE Maestria — processus runtime et ports
+!define STR_DEPL_HOST Machine de l'utilisateur
+!define STR_DEPL_MAESTRIA Maestria.exe / .dmg / .AppImage\n(Electron — main + renderer)
+!define STR_DEPL_R Renderer\n(UI React)
+!define STR_DEPL_M Processus main\n(Node.js)
+!define STR_DEPL_SUBS Sous-processus optionnels\n(spawnés par Maestria, PIDs enfants tracés)
+!define STR_DEPL_P_CHAT llama-server\n(modèle chat)\nport :auto
+!define STR_DEPL_P_PY python3 / python.exe\n(sandboxé,\néphémère par item)
+!define STR_DEPL_FS_LABEL Système de fichiers utilisateur
+!define STR_DEPL_MODELS D:\\models\\\nou dossier de modèles utilisateur
+!define STR_DEPL_SC sidecars .ts/\nJSON par modèle
+!define STR_DEPL_APPDATA ~/.tagspaces/\nmcp.log + paramètres
+!define STR_DEPL_EXT_CLIENTS Clients MCP externes\n(processus séparés)
+!define STR_DEPL_REL_USER_R clavier / souris
+!define STR_DEPL_REL_M_PPY spawn / kill\n(slice 2d, opt-in)
+!define STR_DEPL_REL_M_SC lit/écrit sidecars
+!define STR_DEPL_REL_M_MODELS liste les modèles
+!define STR_DEPL_REL_M_APP log + paramètres
+!define STR_DEPL_REL_R_M IPC Electron
+!define STR_DEPL_NOTE_PCHAT_L1 Un processus par modèle chat en cours.
+!define STR_DEPL_NOTE_PCHAT_L2 L'utilisateur ouvre son UI web native
+!define STR_DEPL_NOTE_PCHAT_L3 dans le navigateur (pas de chat in-app).
+!define STR_DEPL_NOTE_PEMB_L2 Réutilisé entre routing + caractériser.
+!define STR_DEPL_NOTE_PPY_L1 Par-item, tué immédiatement après que
+!define STR_DEPL_NOTE_PPY_L2 le bloc assert retourne.
+!define STR_DEPL_NOTE_PPY_L3 rlimits POSIX / Job Object Win.
+!define STR_DEPL_NOTE_EXT_L1 Tous les clients externes se bindent à
+!define STR_DEPL_NOTE_EXT_L2 127.0.0.1 — le serveur MCP n'écoute
+!define STR_DEPL_NOTE_EXT_L3 JAMAIS sur 0.0.0.0. Même les clients
+!define STR_DEPL_NOTE_EXT_L4 cross-machine doivent tunneler.
+
+' === mockups/inference-tab.puml ===
+!define STR_MOCK_INF_MODEL_LBL Modèle
+!define STR_MOCK_INF_RUNNER_LBL Runner : llama.cpp (ik_llama)
+!define STR_MOCK_INF_CONFIGURE_BTN ⚙ Configurer
+!define STR_MOCK_INF_RUN_PARAMS Paramètres de lancement
+!define STR_MOCK_INF_PARAM_COL Paramètre
+!define STR_MOCK_INF_ESTIM_COL Estimé
+!define STR_MOCK_INF_USED_COL Utilisé
+!define STR_MOCK_INF_ADV_PARAMS_BTN Paramètres avancés... (3 personnalisés)
+!define STR_MOCK_INF_COMP_SUFFIX (pass-rate Beta-Laplace)
+!define STR_MOCK_INF_ARBRE Arbre de compétence (escamotable)
+!define STR_MOCK_INF_SUITE Suite tree-v0 · caractérisé 2026-05-23 19:17
+!define STR_MOCK_BULK_PROGRESS Modèle 12/52 — qwen-coder-32b.gguf · 47 effectués
+!define STR_MOCK_BULK_L1 corps d'onglet scrollable, scroll infini,
+!define STR_MOCK_BULK_L2 le polling pause pendant qu'une sélection texte est active,
+!define STR_MOCK_BULK_L3 auto-scroll en bas au changement d'onglet (2026-05-24),
+!define STR_MOCK_BULK_L4 chaque événement prompt_done pousse un DiagnosticRunEntry complet
+!define STR_MOCK_BULK_L5 (« Interactions » est live pendant un run, pas de poll de signature)
+!define STR_MOCK_SUP_HEADER_SUFFIX (3) · 2 en cours · 1 sorti
+
+' === packages/modelhub.puml ===
+!define STR_PMH_TITLE Diagramme de package — disposition source du sous-système IA
+!define STR_PMH_NOTE_SHARED_L1 Contrats figés — chaque type routing /
+!define STR_PMH_NOTE_SHARED_L2 caractérisation vit ici.
+!define STR_PMH_CMP_ALL characterizeAll\n(bulk single-pass,\n2026-05-23)\n+ archiveServerLog\nsession par modèle\n(2026-05-24)
+!define STR_PMH_CMP_RUN characterizeRunner\n+ filtre non-chat 3 niveaux\n(arch / nom /\nadaptatif, 2026-05-24)
+!define STR_PMH_CMP_FG freegen\n(split 2 phases,\n2026-05-22)
+!define STR_PMH_CMP_CHAT chat\n(ChatClient,\npas de timeout\nwall-clock +\ncapture\nreasoning_content,\n2026-05-24)
+!define STR_PMH_CMP_EMB_LC embedderLifecycle\n(mode serveur,\nqueries routing)
+!define STR_PMH_CMP_LOG_STORE modelLogStore\n(2026-05-23,\narchive par session\n2026-05-24)\n.ts/<fichier>.log\n.ts/<fichier>.<ISO>.log\n.ts/<fichier>.error
+!define STR_PMH_REL_RESOLVE resolveEmbedderCliFn\n(par run bulk)
+!define STR_PMH_REL_LOG_ALL appendErrorLog\narchiveServerLog\n(rotation par modèle)
+!define STR_PMH_REL_LOG_RUN archiveServerLog\n(CARACTÉRISER unique)
+!define STR_PMH_REL_SBX_SEAM seam runSandbox
+!define STR_PMH_REL_FG_PHASE1 generateFreeGenText\n(phase 1, pas d'embedder)
+!define STR_PMH_REL_DERIVE_EMB dérive llama-embedding\ndepuis le runner llama-server
+!define STR_PMH_REL_ENSURE_READY ensureEmbedderReady\n(queries interactives)
+!define STR_PMH_REL_APPEND_SRV appendServerLog\n(hook logChunk dans launch.ts)
+!define STR_PMH_REL_RND_TYPE (type côté renderer)
+!define STR_PMH_NOTE_QUESTIONS_L1 Embarqué via electron-builder
+!define STR_PMH_NOTE_QUESTIONS_L2 extraResources, asar-unpacked
+!define STR_PMH_NOTE_QUESTIONS_L3 dans les builds packagés (pour
+!define STR_PMH_NOTE_QUESTIONS_L4 que l'emplacement Tests Maestria
+!define STR_PMH_NOTE_QUESTIONS_L5 puisse les ouvrir sur disque).
+!define STR_PMH_NOTE_BOTSHARED_L1 Le renderer ET le processus main importent
+!define STR_PMH_NOTE_BOTSHARED_L2 ce module — garde type-only côté renderer
+!define STR_PMH_NOTE_BOTSHARED_L3 pour éviter de bundler du code Node.
+
+' === system-overview.puml ===
+!define STR_SYSOV_TITLE Maestria — vue d'ensemble du sous-système IA
+!define STR_SYSOV_MAESTRIA_PKG Maestria (app Electron)
+!define STR_SYSOV_MAIN_PKG Processus main
+!define STR_SYSOV_UI_PANEL ModelHubPanel\n+ onglet Inférence
+!define STR_SYSOV_UI_RADAR CompetenceSection\n(radar R5 +\nradar arbre)
+!define STR_SYSOV_UI_SETTINGS Paramètres ▸ IA\n▸ Routing
+!define STR_SYSOV_MCP_SERVER Serveur MCP\n(127.0.0.1:41541,\nauth Bearer)
+!define STR_SYSOV_REGISTRY Registry des tools\n(models.*,\ntags.*,\nhardware.*, route)
+!define STR_SYSOV_ROUTING Routing\n(routeByVectors\n+ fallback R5)
+!define STR_SYSOV_CHARACT Runner de\ncaractérisation\n+ arbre + escalier
+!define STR_SYSOV_SANDBOX Dispatch sandbox\n(rlimits POSIX /\nJob Object Win /\nUnsafe)
+!define STR_SYSOV_EMBED_LC Cycle de vie\nembedder\n(slice 7e)
+!define STR_SYSOV_RUNNERS Registry des runners\n+ launch.ts\n(llama-server)
+!define STR_SYSOV_REL_OPEN_GGUF ouvre un .gguf
+!define STR_SYSOV_REL_USER_SETTINGS configure embedder /\nopt-in sandbox
+!define STR_SYSOV_REL_CHARACTERIZE caractériser
+!define STR_SYSOV_REL_RECHAR re-caractériser
+!define STR_SYSOV_REL_VIA_TOOLS (via tools)
+!define STR_SYSOV_REL_ENSURE_CHAT assure URL chat\nvivante
+!define STR_SYSOV_REL_OPT_PROBE sonde optionnelle\n(slice 7c)
+!define STR_SYSOV_REL_CODE_TESTS tests code\n(slice 2d)
+!define STR_SYSOV_REL_PROJ_QUERY projection query\n(slice 7e)
+!define STR_SYSOV_REL_ISOLATED_SPAWN spawn\nisolé
+!define STR_SYSOV_REL_WRITE_SIG écrit signature
+!define STR_SYSOV_REL_READ_SIG lit signature
+!define STR_SYSOV_NOTE_L1 100% local, offline, pas de télémétrie.
+!define STR_SYSOV_NOTE_L2 llama-server + python (sandbox)
+!define STR_SYSOV_NOTE_L3 sont des processus enfants ; rien
+!define STR_SYSOV_NOTE_L4 ne se bind hors de 127.0.0.1.
+
+' === usecase/users.puml ===
+!define STR_UCU_TITLE Cas d'usage — qui fait quoi avec le sous-système IA
+!define STR_UCU_RECT_LABEL Maestria — sous-système IA
+!define STR_UCU_PKG_UI Onglet Inférence
+!define STR_UCU_OPEN Ouvre un fichier modèle .gguf
+!define STR_UCU_RUN Lance un modèle chat (UI navigateur)
+!define STR_UCU_CH Caractériser / Re-caractériser
+!define STR_UCU_RADAR Voir le radar de compétence\n(R5 + arbre)
+!define STR_UCU_BULK Caractérisation bulk\n(dossier)
+!define STR_UCU_PKG_SET Paramètres ▸ IA
+!define STR_UCU_PICK_EMB Choisir embedder .gguf\n(sélecteur de fichier)
+!define STR_UCU_OPT_SBX Activer sandbox tests-code\n(opt-in)
+!define STR_UCU_MCP Démarrer / arrêter serveur MCP
+!define STR_UCU_COPY_CFG Copier configuration MCP
+!define STR_UCU_PKG_MCP_SURF Surface MCP
+!define STR_UCU_ROUTE models.route\n(conseil seul)
+!define STR_UCU_REL_ALT (alternative\nà managed)
+!define STR_UCU_REL_EXTENDS <<extends>>\nsuite
+!define STR_UCU_NOTE_SBX_L1 Opt-in OFF par défaut. Débloque
+!define STR_UCU_NOTE_SBX_L2 les 9 items de tests-code dans
+!define STR_UCU_NOTE_SBX_L3 l'escalier ; sinon ils restent
+!define STR_UCU_NOTE_SBX_L4 UNMEASURED (prior D12).
+!define STR_UCU_NOTE_ROUTE_L1 Conseil seul — NE lance RIEN.
+!define STR_UCU_NOTE_ROUTE_L2 L'appelant fait suivre par models.run.
+

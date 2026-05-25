@@ -1,7 +1,7 @@
 ' Partial — embedder lifecycle stack.
 
 package "src/main/modelhub/ (embedder)" <<Folder>> as PKG_EMBED {
-  component "embedderLifecycle.ts\n• ensureEmbedderReady\n• in-flight promise\n• stopManagedEmbedders" as CMP_EMB_LC
+  component "STR_EMB_STACK_CMP_LC" as CMP_EMB_LC
   component "launchModelByPath\n(via launch.ts)\nlaunchedBy: 'embedder'\ncustomArgs: '--embedding'" as CMP_EMB_LAUNCH
   component "routingConfig.ts\n.routingEmbedderPath /\n.routingEmbedderBaseUrl" as CMP_EMB_RC
 }

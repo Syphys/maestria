@@ -1,12 +1,12 @@
 ' Partial — routing pipeline components.
 
 package "src/main/modelhub/routing/" <<Folder>> as PKG_ROUTING {
-  component "routeDecision.ts\n(orchestrator)" as CMP_ROUTE_DECISION
-  component "routeByVectors.ts\n(slice 5b core)" as CMP_ROUTE_VEC
-  component "classifyQuery.ts\n(R5 deterministic)" as CMP_ROUTE_R5
-  component "embedProject.ts\n(query → 32 anchors)" as CMP_ROUTE_PROJECT
+  component "STR_RT_STACK_DECISION" as CMP_ROUTE_DECISION
+  component "STR_RT_STACK_VEC" as CMP_ROUTE_VEC
+  component "STR_RT_STACK_R5" as CMP_ROUTE_R5
+  component "STR_RT_STACK_PROJECT" as CMP_ROUTE_PROJECT
   component "embed.ts\n(EmbedClient)" as CMP_ROUTE_EMBED
-  component "embedDetect.ts\n(reliability gate)" as CMP_ROUTE_RELY
-  component "freeMemory.ts\n(VRAM/RAM probe)" as CMP_ROUTE_MEM
-  component "routingCommon.ts\n(eligibility,\nnormalise)" as CMP_ROUTE_COMMON
+  component "STR_RT_STACK_RELY" as CMP_ROUTE_RELY
+  component "STR_RT_STACK_MEM" as CMP_ROUTE_MEM
+  component "STR_RT_STACK_COMMON" as CMP_ROUTE_COMMON
 }

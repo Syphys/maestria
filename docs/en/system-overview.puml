@@ -2,55 +2,54 @@
 !include _includes/style.iuml
 !include _includes/actors.iuml
 
-title Maestria — AI subsystem overview
+title STR_SYSOV_TITLE
 
-package "Maestria (Electron app)" as MAESTRIA {
+package "STR_SYSOV_MAESTRIA_PKG" as MAESTRIA {
   package "Renderer (React)" {
-    component "ModelHubPanel\n+ Inférence tab" as UI_PANEL
-    component "CompetenceSection\n(R5 radar +\ntree radar)" as UI_RADAR
-    component "Settings ▸ AI\n▸ Routing" as UI_SETTINGS
+    component "STR_SYSOV_UI_PANEL" as UI_PANEL
+    component "STR_SYSOV_UI_RADAR" as UI_RADAR
+    component "STR_SYSOV_UI_SETTINGS" as UI_SETTINGS
   }
-  package "Main process" {
-    component "MCP server\n(127.0.0.1:41541,\nBearer auth)" as MCP_SERVER
-    component "Tools registry\n(models.*,\ntags.*, hf.*,\nhardware.*, route)" as REGISTRY
-    component "Routing\n(routeByVectors\n+ R5 fallback)" as ROUTING
-    component "Characterization\nrunner + tree\n+ staircase" as CHARACT
-    component "Sandbox dispatch\n(POSIX rlimits /\nWin Job Object /\nUnsafe)" as SANDBOX
-    component "Embedder\nlifecycle\n(slice 7e)" as EMBED_LC
-    component "Runner registry\n+ launch.ts\n(llama-server)" as RUNNERS
+  package "STR_SYSOV_MAIN_PKG" {
+    component "STR_SYSOV_MCP_SERVER" as MCP_SERVER
+    component "STR_SYSOV_REGISTRY" as REGISTRY
+    component "STR_SYSOV_ROUTING" as ROUTING
+    component "STR_SYSOV_CHARACT" as CHARACT
+    component "STR_SYSOV_SANDBOX" as SANDBOX
+    component "STR_SYSOV_EMBED_LC" as EMBED_LC
+    component "STR_SYSOV_RUNNERS" as RUNNERS
   }
 }
 
-USER --> UI_PANEL : opens a .gguf
-USER --> UI_SETTINGS : configure embedder /\nsandbox opt-in
-UI_PANEL --> CHARACT : characterize
+USER --> UI_PANEL : STR_SYSOV_REL_OPEN_GGUF
+USER --> UI_SETTINGS : STR_SYSOV_REL_USER_SETTINGS
+UI_PANEL --> CHARACT : STR_SYSOV_REL_CHARACTERIZE
 UI_PANEL --> RUNNERS : Run (chat)
-UI_RADAR --> CHARACT : re-characterize
+UI_RADAR --> CHARACT : STR_SYSOV_REL_RECHAR
 
 MCP_CLIENT --> MCP_SERVER : HTTP+SSE\n(Bearer token)
 MCP_SERVER --> REGISTRY
 REGISTRY --> ROUTING : models.route
-REGISTRY --> CHARACT : (via tools)
+REGISTRY --> CHARACT : STR_SYSOV_REL_VIA_TOOLS
 REGISTRY --> RUNNERS : models.run / .stop
 
-CHARACT --> RUNNERS : ensure live\nchat URL
-CHARACT --> EMBED_LC : optional probe\n(slice 7c)
-CHARACT --> SANDBOX : code-tests\n(slice 2d)
-ROUTING --> EMBED_LC : project query\n(slice 7e)
+CHARACT --> RUNNERS : STR_SYSOV_REL_ENSURE_CHAT
+CHARACT --> EMBED_LC : STR_SYSOV_REL_OPT_PROBE
+CHARACT --> SANDBOX : STR_SYSOV_REL_CODE_TESTS
+ROUTING --> EMBED_LC : STR_SYSOV_REL_PROJ_QUERY
 
 RUNNERS --> LLAMA_CHAT : spawn
 EMBED_LC --> LLAMA_EMBED : spawn\n--embedding
-SANDBOX --> PYTHON_SANDBOX : isolated\nspawn
+SANDBOX --> PYTHON_SANDBOX : STR_SYSOV_REL_ISOLATED_SPAWN
 
-CHARACT --> SIDECARS : write signature
-ROUTING --> SIDECARS : read signature
-REGISTRY --> HF : hf.fetch
+CHARACT --> SIDECARS : STR_SYSOV_REL_WRITE_SIG
+ROUTING --> SIDECARS : STR_SYSOV_REL_READ_SIG
 
 note bottom of MAESTRIA
-  100% local, offline, no telemetry.
-  llama-server + python (sandbox)
-  are child processes; nothing
-  binds outside 127.0.0.1.
+  STR_SYSOV_NOTE_L1
+  STR_SYSOV_NOTE_L2
+  STR_SYSOV_NOTE_L3
+  STR_SYSOV_NOTE_L4
 end note
 
 @enduml

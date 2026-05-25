@@ -1,7 +1,7 @@
 @startuml activity-sandbox-kill-paths
 !include ../_includes/style.iuml
 
-title Activity — sandbox kill paths (POSIX)\nwhat fails the assert vs what voids the measurement
+title STR_SKILL_TITLE
 
 ' Disambiguates the FOUR reasons runPythonTests() returns {pass:false}
 ' vs the SIX reasons it throws SandboxUnavailable. The former is a
@@ -9,78 +9,78 @@ title Activity — sandbox kill paths (POSIX)\nwhat fails the assert vs what voi
 ' latter is "we can't trust this measurement" ⇒ UNMEASURED.
 
 start
-:characterizeRunner builds\nrunSandbox seam;
-:staircase.evaluateItem calls\nrunSandbox({codeLang, code, tests});
+:STR_SKILL_STEP_BUILD_SEAM;
+:STR_SKILL_STEP_EVAL_CALL;
 
 if (Provider) then (UnsafeSandbox)
-  :throw SandboxUnavailable\n("opt-in off");
+  :STR_SKILL_STEP_THROW_OPTIN;
   -> unavailable;
 elseif (PosixSandbox / WindowsSandbox)
-  if (find python OK?) then (no)
-    :throw SandboxUnavailable\n("no python");
+  if (STR_SKILL_IF_FIND_PY) then (STR_SKILL_NO)
+    :STR_SKILL_STEP_THROW_NO_PY;
     -> unavailable;
   endif
-  if (mkdtemp + writeFile OK?) then (no)
+  if (STR_SKILL_IF_MKDTEMP) then (STR_SKILL_NO)
     :throw SandboxUnavailable\n("mkdtemp" / "write");
     -> unavailable;
   endif
-  if (POSIX: setrlimit succeeds in child?) then (no)
-    note right : rlimit failures inside\nPython are silently passed;\nthe real failure surfaces\nthrough RLIMIT_FSIZE = 0\nor the wall-clock timer.
+  if (STR_SKILL_IF_SETRLIMIT) then (STR_SKILL_NO)
+    note right : STR_SKILL_NOTE_RLIMIT
   endif
-  :spawn child (Python -I -S -B,\ndetached pgrp, empty env);
-  if (spawn error event?) then (yes)
-    :throw SandboxUnavailable\n("spawn error");
+  :STR_SKILL_STEP_SPAWN;
+  if (STR_SKILL_IF_SPAWN_ERR) then (STR_SKILL_YES)
+    :STR_SKILL_STEP_THROW_SPAWN;
     -> unavailable;
   endif
   fork
-    :Wait for `close`;
+    :STR_SKILL_STEP_WAIT_CLOSE;
   fork again
-    :Wall-clock timer\n(timeoutMs default 10 s);
-    if (Elapsed?) then (yes)
+    :STR_SKILL_STEP_TIMER;
+    if (STR_SKILL_IF_ELAPSED) then (STR_SKILL_YES)
       :kill(-pgid, SIGKILL);
       :reason = 'timeout';
     endif
   fork again
-    :Output watcher\n(maxOutputBytes default 1 MB);
-    if (Threshold reached?) then (yes)
+    :STR_SKILL_STEP_OUT_WATCHER;
+    if (STR_SKILL_IF_THRESHOLD) then (STR_SKILL_YES)
       :kill(-pgid, SIGKILL);
       :reason = 'output-overflow';
     endif
   end fork
-  if (Exit code 0?) then (yes)
-    :return {pass:true};
-  elseif (Killed by us) then (yes)
-    :return {pass:false, reason};
-  else (other non-zero)
-    :return {pass:false,\nreason:'exit-nonzero'};
+  if (STR_SKILL_IF_EXIT0) then (STR_SKILL_YES)
+    :STR_SKILL_STEP_RET_PASS;
+  elseif (STR_SKILL_IF_KILLED_BY_US) then (STR_SKILL_YES)
+    :STR_SKILL_STEP_RET_FAIL_REASON;
+  else (STR_SKILL_OTHER_NONZERO)
+    :STR_SKILL_STEP_RET_FAIL_EXITNZ;
   endif
   -> measured;
 endif
 
 label measured
-:Item recorded with\n{status: pass/fail};
+:STR_SKILL_STEP_ITEM_PASSFAIL;
 stop
 
 label unavailable
-:Caller (staircase) catches\nSandboxUnavailable;
-:Item recorded as\n{status:'unmeasured',\nreason:'sandbox-pending'};
-:Leaf left as branch prior\n(D12, lower confidence);
+:STR_SKILL_STEP_CATCH;
+:STR_SKILL_STEP_ITEM_UNMEAS;
+:STR_SKILL_STEP_LEAF_PRIOR;
 stop
 
 floating note left
-  **measured** —
-  REAL measurement signal:
-  enters scores_per_leaf via
-  Beta-Laplace (passes_per_leaf
-  incremented if pass).
+  STR_SKILL_NOTE_MEAS_L1
+  STR_SKILL_NOTE_MEAS_L2
+  STR_SKILL_NOTE_MEAS_L3
+  STR_SKILL_NOTE_MEAS_L4
+  STR_SKILL_NOTE_MEAS_L5
 end note
 
 floating note left
-  **unavailable** —
-  NOT a measurement —
-  passes_per_leaf is NOT
-  touched (only real climbs
-  count toward saturation).
+  STR_SKILL_NOTE_UNAV_L1
+  STR_SKILL_NOTE_UNAV_L2
+  STR_SKILL_NOTE_UNAV_L3
+  STR_SKILL_NOTE_UNAV_L4
+  STR_SKILL_NOTE_UNAV_L5
 end note
 
 @enduml

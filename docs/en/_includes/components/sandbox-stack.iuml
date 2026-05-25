@@ -8,5 +8,5 @@ package "src/main/modelhub/routing/sandbox/" <<Folder>> as PKG_SBX {
   component "unsafe.ts\nUnsafeSandbox" as CMP_SBX_UNSAFE
   component "posix.ts\nPosixSandbox" as CMP_SBX_POSIX
   component "windows.ts\nWindowsSandbox" as CMP_SBX_WIN
-  component "win-job.ps1\nPowerShell P/Invoke\nlauncher" as CMP_SBX_PS1
+  component "STR_SBX_STACK_CMP_PS1" as CMP_SBX_PS1
 }

@@ -1,7 +1,7 @@
 @startuml states-sandbox-dispatch
 !include ../_includes/style.iuml
 
-title State machine — sandbox provider dispatch (slice 2d)
+title STR_SBXDISP_TITLE
 
 ' One getSandbox({enabled}) call → exactly ONE end state. Then
 ' runPythonTests(code, tests) → exactly ONE outcome (pass / fail /
@@ -10,28 +10,28 @@ title State machine — sandbox provider dispatch (slice 2d)
 [*] --> Dispatch
 
 state "getSandbox({enabled})" as Dispatch {
-  description : Reads `params.enableSandbox`\nand `process.platform`.
+  description : STR_SBXDISP_DESC_DISPATCH
 }
 
-Dispatch --> UNSAFE_STATE : enabled:false\n(default)\nOR unknown OS
+Dispatch --> UNSAFE_STATE : STR_SBXDISP_REL_UNSAFE
 Dispatch --> POSIX_STATE : enabled:true\n+ linux/darwin
 Dispatch --> WIN_STATE : enabled:true\n+ win32
 
-state "UnsafeSandbox\n(opt-in off)" as UNSAFE_STATE {
-  description : Always throws\nSandboxUnavailable\non runPythonTests().
+state "STR_SBXDISP_S_UNSAFE" as UNSAFE_STATE {
+  description : STR_SBXDISP_DESC_UNSAFE
 }
 
 state "PosixSandbox" as POSIX_STATE {
-  state "find python3/python\n+ probe resource module" as POSIX_PROBE
-  state "mkdtemp + write script\n(preamble + code + tests)" as POSIX_PREP
-  state "spawn -I -S -B,\ndetached pgrp,\nempty env" as POSIX_RUN
-  state "wait for close /\ntimeout / overflow" as POSIX_WAIT
+  state "STR_SBXDISP_S_POSIX_PROBE" as POSIX_PROBE
+  state "STR_SBXDISP_S_POSIX_PREP" as POSIX_PREP
+  state "STR_SBXDISP_S_POSIX_RUN" as POSIX_RUN
+  state "STR_SBXDISP_S_POSIX_WAIT" as POSIX_WAIT
 
   [*] --> POSIX_PROBE
-  POSIX_PROBE --> POSIX_PREP : probe OK
-  POSIX_PROBE --> POSIX_UNAVAIL : no python\nOR no resource
-  POSIX_PREP --> POSIX_RUN : script written
-  POSIX_PREP --> POSIX_UNAVAIL : mkdtemp fails\nOR write fails
+  POSIX_PROBE --> POSIX_PREP : STR_SBXDISP_REL_PROBE_OK
+  POSIX_PROBE --> POSIX_UNAVAIL : STR_SBXDISP_REL_NO_PY
+  POSIX_PREP --> POSIX_RUN : STR_SBXDISP_REL_SCRIPT_WRITTEN
+  POSIX_PREP --> POSIX_UNAVAIL : STR_SBXDISP_REL_MKDTEMP_FAIL
   POSIX_RUN --> POSIX_WAIT
   POSIX_WAIT --> POSIX_PASS : exit 0
   POSIX_WAIT --> POSIX_FAIL_EXIT : exit ≠ 0
@@ -46,23 +46,23 @@ state "PosixSandbox" as POSIX_STATE {
 }
 
 state "WindowsSandbox" as WIN_STATE {
-  state "find py/python/python3" as WIN_PROBE
-  state "mkdtemp + write script\nverify win-job.ps1 present" as WIN_PREP
+  state "STR_SBXDISP_S_WIN_PROBE" as WIN_PROBE
+  state "STR_SBXDISP_S_WIN_PREP" as WIN_PREP
   state "spawn powershell.exe\n-File win-job.ps1" as WIN_RUN
-  state "PS1: CreateJobObject\n+ SetInformationJobObject\n+ Start python\n+ AssignProcessToJobObject" as WIN_JOB
+  state "STR_SBXDISP_S_WIN_JOB" as WIN_JOB
   state "WaitForExit(innerTimeoutMs)" as WIN_WAIT
 
   [*] --> WIN_PROBE
-  WIN_PROBE --> WIN_PREP : probe OK
-  WIN_PROBE --> WIN_UNAVAIL : no python.exe\nOR PS1 missing
+  WIN_PROBE --> WIN_PREP : STR_SBXDISP_REL_PROBE_OK
+  WIN_PROBE --> WIN_UNAVAIL : STR_SBXDISP_REL_NO_PYEXE
   WIN_PREP --> WIN_RUN
-  WIN_PREP --> WIN_UNAVAIL : mkdtemp fails
+  WIN_PREP --> WIN_UNAVAIL : STR_SBXDISP_REL_MKDTEMP_FAIL2
   WIN_RUN --> WIN_JOB
-  WIN_JOB --> WIN_WAIT : assigned\n(tiny race window)
-  WIN_JOB --> WIN_UNAVAIL : CreateJobObject /\nSetInformationJobObject /\nAdd-Type failure
+  WIN_JOB --> WIN_WAIT : STR_SBXDISP_REL_ASSIGNED
+  WIN_JOB --> WIN_UNAVAIL : STR_SBXDISP_REL_JOB_FAIL
   WIN_WAIT --> WIN_PASS : exit 0
   WIN_WAIT --> WIN_FAIL_EXIT : exit ≠ 0,124
-  WIN_WAIT --> WIN_FAIL_TO : exit 124\n(PS1's TerminateJobObject)
+  WIN_WAIT --> WIN_FAIL_TO : STR_SBXDISP_REL_EXIT_124
 
   state "{pass:true}" as WIN_PASS #FFFDF6
   state "{pass:false,\nreason:exit-nonzero}" as WIN_FAIL_EXIT
@@ -71,18 +71,18 @@ state "WindowsSandbox" as WIN_STATE {
 }
 
 note bottom of Dispatch
-  Single source of truth — only this
-  state machine knows about platform
-  / opt-in. Callers (characterizeRunner)
-  just see a SandboxProvider instance.
+  STR_SBXDISP_NOTE_DISP_L1
+  STR_SBXDISP_NOTE_DISP_L2
+  STR_SBXDISP_NOTE_DISP_L3
+  STR_SBXDISP_NOTE_DISP_L4
 end note
 
 note right of POSIX_UNAVAIL
-  Fail-closed (Dαα §3): every
-  SandboxUnavailable transition
-  in the staircase ⇒ UNMEASURED
-  (branch prior D12), never a
-  false pass.
+  STR_SBXDISP_NOTE_UNAV_L1
+  STR_SBXDISP_NOTE_UNAV_L2
+  STR_SBXDISP_NOTE_UNAV_L3
+  STR_SBXDISP_NOTE_UNAV_L4
+  STR_SBXDISP_NOTE_UNAV_L5
 end note
 
 @enduml

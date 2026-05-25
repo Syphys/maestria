@@ -10,14 +10,14 @@ skinparam rectangle {
 
 package "src/shared/RoutingTypes.ts" <<Frame>> as PKG_TREE {
 
-  rectangle "**type CompetenceBranch**\n=\n9 string literals" as BTYPE
+  rectangle "STR_CTREE_BTYPE" as BTYPE
   rectangle "**const COMPETENCE_TREE**\nRecord<CompetenceBranch, readonly string[]>" as TREE
   rectangle "**type CompetenceLeafId**\n= `${CompetenceBranch}.${leaf}`" as LID
 
-  BTYPE ..> TREE : keys of
-  LID ..> TREE : derived from
+  BTYPE ..> TREE : STR_CTREE_REL_KEYS_OF
+  LID ..> TREE : STR_CTREE_REL_DERIVED_FROM
 
-  rectangle "**Competence tree**\n9 branches" as TREE_ROOT #F4EEE3 {
+  rectangle "STR_CTREE_ROOT_LABEL" as TREE_ROOT #F4EEE3 {
 
     rectangle "code" as B_CODE {
       rectangle "python" as L_PY
@@ -79,5 +79,5 @@ package "src/shared/RoutingTypes.ts" <<Frame>> as PKG_TREE {
     }
   }
 
-  TREE -- TREE_ROOT : equals
+  TREE -- TREE_ROOT : STR_CTREE_REL_EQUALS
 }

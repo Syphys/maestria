@@ -2,9 +2,9 @@
 ' display routing/characterization vocabulary (rung / prior / scheme).
 
 legend right
-  | symbol | meaning |
-  | <#FFFFFF>**rung** | real staircase climb (passes recorded) |
-  | <#FFFDF6>**prior** | low-confidence QCM/branch prior (Dyy/D12 discount) |
-  | <#E6DFD2>**none** | never measured (D8.B: leave blank, never zero) |
-  | scheme | `beta-laplace-v1` (current) or `breaking-rung-v0` (legacy) |
+  | STR_LEGEND_HDR_SYMBOL | STR_LEGEND_HDR_MEANING |
+  | <#FFFFFF>**rung** | STR_LEGEND_RUNG_DESC |
+  | <#FFFDF6>**prior** | STR_LEGEND_PRIOR_DESC |
+  | <#E6DFD2>**none** | STR_LEGEND_NONE_DESC |
+  | scheme | STR_LEGEND_SCHEME_DESC |
 endlegend

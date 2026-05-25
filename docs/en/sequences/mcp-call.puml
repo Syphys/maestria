@@ -1,118 +1,118 @@
 @startuml mcp-call
 !include ../_includes/style.iuml
 
-title `models.run` over MCP — two-tier auth + optional elevation (2026-05-24)
+title STR_MCALL_TITLE
 
-actor "User in Claude Code" as USR
-participant "Claude Code\nMCP client" as CC
-participant "MCP server\n(127.0.0.1:41541)" as MCP
-participant "Bearer auth\nmiddleware\n(user OR admin)" as AUTH
-participant "tools registry\n(Map<name,def>)" as REG
+actor "STR_MCALL_USR" as USR
+participant "STR_MCALL_CC" as CC
+participant "STR_MCALL_MCP" as MCP
+participant "STR_MCALL_AUTH" as AUTH
+participant "STR_MCALL_REG" as REG
 participant "models.ts\n(tools/)" as TOOL
-participant "launchModelByPath\n(+ Elevated branch)" as LAUNCH
+participant "STR_MCALL_LAUNCH" as LAUNCH
 participant "llama-server\n(chat)" as CHAT
 participant "logger.ts\n(~/.tagspaces/mcp.log)" as LOG
-participant "RunningModelsPanel\n(renderer, polls\nevery 5 s)" as PANEL
+participant "STR_MCALL_PANEL" as PANEL
 
-== Session opens (Bearer auth — user OR admin) ==
-USR -> CC : "Run model X for me"
+== STR_MCALL_GRP_SESSION_OPEN ==
+USR -> CC : "STR_MCALL_MSG_RUN_MODEL"
 CC -> MCP : GET /sse\nAuthorization: Bearer <user|admin>
-MCP -> AUTH : verify Bearer\n(both tokens read fresh)
-AUTH --> MCP : OK\n+ flag isAdmin = (admin token?)
-MCP -> MCP : SSEServerTransport\n(register sessionId,\n stash defaultIsAdmin)
-MCP --> CC : SSE stream open
+MCP -> AUTH : STR_MCALL_MSG_VERIFY_BEARER_FRESH
+AUTH --> MCP : STR_MCALL_MSG_OK_FLAG
+MCP -> MCP : STR_MCALL_MSG_SSE_REG
+MCP --> CC : STR_MCALL_MSG_SSE_OPEN
 
-== Normal tool call (non-elevated) ==
+== STR_MCALL_GRP_NORMAL_CALL ==
 CC -> MCP : POST /messages?sessionId=…\nAuthorization: Bearer <user|admin>\ntools/call models.run {path, params?}
-MCP -> AUTH : verify Bearer
+MCP -> AUTH : STR_MCALL_MSG_VERIFY_BEARER
 AUTH --> MCP : OK + isAdmin
-MCP -> MCP : callerLabelFor(req, sessionId)\n  ← User-Agent head\n  ← stash ctx on transport
+MCP -> MCP : STR_MCALL_MSG_CALLERLABEL
 MCP -> REG : dispatch CallTool(name, args, ctx)
-REG -> REG : tool.requiresAdmin?\n  short-circuit 403 here
+REG -> REG : STR_MCALL_MSG_REQ_ADMIN_GATE
 REG -> TOOL : handler(args, ctx)
-TOOL -> TOOL : coerceRunParamsArg(args.params)\n  ← strict per-field typecheck
-TOOL -> TOOL : args.admin ? require ctx.isAdmin\n  ← throws "forbidden" with user token
+TOOL -> TOOL : STR_MCALL_MSG_COERCE
+TOOL -> TOOL : STR_MCALL_MSG_ADMIN_GATE
 TOOL -> LAUNCH : launchModelByPath(canonical, {\n  launchedBy: ctx.callerLabel,\n  port, paramsOverride: merge(...),\n  elevated: false\n})
-LAUNCH -> CHAT : spawn (auto-port,\n  --timeout 86400 since 2026-05-24)
+LAUNCH -> CHAT : STR_MCALL_MSG_SPAWN
 CHAT --> LAUNCH : {pid, url, params}
-LAUNCH --> TOOL : ActiveEntry\n(launchedBy carried,\n elevated:false)
+LAUNCH --> TOOL : STR_MCALL_MSG_ACTIVE_ENTRY
 TOOL --> REG : {pid, url, runnerLabel,\n  params, warnings,\n  elevated:false}
 REG --> MCP : content: [{type:'text',\n  text: JSON.stringify(result)}]
 MCP -> LOG : appendCallLog({caller,\n  tool, args, durationMs, ok:true})
-MCP --> CC : JSON-RPC response over SSE
-CC --> USR : "Started! Chat at <url>"
+MCP --> CC : STR_MCALL_MSG_JSONRPC
+CC --> USR : "STR_MCALL_MSG_STARTED"
 
-== Elevated tool call (admin token + admin:true) ==
+== STR_MCALL_GRP_ELEVATED_CALL ==
 note over CC, MCP
-  Caller is authenticated with the ADMIN Bearer
-  AND passes `admin: true` in the args. Both
-  gates must pass; failing either returns a
-  tool-level "forbidden" error (NOT HTTP 401 —
-  the session itself is still valid).
+  STR_MCALL_NOTE_ELEV_L1
+  STR_MCALL_NOTE_ELEV_L2
+  STR_MCALL_NOTE_ELEV_L3
+  STR_MCALL_NOTE_ELEV_L4
+  STR_MCALL_NOTE_ELEV_L5
 end note
 CC -> MCP : POST .../messages\nBearer <admin>\ntools/call models.run {path, admin:true}
-MCP -> AUTH : verify Bearer (admin)
+MCP -> AUTH : STR_MCALL_MSG_VERIFY_ADMIN
 AUTH --> MCP : OK, isAdmin=true
 MCP -> REG : dispatch (ctx.isAdmin=true)
 REG -> TOOL : handler(args, ctx)
 TOOL -> TOOL : args.admin && ctx.isAdmin ✓
 TOOL -> LAUNCH : launchModelByPath(..., elevated:true)
 alt Windows
-  LAUNCH -> LAUNCH : powershell Start-Process\n  -Verb RunAs -PassThru\n  → UAC prompt
+  LAUNCH -> LAUNCH : STR_MCALL_MSG_WIN_UAC
 else POSIX
-  LAUNCH -> LAUNCH : pkexec <bin> <args>\n  → polkit prompt
+  LAUNCH -> LAUNCH : STR_MCALL_MSG_PKEXEC
 end
-LAUNCH -> CHAT : elevated spawn\n(stdio NOT piped to us)
-CHAT --> LAUNCH : pid only (no child handle)
-LAUNCH --> TOOL : ActiveEntry\n(elevated:true,\n empty ring buffer)
-TOOL --> REG : {pid, url, elevated:true,\n  warnings: ["stdio unavailable"]}
+LAUNCH -> CHAT : STR_MCALL_MSG_ELEV_SPAWN
+CHAT --> LAUNCH : STR_MCALL_MSG_PID_ONLY
+LAUNCH --> TOOL : STR_MCALL_MSG_ELEV_ACTIVE
+TOOL --> REG : STR_MCALL_MSG_ELEV_WARN
 REG --> MCP : content
 MCP -> LOG : appendCallLog(..., ok:true)
 MCP --> CC : {pid, url, elevated:true}
 
-== Admin-gated tool with user token ==
+== STR_MCALL_GRP_ADMIN_GATED ==
 note over CC, REG
-  Forbidden-tier example: clear_folder, set_override,
-  runners.save — caller is on the user token. The
-  registry rejects BEFORE the handler runs.
+  STR_MCALL_NOTE_FORB_L1
+  STR_MCALL_NOTE_FORB_L2
+  STR_MCALL_NOTE_FORB_L3
 end note
 CC -> MCP : tools/call meta.clear_folder {…}
-MCP -> AUTH : verify Bearer (user)
+MCP -> AUTH : STR_MCALL_MSG_VERIFY_USER
 AUTH --> MCP : OK, isAdmin=false
 MCP -> REG : dispatch (ctx.isAdmin=false)
-REG -> REG : tool.requiresAdmin && !ctx.isAdmin\n  → return isError:true
+REG -> REG : STR_MCALL_MSG_REQ_ADMIN_RETURN
 REG -> LOG : appendCallLog(..., ok:false,\n  error: "forbidden: requires admin")
-REG --> MCP : isError:true,\n content:[{text:"forbidden …"}]
-MCP --> CC : MCP error (NOT HTTP 401)
+REG --> MCP : STR_MCALL_MSG_ISERR
+MCP --> CC : STR_MCALL_MSG_MCP_ERR
 
-== Renderer reflects the new spawn ==
+== STR_MCALL_GRP_RENDERER_REFLECTS ==
 PANEL -> LAUNCH : listRunning() (poll)
-LAUNCH --> PANEL : entries[] (incl. `elevated` flag)
-PANEL -> PANEL : group by launchedBy\n→ headers in sidebar\n  (badge: ⚠ admin on\n   elevated entries)
+LAUNCH --> PANEL : STR_MCALL_MSG_ENTRIES
+PANEL -> PANEL : STR_MCALL_MSG_GROUP_BY
 
-== Elevated exit detection ==
+== STR_MCALL_GRP_ELEV_EXIT ==
 note over LAUNCH
-  Elevated processes never fire
-  child.on('exit') — we have no
-  ChildProcess handle. The poller
-  (started at app boot) calls
-  process.kill(pid, 0) every 10 s
-  on every elevated entry and emits
-  a synthetic exit event when the
-  pid is gone. UI converges within
-  ~10 s of the real exit.
+  STR_MCALL_NOTE_ELEXIT_L1
+  STR_MCALL_NOTE_ELEXIT_L2
+  STR_MCALL_NOTE_ELEXIT_L3
+  STR_MCALL_NOTE_ELEXIT_L4
+  STR_MCALL_NOTE_ELEXIT_L5
+  STR_MCALL_NOTE_ELEXIT_L6
+  STR_MCALL_NOTE_ELEXIT_L7
+  STR_MCALL_NOTE_ELEXIT_L8
+  STR_MCALL_NOTE_ELEXIT_L9
 end note
 
-== Later: stop ==
+== STR_MCALL_GRP_STOP ==
 CC -> MCP : tools/call models.stop {pid}
-MCP -> AUTH : verify Bearer
+MCP -> AUTH : STR_MCALL_MSG_VERIFY_BEARER
 MCP -> REG : dispatch
 REG -> TOOL : handler
 TOOL -> LAUNCH : stopProcess(pid)
-alt non-elevated
-  LAUNCH -> CHAT : SIGTERM (then SIGKILL via\n  child.kill — held handle)
-else elevated
-  LAUNCH -> LAUNCH : taskkill /F /PID <pid> /T\n  (Windows) or process.kill\n  (POSIX)
+alt STR_MCALL_ALT_NONELEV
+  LAUNCH -> CHAT : STR_MCALL_MSG_SIGTERM
+else STR_MCALL_ELSE_ELEV
+  LAUNCH -> LAUNCH : STR_MCALL_MSG_TASKKILL
 end
 LAUNCH --> TOOL : {ok:true}
 TOOL --> REG : {stopped:true}

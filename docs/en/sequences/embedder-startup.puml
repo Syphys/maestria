@@ -1,46 +1,46 @@
 @startuml embedder-startup
 !include ../_includes/style.iuml
 
-title Embedder — two routes (2026-05-23 single-pass rewrite)
+title STR_ESEQ_TITLE
 
-== Route A — `ensureEmbedderReady()` (server, used by routeByVectors) ==
+== STR_ESEQ_GRP_ROUTE_A ==
 
-participant "routeByVectors\n(interactive query)" as ROUTE
+participant "STR_ESEQ_ROUTE" as ROUTE
 participant "embedderLifecycle" as LC
-participant "in-flight\nlaunch promise" as INFLIGHT
+participant "STR_ESEQ_INFLIGHT" as INFLIGHT
 participant "listRunning()" as LIST
 participant "launchModelByPath" as LAUNCH
 participant "llama-server\n--embedding (8081)" as EMB_SRV
 
 ROUTE -> LC : ensureEmbedderReady(filePath, {model?})
 
-alt another caller already launching
-  LC -> INFLIGHT : await same promise
-  INFLIGHT --> LC : result (reused)
+alt STR_ESEQ_ALT_OTHER_LAUNCHING
+  LC -> INFLIGHT : STR_ESEQ_MSG_AWAIT_PROMISE
+  INFLIGHT --> LC : STR_ESEQ_MSG_REUSED
   LC --> ROUTE : {baseUrl, pid, source:'reused'}
-else first/only caller
-  LC -> LIST : look for `launchedBy: 'embedder'`\n+ filePath match + alive
-  alt already running
+else STR_ESEQ_ELSE_FIRST
+  LC -> LIST : STR_ESEQ_MSG_LOOK_LAUNCHEDBY
+  alt STR_ESEQ_ALT_ALREADY_RUNNING
     LIST --> LC : {pid, url}
     LC --> ROUTE : {baseUrl: url, source:'reused'}
-  else needs spawn
-    LC -> LC : set INFLIGHT promise
+  else STR_ESEQ_ELSE_NEEDS_SPAWN
+    LC -> LC : STR_ESEQ_MSG_SET_INFLIGHT
     LC -> LAUNCH : launchModelByPath(\n  launchedBy:'embedder',\n  port: 8081,\n  customArgs:'--embedding'\n)
     LAUNCH -> EMB_SRV : spawn (port 8081)
     LAUNCH --> LC : {pid, url, ok}
-    alt launch failed
-      LC --> ROUTE : null (silent fallback to R5)
-    else launched
-      loop until /v1/models OK or 60s timeout
-        LC -> EMB_SRV : fetch /v1/models (4s budget)
-        alt response OK
+    alt STR_ESEQ_ALT_LAUNCH_FAILED
+      LC --> ROUTE : STR_ESEQ_MSG_NULL_FALLBACK
+    else STR_ESEQ_ELSE_LAUNCHED
+      loop STR_ESEQ_LOOP_UNTIL_READY
+        LC -> EMB_SRV : STR_ESEQ_MSG_FETCH_MODELS
+        alt STR_ESEQ_ALT_RESPONSE_OK
           EMB_SRV --> LC : 200
           LC --> ROUTE : {baseUrl, pid, source:'launched'}
-        else process exited
+        else STR_ESEQ_ELSE_PROC_EXITED
           LC -> LAUNCH : stopProcess(pid)
           LC --> ROUTE : null
-        else still warming
-          LC -> LC : sleep 1s
+        else STR_ESEQ_ELSE_STILL_WARMING
+          LC -> LC : STR_ESEQ_MSG_SLEEP_1S
         end
       end
     end
@@ -49,43 +49,43 @@ else first/only caller
 end
 
 note right of LC
-  Concurrency-safe: parallel queries share
-  ONE launch — never spawn twice.
-  Server stays resident for low-latency queries.
-  Failure ⇒ null ⇒ silent fallback. NEVER throws.
+  STR_ESEQ_NOTE_LC_L1
+  STR_ESEQ_NOTE_LC_L2
+  STR_ESEQ_NOTE_LC_L3
+  STR_ESEQ_NOTE_LC_L4
 end note
 
-== Route B — `embedViaLlamaCli()` (one-shot, used by bulk characterizeAll) ==
+== STR_ESEQ_GRP_ROUTE_B ==
 
-participant "characterizeAll\n(per-model loop)" as CHAR_ALL
+participant "STR_ESEQ_CHAR_ALL" as CHAR_ALL
 participant "embedderCli.ts" as EMB_CLI
-participant "tmp file\n(maestria-embed-*.txt)" as TMP
+participant "STR_ESEQ_TMP" as TMP
 participant "llama-embedding.exe\n(spawn → exit)" as EMB_CLI_PROC
 
-CHAR_ALL -> EMB_CLI : resolveEmbedderCliFn()\n→ EmbedFn (cached binPath + modelPath)
+CHAR_ALL -> EMB_CLI : STR_ESEQ_MSG_RESOLVE_FN
 note right of EMB_CLI
-  Resolved once at the start of the bulk
-  run: validates the configured GGUF + the
-  llama-embedding binary derived from the
-  llama-server runner. Throws on missing
-  config (caller silently skips projections).
+  STR_ESEQ_NOTE_RESOLVE_L1
+  STR_ESEQ_NOTE_RESOLVE_L2
+  STR_ESEQ_NOTE_RESOLVE_L3
+  STR_ESEQ_NOTE_RESOLVE_L4
+  STR_ESEQ_NOTE_RESOLVE_L5
 end note
 
-loop per model with freegen_text to project
-  CHAR_ALL -> EMB_CLI : embed([freegen_text, ...17 anchors])
-  EMB_CLI -> TMP : write texts joined by <#sep#>
-  EMB_CLI -> EMB_CLI_PROC : spawn:\n  -m model.gguf\n  -f tmp.txt\n  --embd-separator <#sep#>\n  --embd-output-format json\n  --embd-normalize 2\n  --log-disable
-  EMB_CLI_PROC --> EMB_CLI : JSON {data:[{embedding}]}\n(process exits, RAM freed)
+loop STR_ESEQ_LOOP_PER_MODEL
+  CHAR_ALL -> EMB_CLI : STR_ESEQ_MSG_EMBED_CALL
+  EMB_CLI -> TMP : STR_ESEQ_MSG_WRITE_TEXTS
+  EMB_CLI -> EMB_CLI_PROC : STR_ESEQ_MSG_SPAWN_EMBED
+  EMB_CLI_PROC --> EMB_CLI : STR_ESEQ_MSG_JSON_EXIT
   EMB_CLI -> TMP : unlink (best-effort, finally)
-  EMB_CLI --> CHAR_ALL : Float32Array[]\n(sorted by index)
+  EMB_CLI --> CHAR_ALL : STR_ESEQ_MSG_FLOAT32_SORTED
 end
 
 note right of EMB_CLI_PROC
-  Zero resident memory between calls.
-  Cost: ~3 s startup × N models, but the
-  test model never coexists with the
-  embedder in RAM — solves the bulk
-  "VRAM competing" problem.
+  STR_ESEQ_NOTE_CLI_PROC_L1
+  STR_ESEQ_NOTE_CLI_PROC_L2
+  STR_ESEQ_NOTE_CLI_PROC_L3
+  STR_ESEQ_NOTE_CLI_PROC_L4
+  STR_ESEQ_NOTE_CLI_PROC_L5
 end note
 
 @enduml

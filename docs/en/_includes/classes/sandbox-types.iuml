@@ -12,27 +12,27 @@ package "src/main/modelhub/routing/sandbox/types.ts" <<Frame>> as PKG_SBX_TYPES 
 
   class SandboxResult <<value>> {
     + pass : boolean
-    + stdout : string  (capped)
-    + stderr : string  (capped)
+    + stdout : string  STR_SBXTYPES_CAPPED
+    + stderr : string  STR_SBXTYPES_CAPPED
     + durationMs : number
     + reason? : 'exit-nonzero' | 'timeout'\n  | 'output-overflow' | 'unknown'
   }
 
   class SandboxOptions <<value>> {
-    + timeoutMs? : number   (default 10_000)
-    + maxOutputBytes? : number   (default 1_000_000)
-    + cpuLimitSeconds? : number   (default 10)
-    + memoryLimitBytes? : number   (default 512 MiB)
+    + timeoutMs? : number   STR_SBXTYPES_DEFAULT_10K
+    + maxOutputBytes? : number   STR_SBXTYPES_DEFAULT_1M
+    + cpuLimitSeconds? : number   STR_SBXTYPES_DEFAULT_10
+    + memoryLimitBytes? : number   STR_SBXTYPES_DEFAULT_512
   }
 
   class SandboxUnavailable <<exception>> extends Error {
     --
-    Thrown when the OS-level boundary
-    CANNOT be established. Caller maps
-    to UNMEASURED (D12 prior).
+    STR_SBXTYPES_THROWN_L1
+    STR_SBXTYPES_THROWN_L2
+    STR_SBXTYPES_THROWN_L3
     --
-    Reasons: opt-in off, no python,
-    no `resource` module, mkdtemp KO,
-    Job Object failure, wrong platform.
+    STR_SBXTYPES_REASONS_L1
+    STR_SBXTYPES_REASONS_L2
+    STR_SBXTYPES_REASONS_L3
   }
 }

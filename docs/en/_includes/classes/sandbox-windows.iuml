@@ -13,13 +13,13 @@ package "src/main/modelhub/routing/sandbox/windows.ts" <<Frame>> as PKG_SBX_WIN 
     - findPython()
     - spawnIsolated(...)
     --
-    Spawns powershell.exe -File win-job.ps1.
-    Job Object kernel limits:
+    STR_SBXWIN_SPAWN_LINE
+    STR_SBXWIN_KERNEL_HDR
     • ActiveProcessLimit = 1   (T2/T7)
     • ProcessMemoryLimit = 512 MiB   (T6)
     • KILL_ON_JOB_CLOSE
-    Plus: emptied env, marker-line stream
-    protocol, exit 124 on inner timeout.
+    STR_SBXWIN_PLUS_L1
+    STR_SBXWIN_PLUS_L2
   }
 
   ' Runtime artefact (PowerShell script), not a class — listed here
@@ -27,5 +27,5 @@ package "src/main/modelhub/routing/sandbox/windows.ts" <<Frame>> as PKG_SBX_WIN 
   ' `class` shape used (not `component`) because the file is loaded
   ' inside a class-diagram context (PlantUML 1.2026.x rejects mixed
   ' shapes within a class-mode package).
-  class "win-job.ps1\n(Add-Type P/Invoke launcher)" as PS1 <<artefact>>
+  class "STR_SBXWIN_PS1_LABEL" as PS1 <<artefact>>
 }

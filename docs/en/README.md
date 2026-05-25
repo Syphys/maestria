@@ -30,8 +30,8 @@ Three diagrams answer "what is it" at three altitudes.
 
 **C4 context** — Maestria as a black box surrounded by the *real*
 external systems: the user, the local filesystem, llama.cpp
-(`llama-server` and `llama-embedding`), Hugging Face metadata, and the
-MCP clients (Claude Desktop, deer-flow, scripts). Best first read.
+(`llama-server` and `llama-embedding`), and the MCP clients
+(Claude Desktop, deer-flow, scripts). Best first read.
 
 ![C4 context](svg/c4-context.svg)
 
@@ -389,18 +389,21 @@ extension wasn't forked and remains the one users would install.
 
 ## Folder layout
 
-The repo now ships **two language-mirrored trees** —
-[`docs/en/`](.) (this one) and [`docs/fr/`](../fr/) — with the same
-file layout. Every `.puml` / `.iuml` exists in both copies; pick the
-one that matches your reading language. The English copy is the
-canonical source — French is translated from it.
+PlantUML sources live exclusively in `docs/en/`. Translatable strings
+are catalogued in `docs/en/_includes/i18n/strings_{en,fr}.iuml`; the
+language is a CLI flag at render time (`-DLANG=en` / `-DLANG=fr`).
+`docs/fr/` only carries the translated `README.md` and the rendered
+`svg/` output — there are no parallel PlantUML sources to drift.
 
 ```
 docs/en/
 ├── README.md                         ← this file
 ├── svg/                              ← rendered output (gitignored)
 ├── _includes/                        ← DRY partials — definitions live ONLY here
-│   ├── style.iuml                    ← palette + skinparams
+│   ├── style.iuml                    ← palette + skinparams + i18n loader
+│   ├── i18n/                         ← language catalogues
+│   │   ├── strings_en.iuml           ← English STR_* values
+│   │   └── strings_fr.iuml           ← French STR_* values (parallel to en)
 │   ├── actors.iuml                   ← generic shared actors (component-shape)
 │   ├── legend.iuml                   ← rung/prior/none + scoring_scheme
 │   ├── classes/                      ← class / type definitions
@@ -501,34 +504,39 @@ UML diagram types intentionally **not** covered (low value for this codebase):
 
 ## Rendering
 
+Sources live only in `docs/en/`. Language is a render-time choice:
+pass `-DLANG=en` or `-DLANG=fr` and the same source file produces the
+matching SVG. Translatable strings are catalogued under
+`_includes/i18n/strings_{en,fr}.iuml`; structural keywords, identifiers
+and code snippets stay in the source.
+
 All commands assume `plantuml.jar` lives at the repo root (already
 gitignored). Java 8+ is enough; OpenJDK 21 from Android Studio's
 bundled JBR works fine on Windows.
 
 1. **VS Code extension** (recommended for one-off edits) — install
    `jebbs.plantuml`, then `Alt+D` on a `.puml`. The extension picks
-   up `_includes/*.iuml` automatically.
-2. **CLI — batch the whole tree into `docs/en/svg/`**:
+   up `_includes/*.iuml` automatically. The live preview defaults to
+   English; to preview in French, add `"plantuml.commandArgs":
+   ["-DLANG=fr"]` to workspace settings (see
+   [`.vscode/settings.json.example`](../../.vscode/settings.json.example)).
+2. **CLI — batch the whole tree into `docs/en/svg/` and `docs/fr/svg/`**:
 
    PowerShell (Windows):
    ```powershell
    $java = "C:\Program Files\Android\Android Studio\jbr\bin\java.exe"
-   # English copy
-   $en = (Get-ChildItem docs\en -Filter *.puml -Recurse).FullName
-   & $java -jar plantuml.jar -tsvg -charset UTF-8 -o "$PWD\docs\en\svg" $en
-   # French copy
-   $fr = (Get-ChildItem docs\fr -Filter *.puml -Recurse).FullName
-   & $java -jar plantuml.jar -tsvg -charset UTF-8 -o "$PWD\docs\fr\svg" $fr
+   $src = (Get-ChildItem docs\en -Filter *.puml -Recurse).FullName
+   & $java -jar plantuml.jar -DLANG=en -tsvg -charset UTF-8 -o "$PWD\docs\en\svg" $src
+   & $java -jar plantuml.jar -DLANG=fr -tsvg -charset UTF-8 -o "$PWD\docs\fr\svg" $src
    ```
 
    bash (macOS / Linux / Git Bash):
    ```bash
    curl -fsSL -o plantuml.jar \
      https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
-   java -jar plantuml.jar -tsvg -charset UTF-8 \
-     -o "$(pwd)/docs/en/svg" $(find docs/en -name '*.puml')
-   java -jar plantuml.jar -tsvg -charset UTF-8 \
-     -o "$(pwd)/docs/fr/svg" $(find docs/fr -name '*.puml')
+   src=$(find docs/en -name '*.puml')
+   java -jar plantuml.jar -DLANG=en -tsvg -charset UTF-8 -o "$(pwd)/docs/en/svg" $src
+   java -jar plantuml.jar -DLANG=fr -tsvg -charset UTF-8 -o "$(pwd)/docs/fr/svg" $src
    ```
 
    The single-output-dir form is intentional — `-o "../svg"` (the old
@@ -539,21 +547,31 @@ bundled JBR works fine on Windows.
    relative paths only render locally (the web service can't reach
    our `_includes/`).
 
-`docs/en/svg/` should be gitignored (the SVGs are derived and
-would just create merge noise — re-render on demand).
+Both `docs/en/svg/` and `docs/fr/svg/` should be gitignored (the SVGs
+are derived and would just create merge noise — re-render on demand).
 
 ## Conventions
 
-- Every `.puml` starts with `!include _includes/style.iuml`.
+- Every `.puml` starts with `!include _includes/style.iuml`. That
+  include transitively loads the i18n catalogue, so any `STR_FOO`
+  token used downstream resolves automatically.
 - **Each class / type / shape / actor / component is defined ONCE**,
   in a partial under `_includes/`. Composers `!include` the partial —
   never redeclare. Editing a field is a one-line change that
   propagates to every composer that references it.
+- **Each translatable string is defined ONCE per language**, in
+  `_includes/i18n/strings_{en,fr}.iuml`. Source files reference them
+  via `STR_FILEBASE_DESCRIPTOR` tokens. To add a new translatable
+  label: append parallel entries to both catalogues, then use the
+  token in the source.
 - Composers are thin — includes + relationships + notes. The notes
   are the only thing they carry that doesn't live in a partial.
 - Aliases in partials are stable (e.g. `as PKG_SBX_TYPES`,
   `as CMP_T_MODELS`). If you rename one, every composer breaks
   visibly at the next render — that's intentional.
+- Comments (`'…`) live only in the English source. They are stripped
+  by the preprocessor and never reach the rendered SVG, so there is
+  nothing to translate.
 - Scope = AI subsystem only. No TagSpaces-inherited file organiser
   plumbing, no perspective rendering, no general settings —
   documented in `CLAUDE.md` and the inline JSDoc instead.
