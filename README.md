@@ -120,6 +120,28 @@ npm run package-mac-arm64
 > only — the proprietary `@tagspacespro` code must not be bundled in this
 > AGPL fork.
 
+#### Convenience build helpers
+
+Two wrapper scripts orchestrate the full pipeline (kill running instances, sanity-check the env, run the right `npm` chain, report the artefacts produced):
+
+```powershell
+# Windows — runs from PowerShell (works in a regular shell too)
+.\scripts\build-windows.ps1                   # full prod (NSIS + ZIP + unpacked) — ~15-25 min
+.\scripts\build-windows.ps1 -Quick            # unpacked exe only — ~10 min
+.\scripts\build-windows.ps1 -Reinstall        # force-rerun npm run install-ext-node first
+```
+
+```bash
+# Linux — bash
+./scripts/build-linux.sh                      # full prod (deb + AppImage + tar.gz)
+./scripts/build-linux.sh --quick              # unpacked only
+./scripts/build-linux.sh --reinstall          # force-rerun install-ext-node first
+```
+
+Outputs land in `../builds/` (one level up from the repo, per `electron-builder`'s `directories.output` config). The scripts print the resolved artefact paths at the end so you don't have to hunt for the right version.
+
+**Windows prerequisite:** enable Windows Developer Mode once (`Start-Process "ms-settings:developers"` → toggle ON). Without it, `electron-builder`'s winCodeSign cache extraction fails on Darwin symlinks. The wrapper warns if it detects the mode is off but does not flip it for you (requires admin).
+
 ---
 
 ## 📄 License
