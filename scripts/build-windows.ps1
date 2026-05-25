@@ -111,19 +111,40 @@ if ($Quick) {
 }
 
 # ---- 5. Report -------------------------------------------------------
+# Builds dir lives one level up from the repo (electron-builder
+# `directories.output = ../builds`). Resolve the artefacts produced
+# by THIS run by reading the version from release/app/package.json
+# rather than picking arbitrary files from the dir — the prior
+# `Get-ChildItem | Select -First 1` returned the alphabetically-first
+# match, which falsely reported stale alpha.1 artefacts when alpha.2
+# coexisted.
 $buildsDir = Join-Path (Split-Path -Parent $repoRoot) 'builds'
 $exe = Join-Path $buildsDir 'win-unpacked\Maestria.exe'
+$version = $null
+try {
+    $pkg = Get-Content (Join-Path $repoRoot 'release\app\package.json') -Raw | ConvertFrom-Json
+    $version = $pkg.version
+} catch {
+    # Fall through — we'll skip the installer/zip lines without a version.
+}
+
 Write-Host ""
 Write-Host "==> Build complete" -ForegroundColor Green
 if (Test-Path $exe) {
     $sizeMB = [math]::Round((Get-Item $exe).Length / 1MB, 1)
     Write-Host "    Unpacked  : $exe ($sizeMB MB)"
 }
-if (-not $Quick) {
-    $installer = Get-ChildItem -Path $buildsDir -Filter 'maestria-win-x64-*.exe' -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike '*__uninstaller*' } | Select-Object -First 1
-    $zip = Get-ChildItem -Path $buildsDir -Filter 'maestria-win-x64-*.zip' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($installer) { Write-Host "    Installer : $($installer.FullName) ($([math]::Round($installer.Length / 1MB, 1)) MB)" }
-    if ($zip) { Write-Host "    ZIP       : $($zip.FullName) ($([math]::Round($zip.Length / 1MB, 1)) MB)" }
+if (-not $Quick -and $version) {
+    $installerPath = Join-Path $buildsDir "maestria-win-x64-$version.exe"
+    $zipPath = Join-Path $buildsDir "maestria-win-x64-$version.zip"
+    if (Test-Path $installerPath) {
+        $size = [math]::Round((Get-Item $installerPath).Length / 1MB, 1)
+        Write-Host "    Installer : $installerPath ($size MB)"
+    }
+    if (Test-Path $zipPath) {
+        $size = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
+        Write-Host "    ZIP       : $zipPath ($size MB)"
+    }
 }
 Write-Host ""
 Write-Host "Launch:   & '$exe'" -ForegroundColor DarkGray
