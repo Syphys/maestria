@@ -133,6 +133,22 @@ export class ChatClient implements ChatLike {
     if (this.cfg.maxTokens !== undefined) {
       payload.max_tokens = this.cfg.maxTokens;
     }
+    // Belt-and-braces stop sequences. llama-server normally stops on
+    // the model's declared EOS token, but a non-trivial slice of the
+    // GGUF fine-tunes in the wild ship with a broken chat template or
+    // an `<|endoftext|>` marker that is NOT flagged as EOS — those
+    // models emit the marker mid-stream and keep generating, looping
+    // the same answer 30+ times until max_tokens is hit. The strings
+    // below cover the common conventions across model families; they
+    // never appear in legitimate output so adding them is safe.
+    payload.stop = [
+      '<|endoftext|>', // GPT-2 family + many earlier fine-tunes
+      '<|im_end|>', // ChatML (Qwen, Yi, …)
+      '<|eot_id|>', // Llama 3 / 3.1 / 3.2
+      '<|end|>', // Phi-3
+      '</s>', // Llama 1/2, Mistral, Mixtral
+      '<end_of_turn>', // Gemma 2 / 3
+    ];
     const body = JSON.stringify(payload);
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
