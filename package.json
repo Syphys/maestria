@@ -1,5 +1,5 @@
 {
-  "name": "tagspaces",
+  "name": "maestria",
   "version": "0.0.0",
   "description": "Maestria — local AI-model browser & manager. Fork of TagSpaces, AGPL-3.0.",
   "keywords": [
@@ -280,7 +280,7 @@
     "css-minimizer-webpack-plugin": "7.0.4",
     "detect-port": "^1.5.1",
     "dotenv-webpack": "8.1.1",
-    "electron": "41.2.1",
+    "electron": "^41.2.1",
     "electron-builder": "26.8.1",
     "electron-devtools-installer": "4.0.0",
     "electronmon": "2.0.4",

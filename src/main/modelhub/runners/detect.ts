@@ -44,6 +44,8 @@ const EXTRA_DIRS = [
   'C:\\Program Files\\llama.cpp',
   '/opt/llama.cpp/bin',
   '/usr/local/bin',
+  '/usr/bin',
+  path.join(os.homedir(), '.local', 'bin'),
 ];
 
 const CAPABILITIES: RunnerCapabilities = { gguf: true, safetensors: false };

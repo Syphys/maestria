@@ -30,7 +30,9 @@ saute directement à une section quand tu cherches un point précis.
 ### 1. Vue d'ensemble — ce qu'est Maestria
 
 Maestria part d'un fork TagSpaces spécialisé pour parcourir,
-caractériser et lancer des modèles `.gguf` locaux depuis `D:\models`.
+caractériser et lancer des modèles `.gguf` locaux depuis un dossier
+configuré par l'utilisateur (par exemple `~/Models` sous Linux/macOS,
+`D:\models` sous Windows).
 Trois diagrammes répondent à « c'est quoi » à trois altitudes.
 
 **Contexte C4** — Maestria comme boîte noire entourée des *vrais*
@@ -51,8 +53,8 @@ vit X » sans changer de page.
 **Déploiement** — topologie runtime : les processus Electron
 (renderer + main), les instances `llama-server` spawnées sur
 `127.0.0.1:8080/8081/8082`, le listener HTTP+SSE MCP sur
-`127.0.0.1:41541`, et la disposition sur disque (`D:\models`,
-sidecars sous `.ts/`). Le renderer est **optionnel en mode headless**
+`127.0.0.1:41541`, et la disposition sur disque (le dossier de
+modèles choisi par l'utilisateur, sidecars sous `.ts/`). Le renderer est **optionnel en mode headless**
 (`--headless` / `MAESTRIA_HEADLESS=1`) : l'icône du tray reste la
 seule surface UI et spawn une fenêtre à la demande — voir section 8.
 
@@ -401,8 +403,9 @@ d'accueil embarque un stepper Get-Started en 9 étapes
 (`HowToStart.tsx`) qui guide un nouvel utilisateur sur le vrai
 parcours Maestria au lieu du pitch générique upstream de gestion
 de fichiers : intro recadrée sur .gguf/.safetensors + llama-server +
-MCP optionnel, gestionnaire d'emplacements pointé sur `D:\models`
-/ `~/models`, layout sidecar sous `.ts/`, auto-tags depuis les
+MCP optionnel, gestionnaire d'emplacements pointé sur le dossier de
+modèles de l'utilisateur (`~/Models`, `D:\models`, …), layout sidecar
+sous `.ts/`, auto-tags depuis les
 headers GGUF, configuration des runners llama.cpp (remplace
 l'étape upstream « Création de nouveaux fichiers » — non pertinente
 pour des binaires de modèles pré-existants), Paramètres

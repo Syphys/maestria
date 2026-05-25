@@ -67,6 +67,39 @@ npm run dev          # development (hot reload)
 npm run build && npm run start
 ```
 
+### Linux setup (Arch / CachyOS)
+
+```bash
+# Runtime engine — pick the variant matching your GPU
+paru -S llama.cpp-hip       # AMD Radeon (ROCm/HIP)
+paru -S llama.cpp-vulkan    # any Vulkan GPU (AMD/Intel/NVIDIA)
+paru -S llama.cpp-cuda      # NVIDIA (CUDA)
+# or: sudo pacman -S llama.cpp  # CPU-only
+
+# Node toolchain
+sudo pacman -S nodejs npm
+```
+
+`llama-server` will be auto-detected from `/usr/bin` (or `~/.local/bin` for source builds).
+
+**Sandbox fix** (one-time, after `npm install` or after upgrading Electron):
+
+```bash
+npm run linux-fix-sandbox
+```
+
+This chowns `chrome-sandbox` to `root:4755` so Chromium's setuid sandbox works.
+Required for both dev mode and the packaged `.AppImage` / `.deb`.
+
+**Default model folder:** `~/Models` (override via env: `MODELS_ROOT=/path/to/models npm run dev`).
+
+> **Pitfall — bad env vars:** if `npm run dev` crashes immediately with
+> `Uncaught Exception: Error: open EBADF` on `process.getStdout`, your shell
+> exports `ELECTRON_RUN_AS_NODE=1`. Unset it:
+> `set -e ELECTRON_RUN_AS_NODE; set -e ELECTRON_NO_ATTACH_CONSOLE` (fish) or
+> `unset ELECTRON_RUN_AS_NODE ELECTRON_NO_ATTACH_CONSOLE` (bash/zsh), and
+> scrub it from your shell rc.
+
 ### Testing
 
 ```bash
