@@ -1,32 +1,33 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Something broken or misbehaving in Maestria
 title: ''
-labels: ''
+labels: bug
 assignees: ''
-
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**What happened**
+A clear description of the bug — what did you do, what did Maestria do.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**Expected behaviour**
+What you thought would happen instead.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Steps to reproduce**
+1.
+2.
+3.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Screenshots / logs**
+- Screenshots of the UI when relevant.
+- Main-process logs from the terminal where you launched Maestria (or `Help → Show logs` if you installed the packaged build).
+- For runner / llama.cpp issues: copy the server log accessible from the Inférence tab's log button.
 
-**Desktop Application:**
- - Operating System: [e.g. macOS, Windows 10, Linux, Ubuntu]
- - Browser - only needed if you use the browser extensions for Firefox or Chrome
- - TagSpaces Version [e.g. 3.1.1]
+**Environment**
+- OS: [Windows 11 / macOS 14 / Ubuntu 24.04 / …]
+- Maestria version: [About dialog, e.g. `0.1.0-alpha.2`]
+- Install type: [packaged installer / portable ZIP / `npm run dev` from source]
+- llama.cpp binary: [path + `llama-server --version` output if relevant]
+- Hardware: [CPU, GPU + VRAM, RAM — only if the bug is performance / OOM related]
 
 **Additional context**
-Add any other context about the problem here.
+Anything else worth knowing — recent changes, what you were trying to achieve, models involved (size, quant, format), MCP client used, etc.
