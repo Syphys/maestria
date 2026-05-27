@@ -18,10 +18,24 @@ export interface ChatLike {
    * which in turn makes llama-server stop generating (the connection
    * close is its cancellation signal). This is the ONLY cancellation
    * path — there is no wall-clock timeout (see ChatClientConfig docs).
+   *
+   * `ctx.onChunk` is an OPTIONAL live-progress callback fired EVERY time
+   * the SSE accumulator updates — both for `content` deltas and for
+   * `reasoning_content` deltas. Receives the FULL accumulated text so
+   * far on each call (so the caller doesn't have to concatenate); the
+   * `kind` distinguishes the two channels so the UI can wrap
+   * reasoning in `<think>…</think>` exactly like the final-return shape.
+   * Callers that only want the final text can omit it — the streaming
+   * keeps running, the callback simply isn't invoked. Errors thrown by
+   * `onChunk` are swallowed so a UI bug never sinks the chat request.
    */
   complete(
     prompt: string,
-    ctx?: { id?: string; signal?: AbortSignal },
+    ctx?: {
+      id?: string;
+      signal?: AbortSignal;
+      onChunk?: (kind: 'content' | 'reasoning', accumulated: string) => void;
+    },
   ): Promise<string>;
 }
 
@@ -75,9 +89,16 @@ export class ChatError extends Error {
   }
 }
 
-type ChatCompletionResponse = {
+/**
+ * Streaming-delta shape (SSE `data: {…}` lines). llama-server emits
+ * incremental tokens in `choices[0].delta.content` and (for thinking
+ * models with `thinking = 1`) `choices[0].delta.reasoning_content`.
+ * Final chunk has `choices[0].finish_reason !== null` and is followed
+ * by `data: [DONE]`. We accumulate the deltas across the stream.
+ */
+type ChatStreamChunk = {
   choices?: {
-    message?: {
+    delta?: {
       content?: string;
       /**
        * Thinking-model channel introduced in recent llama-server builds
@@ -92,7 +113,7 @@ type ChatCompletionResponse = {
        */
       reasoning_content?: string;
     };
-    text?: string;
+    finish_reason?: string | null;
   }[];
 };
 
@@ -100,6 +121,110 @@ const sleep = (ms: number) =>
   new Promise<void>((r) => {
     setTimeout(r, ms);
   });
+
+/**
+ * Read an OpenAI-style Server-Sent Events stream and return the
+ * concatenated assistant content + reasoning. Lines are framed by
+ * `\n` (single LF — llama-server uses LF, not CRLF) and each event is
+ * a single `data: {…}` line followed by a blank line. The terminal
+ * marker is `data: [DONE]`. Malformed JSON lines are skipped (some
+ * proxies inject keep-alive comments).
+ *
+ * Exported for unit tests; production callers go through ChatClient.
+ */
+export async function readSseStream(
+  body: ReadableStream<Uint8Array>,
+  signal?: AbortSignal,
+  onChunk?: (kind: 'content' | 'reasoning', accumulated: string) => void,
+): Promise<{ content: string; reasoning: string }> {
+  let content = '';
+  let reasoning = '';
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  // Throttle onChunk firings to one per 80 ms so a fast token stream
+  // (60+ t/s) doesn't drown the IPC bridge / React reconciler. The
+  // final accumulator is always flushed below the loop, so the caller
+  // never misses tokens — only the intermediate rendering rate drops.
+  const FLUSH_INTERVAL_MS = 80;
+  let lastFlushedAt = 0;
+  let dirty: 'content' | 'reasoning' | null = null;
+  const safeFire = (kind: 'content' | 'reasoning', acc: string) => {
+    if (!onChunk) return;
+    try {
+      onChunk(kind, acc);
+    } catch {
+      // never let a UI-callback bug sink the chat stream
+    }
+  };
+  const maybeFlush = (kind: 'content' | 'reasoning') => {
+    if (!onChunk) return;
+    dirty = kind;
+    const now = Date.now();
+    if (now - lastFlushedAt < FLUSH_INTERVAL_MS) return;
+    lastFlushedAt = now;
+    safeFire(kind, kind === 'content' ? content : reasoning);
+    dirty = null;
+  };
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        // Match the AbortError shape that fetch would have thrown so
+        // the caller's catch (which looks for `name === 'AbortError'`)
+        // takes the no-retry path.
+        const err = new Error('aborted by caller');
+        err.name = 'AbortError';
+        throw err;
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE events are separated by blank lines; within an event each
+      // line is prefixed `data:`. llama-server only emits a single
+      // `data:` per event, so a simple split on `\n` is enough.
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') {
+          // Final flush — emit whatever channel was last touched so
+          // the UI sees the complete text even if it landed inside
+          // the throttle window.
+          if (dirty) safeFire(dirty, dirty === 'content' ? content : reasoning);
+          return { content, reasoning };
+        }
+        let chunk: ChatStreamChunk;
+        try {
+          chunk = JSON.parse(data) as ChatStreamChunk;
+        } catch {
+          continue;
+        }
+        const delta = chunk.choices?.[0]?.delta;
+        if (typeof delta?.reasoning_content === 'string') {
+          reasoning += delta.reasoning_content;
+          maybeFlush('reasoning');
+        }
+        if (typeof delta?.content === 'string') {
+          content += delta.content;
+          maybeFlush('content');
+        }
+      }
+    }
+  } finally {
+    // Releases the underlying socket; safe to call even after [DONE].
+    try {
+      await reader.cancel();
+    } catch {
+      // ignore — cancelling an already-closed stream throws on some Node builds
+    }
+  }
+  // Stream ended without an explicit [DONE] marker — flush + return.
+  if (dirty) safeFire(dirty, dirty === 'content' ? content : reasoning);
+  return { content, reasoning };
+}
 
 /** Network error / timeout / 429 / 5xx are transient; other 4xx are not. */
 function isRetryableStatus(status: number | undefined): boolean {
@@ -125,21 +250,42 @@ export class ChatClient implements ChatLike {
    * Single-turn completion. Returns the assistant message text. Throws
    * {@link ChatError} after exhausting retries.
    *
-   * No wall-clock timeout — `fetch` waits as long as the model and the
-   * OS keep the socket open. A slow 31B Q6 multistep prompt can take
-   * 3–4 min; the user prefers to wait rather than see fake `(empty)`
-   * responses. Real network/process failures still throw + retry.
+   * SSE STREAMING (since 2026-05-26). Requests `stream: true` and
+   * accumulates `choices[0].delta.content` (+ `delta.reasoning_content`
+   * for thinking models). Why streaming when we only need the final
+   * concatenated text:
+   *   1. Node's built-in `fetch` (undici) has a 5-minute `headersTimeout`
+   *      we cannot configure without pulling in undici as a dep. With
+   *      `stream: false`, llama-server only sends headers AFTER the
+   *      whole generation completes, so any prompt taking >5 min got
+   *      its connection killed undici-side → llama-server saw the
+   *      disconnect and cancelled the task (visible in server logs as
+   *      `should_stop`) → Maestria received an empty/truncated 200 →
+   *      the prompt scored zero on a perfectly fine model. With
+   *      streaming, headers come back immediately and tokens flow
+   *      incrementally; the headersTimeout never matters.
+   *   2. We can later surface tokens to the UI in real-time (the
+   *      « Interactions » tab would stop appearing frozen on long
+   *      generations) — left for a follow-up; today we just concat.
+   *
+   * No wall-clock timeout — fetch waits as long as tokens keep flowing.
+   * Real network/process failures still throw + retry. `ctx.signal`
+   * propagates the user's Cancel click to fetch AND the SSE reader.
    */
   async complete(
     prompt: string,
-    ctx?: { id?: string; signal?: AbortSignal },
+    ctx?: {
+      id?: string;
+      signal?: AbortSignal;
+      onChunk?: (kind: 'content' | 'reasoning', accumulated: string) => void;
+    },
   ): Promise<string> {
     const payload: Record<string, unknown> = {
       model: this.cfg.model ?? '',
       messages: [{ role: 'user', content: prompt }],
       temperature: this.cfg.temperature ?? 0,
       seed: this.cfg.seed ?? 42,
-      stream: false,
+      stream: true,
       n: 1,
     };
     // No `max_tokens` unless one is explicitly configured — thinking
@@ -198,12 +344,21 @@ export class ChatClient implements ChatLike {
           if (!isRetryableStatus(res.status)) throw err;
           lastErr = err;
         } else {
-          const json = (await res.json()) as ChatCompletionResponse;
-          const choice = json.choices?.[0];
-          const content = choice?.message?.content ?? choice?.text;
-          if (typeof content !== 'string') {
+          if (!res.body) {
             throw new ChatError(
-              'chat: response had no message content',
+              'chat: response has no body (streaming requires a ReadableStream)',
+              res.status,
+              attempt + 1,
+            );
+          }
+          const { content, reasoning } = await readSseStream(
+            res.body,
+            ctx?.signal,
+            ctx?.onChunk,
+          );
+          if (!content && !reasoning) {
+            throw new ChatError(
+              'chat: SSE stream produced no content',
               res.status,
               attempt + 1,
             );
@@ -213,8 +368,7 @@ export class ChatClient implements ChatLike {
           // and the live « Interactions » tab keep full visibility.
           // Scorers strip `<think>…</think>` before scoring (D11), so
           // appending it never affects deterministic scores.
-          const reasoning = choice?.message?.reasoning_content;
-          if (typeof reasoning === 'string' && reasoning.length > 0) {
+          if (reasoning.length > 0) {
             return `<think>${reasoning}</think>\n${content}`;
           }
           return content;

@@ -80,6 +80,29 @@ function useAutoScrollBottom(
   return ref;
 }
 
+/**
+ * Always-on auto-scroll-to-bottom on data change. Unlike
+ * `useAutoScrollBottom` (which only triggers when the user is already
+ * near the bottom — a safeguard the error / server logs use to avoid
+ * yanking the cursor away from a line the user is reading), this hook
+ * ALWAYS jumps to the bottom of the container as soon as the watched
+ * value changes. Used by the « Interactions » tab so the latest
+ * response is always visible without manual scrolling, even after a
+ * long answer pushed the user mid-list.
+ */
+function useAutoScrollBottomAlways(
+  deps: ReadonlyArray<unknown>,
+): React.RefObject<HTMLDivElement> {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return ref;
+}
+
 /** Poll an IPC text endpoint for the given filePath while `enabled`. */
 function usePolledText(
   channel: string,
@@ -199,29 +222,107 @@ function CharacterizeAllLogsTabs({ progress, running }: Props): JSX.Element {
   // load per `currentFile` switch.
   const loadedSignature = useLoadedSignature(progress.currentFile);
 
-  // LIVE entries — accumulated from `prompt_done` events that the main
+  // LIVE entries — accumulated from progress events that the main
   // process ships through `progress.modelStatus.progress`. Resets every
   // time the bulk run moves to a new model (`currentFile` change).
+  //
+  // Three event kinds feed in:
+  //   - `prompt_started` : seed an empty in-flight entry so the prompt
+  //     id appears immediately (no « écran vide pendant que ça tourne »).
+  //   - `prompt_streaming` (NEW): update the in-flight entry's response
+  //     with the partial accumulator. Fires ~every 80 ms while the model
+  //     is generating, so the user reads the model in real time.
+  //   - `prompt_done` : replace the in-flight entry with the final
+  //     scored entry (response is the full text, plus score/pass/detail).
+  //
+  // Partial responses are stored as `<think>{reasoning}</think>\n{content}`
+  // — same shape ChatClient.complete returns for the final value, so the
+  // tab rendering is uniform.
   const [liveEntries, setLiveEntries] = useState<
     Record<string, DiagnosticRunEntry>
+  >({});
+  // Per-prompt streaming buffer (separate channels because they arrive
+  // independently). Kept in a ref so updates don't churn React state.
+  const streamingBufRef = useRef<
+    Record<string, { content: string; reasoning: string }>
   >({});
   const liveModelFileRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (liveModelFileRef.current !== progress.currentFile) {
       liveModelFileRef.current = progress.currentFile;
       setLiveEntries({});
+      streamingBufRef.current = {};
     }
     const ms = progress.modelStatus;
     if (!ms || ms.stage !== 'running') return;
     const innerProgress = ms.progress;
-    if (!innerProgress || innerProgress.kind !== 'prompt_done') return;
-    const entry = innerProgress.entry;
-    if (!entry) return;
-    const id = innerProgress.promptId;
-    setLiveEntries((prev) => {
-      if (prev[id]?.finishedAt === entry.finishedAt) return prev; // dup
-      return { ...prev, [id]: entry };
-    });
+    if (!innerProgress) return;
+    const renderPartial = (buf: {
+      content: string;
+      reasoning: string;
+    }): string => {
+      if (buf.reasoning.length > 0) {
+        return `<think>${buf.reasoning}</think>\n${buf.content}`;
+      }
+      return buf.content;
+    };
+    if (innerProgress.kind === 'prompt_started') {
+      // Reset any stale buffer for this id (rerun / retry) and seed an
+      // empty live entry so the prompt's row appears immediately.
+      const id = innerProgress.promptId;
+      streamingBufRef.current[id] = { content: '', reasoning: '' };
+      setLiveEntries((prev) => {
+        if (prev[id]) return prev; // already there (e.g. retry mid-flight)
+        return {
+          ...prev,
+          [id]: {
+            promptId: id,
+            startedAt: new Date().toISOString(),
+            response: '',
+          } as DiagnosticRunEntry,
+        };
+      });
+      return;
+    }
+    if (innerProgress.kind === 'prompt_streaming') {
+      const id = innerProgress.promptId;
+      const buf = streamingBufRef.current[id] ?? { content: '', reasoning: '' };
+      // The chat client sends the FULL accumulator on each chunk, so we
+      // just overwrite the right channel.
+      if (innerProgress.channel === 'content') {
+        buf.content = innerProgress.accumulated;
+      } else {
+        buf.reasoning = innerProgress.accumulated;
+      }
+      streamingBufRef.current[id] = buf;
+      const response = renderPartial(buf);
+      setLiveEntries((prev) => {
+        const cur = prev[id];
+        if (cur && cur.response === response) return prev; // unchanged
+        return {
+          ...prev,
+          [id]: {
+            ...(cur ?? {
+              promptId: id,
+              startedAt: new Date().toISOString(),
+            }),
+            response,
+          } as DiagnosticRunEntry,
+        };
+      });
+      return;
+    }
+    if (innerProgress.kind === 'prompt_done') {
+      const entry = innerProgress.entry;
+      if (!entry) return;
+      const id = innerProgress.promptId;
+      // Drop the streaming buffer — the final entry supersedes it.
+      delete streamingBufRef.current[id];
+      setLiveEntries((prev) => {
+        if (prev[id]?.finishedAt === entry.finishedAt) return prev;
+        return { ...prev, [id]: entry };
+      });
+    }
   }, [progress.currentFile, progress.modelStatus]);
 
   // Source preference: live buffer (current model, in progress) overrides
@@ -240,15 +341,19 @@ function CharacterizeAllLogsTabs({ progress, running }: Props): JSX.Element {
 
   const errorsRef = useAutoScrollBottom([progress.errorSamples.length]);
   const serverRef = useAutoScrollBottom([serverLog]);
-  const interactionsRef = useAutoScrollBottom([interactions.length]);
+  // The interactions tab uses always-on auto-scroll: as soon as a new
+  // entry lands we jump to the bottom, no 60-px guard. The errors and
+  // server logs keep the conservative useAutoScrollBottom (with the
+  // guard) since the user often reads mid-list there.
+  const interactionsRef = useAutoScrollBottomAlways([interactions.length]);
 
   // When the user switches tabs, force-scroll the newly-active tab to
   // the bottom — they want to see the LATEST entry / line, never the
-  // first one. The continuous `useAutoScrollBottom` above only fires
-  // on data changes (and respects the user's mid-scroll position),
-  // so without this extra effect a tab switch would land at the top
-  // of the freshly-mounted Box. Layout-effect so the scroll happens
-  // BEFORE the browser paints — no visible jump from top to bottom.
+  // first one. The continuous auto-scroll hooks above only fire on data
+  // changes (and the errors / server logs respect the user's mid-scroll
+  // position), so without this extra effect a tab switch would land at
+  // the top of the freshly-mounted Box. Layout-effect so the scroll
+  // happens BEFORE the browser paints — no visible jump from top to bottom.
   useLayoutEffect(() => {
     const ref =
       tab === 'errors'
@@ -259,8 +364,7 @@ function CharacterizeAllLogsTabs({ progress, running }: Props): JSX.Element {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
     // Refs are stable; we deliberately key only on `tab` so this
-    // fires on the switch, not on every content update (those are
-    // already covered by useAutoScrollBottom above).
+    // fires on the switch, not on every content update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 

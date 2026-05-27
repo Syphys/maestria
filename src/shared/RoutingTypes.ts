@@ -537,6 +537,25 @@ export type CharacterizationProgress =
       total: number;
     }
   | {
+      /**
+       * Live partial-response event fired while the model is STILL
+       * generating, every ~80 ms (throttled in chat.ts/readSseStream).
+       * Used by the « Interactions » tab to render an in-flight entry
+       * with up-to-the-token content — the same fix that turns « écran
+       * figé pendant qu'on génère » into « tu vois le modèle écrire
+       * en direct ». A final `prompt_done` always follows with the
+       * complete entry (or the error); the partial accumulator can be
+       * dropped on receipt of `prompt_done`.
+       */
+      kind: 'prompt_streaming';
+      modelHash: string;
+      promptId: string;
+      /** 'content' = visible answer; 'reasoning' = thinking-channel for R1/Qwen3/Gemma. */
+      channel: 'content' | 'reasoning';
+      /** Full accumulated text on this channel (caller does NOT concatenate). */
+      accumulated: string;
+    }
+  | {
       kind: 'prompt_done';
       modelHash: string;
       promptId: string;
