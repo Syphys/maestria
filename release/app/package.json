@@ -1,7 +1,7 @@
 {
   "name": "maestria",
   "productName": "Maestria",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "description": "Maestria — local AI-model browser & manager. Fork of TagSpaces, AGPL-3.0.",
   "homepage": "https://github.com/Syphys/maestria",
   "author": {
