@@ -501,6 +501,14 @@ const createWindow = async (i18n: any) => {
 
   mainWindow.on('show', () => {
     if (!mainWindow) throw new Error('"mainWindow" is not defined');
+    // After a hide() -> show() round-trip (the minimise-to-tray path),
+    // Chromium's compositor can come back with an invalidated GPU
+    // buffer and the renderer doesn't repaint — the window shows up
+    // blank/white until the user resizes or scrolls (which kicks a
+    // forced layout). webContents.invalidate() triggers a fresh paint
+    // immediately, fixing the « page blanche au restore depuis la
+    // tray » symptom without requiring the user to interact.
+    mainWindow.webContents.invalidate();
   });
 
   // Minimise-to-tray: hide the window so it disappears from the
