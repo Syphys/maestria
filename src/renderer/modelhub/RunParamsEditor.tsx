@@ -77,9 +77,16 @@ interface FieldDef {
   labelKey: string;
   /** i18n key suffix for the tooltip help. */
   helpKey: string;
-  type: 'number' | 'boolean';
+  type: 'number' | 'boolean' | 'string';
   min?: number;
   max?: number;
+  /**
+   * Step for `type: 'number'` inputs. Defaults to integer (1) when
+   * unset; pass 0.05 / 0.1 for fractional fields like `repeatPenalty`.
+   */
+  step?: number;
+  /** Placeholder shown in `type: 'string'` inputs (suggestion hint). */
+  placeholder?: string;
   /**
    * When true, this row is disabled while `fit` is on — llama-server
    * computes the value itself at boot from free VRAM and ignores any
@@ -163,6 +170,46 @@ const FIELDS: FieldDef[] = [
     helpKey: 'MlockHelp',
     type: 'boolean',
     flag: '--mlock',
+  },
+  {
+    // Override the chat template baked into the GGUF. Empty / undefined =>
+    // llama-server uses tokenizer.chat_template from the file. Set to
+    // `chatml`, `llama3`, `mistral-v7`, `deepseek-r1`, … when the embedded
+    // template is broken (community Unsloth / iMatrix quants frequently
+    // ship a bad one, leading to infinite-loop outputs).
+    key: 'chatTemplate',
+    labelKey: 'ChatTemplate',
+    helpKey: 'ChatTemplateHelp',
+    type: 'string',
+    placeholder: 'chatml, llama3, deepseek-r1, …',
+    flag: '--chat-template',
+  },
+  {
+    // Sampler repetition penalty. command.ts defaults to **1.0 (off)**
+    // when neither this field nor a `--repeat-penalty` line in
+    // customArgs is set — see RunParams.repeatPenalty for why. Only
+    // tune this if you've already turned DRY off and still see loops.
+    key: 'repeatPenalty',
+    labelKey: 'RepeatPenalty',
+    helpKey: 'RepeatPenaltyHelp',
+    type: 'number',
+    min: 0,
+    max: 3,
+    step: 0.05,
+    flag: '--repeat-penalty',
+  },
+  {
+    // DRY sampler activation. command.ts defaults to 0.8 (Unsloth's
+    // recommendation) when the runner advertises `--dry-multiplier`.
+    // 0 disables DRY entirely.
+    key: 'dryMultiplier',
+    labelKey: 'DryMultiplier',
+    helpKey: 'DryMultiplierHelp',
+    type: 'number',
+    min: 0,
+    max: 5,
+    step: 0.1,
+    flag: '--dry-multiplier',
   },
 ];
 
@@ -891,7 +938,7 @@ interface ParamRowProps {
   isOverridden: boolean;
   /** Greyed out + non-editable — used when --fit on subsumes this field. */
   disabled?: boolean;
-  onChange: (v: number | boolean | undefined) => void;
+  onChange: (v: number | boolean | string | undefined) => void;
   onReset: () => void;
 }
 
@@ -963,7 +1010,12 @@ function ParamRow({
               onChange(undefined);
               return;
             }
-            const n = parseInt(raw, 10);
+            // Fields with a fractional `step` (repeatPenalty ⇒ 0.05) must
+            // parseFloat — parseInt would silently drop the decimal part.
+            const n =
+              field.step && field.step < 1
+                ? parseFloat(raw)
+                : parseInt(raw, 10);
             if (Number.isFinite(n)) onChange(n);
           }}
           slotProps={{
@@ -972,8 +1024,24 @@ function ParamRow({
               inputProps: {
                 min: field.min,
                 max: field.max,
+                step: field.step,
               },
             },
+          }}
+          sx={{ width: '100%' }}
+        />
+      ) : field.type === 'string' ? (
+        <TextField
+          size="small"
+          disabled={disabled}
+          value={typeof effective === 'string' ? effective : ''}
+          placeholder={field.placeholder}
+          onChange={(e) => {
+            const raw = e.target.value;
+            onChange(raw === '' ? undefined : raw);
+          }}
+          slotProps={{
+            input: { sx: { fontSize: '0.85em', fontFamily: 'monospace' } },
           }}
           sx={{ width: '100%' }}
         />

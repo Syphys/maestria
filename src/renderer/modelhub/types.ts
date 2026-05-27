@@ -245,6 +245,67 @@ export interface RunParams {
   /** Server bind port. */
   port?: number;
   /**
+   * Override the chat template llama-server applies when wrapping
+   * `messages: [...]` into a prompt. Default → llama-server uses the
+   * template baked into the GGUF (`tokenizer.chat_template`). Set this
+   * when the GGUF's template is broken or missing for a particular
+   * fine-tune (a very common failure mode for community Unsloth /
+   * iMatrix quants of reasoning / prover models, which dégénèrent en
+   * boucles infinies because the model receives an unrecognised prompt
+   * frame and falls back to autoregressive babble). Passed verbatim to
+   * `llama-server --chat-template <value>`. Accepts both built-in names
+   * (`chatml`, `llama2`, `llama3`, `gemma`, `mistral`, `deepseek-r1`, …)
+   * and raw Jinja templates.
+   */
+  chatTemplate?: string;
+  /**
+   * Sampler repetition penalty sent via `--repeat-penalty <value>`.
+   * Default applied at command-build time is **1.0** (disabled) since
+   * the modern stack relies on the DRY sampler instead. Unsloth's own
+   * troubleshooting (May 2026 GLM-4.7-Flash and earlier QwQ-32B) tells
+   * users to set this to 1.0 because the legacy token-level penalty
+   * runs FIRST in llama.cpp's sampler chain (default order
+   * `penalties;dry;top_n_sigma;top_k;typ_p;top_p;min_p;xtc;temperature`)
+   * and, paradoxically, often AGGRAVATES loops on reasoning / thinking
+   * models (the penalty pushes the model into a local minimum it
+   * can't escape). Override per-model only if you've confirmed DRY
+   * alone isn't catching the loop.
+   */
+  repeatPenalty?: number;
+  /**
+   * DRY (Don't Repeat Yourself) sampler — sequence-aware anti-loop.
+   * Detects repeated N-grams in the recent context and applies an
+   * exponential penalty only to tokens that would EXTEND the
+   * repetition; leaves the rest of the distribution untouched. Far
+   * less destructive than `--repeat-penalty` and the recommended
+   * primary anti-loop knob since llama.cpp added it (2024).
+   * `dryMultiplier` is the activation switch: 0 disables DRY (the
+   * upstream default), > 0 turns it on. Maestria's default at
+   * command-build time is 0.8 — the value Unsloth and the DRY guide
+   * both recommend.
+   */
+  dryMultiplier?: number;
+  /**
+   * DRY exponential base — penalty = multiplier × base ^ (run-length
+   * − allowed). Default 1.75 (DRY paper recommendation, reused by
+   * Unsloth and the official llama.cpp docs).
+   */
+  dryBase?: number;
+  /**
+   * Run length under which DRY does NOT penalise — a sequence of 2
+   * repeated tokens (default) is fine; anything longer starts
+   * accruing penalty. Lower this if loops are short, raise it if
+   * legitimate repetition (lists, code) gets damped.
+   */
+  dryAllowedLength?: number;
+  /**
+   * How many recent tokens DRY scans for repetitions. -1 (default)
+   * means « the whole context » — recommended for thinking models
+   * since the loop often spans the entire response. Lower it (e.g.
+   * 256) only if performance becomes an issue.
+   */
+  dryPenaltyLastN?: number;
+  /**
    * When true, delegates ngl / ctx / batchSize sizing to llama.cpp's
    * built-in `--fit on` pass — llama-server inspects free VRAM at boot
    * and fills in those args itself. More accurate for MoE / tied-weight /

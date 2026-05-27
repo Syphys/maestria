@@ -156,6 +156,66 @@ export function buildCommand(
     // customArgs (pushed AFTER this default).
     args.push('--timeout', '86400');
   }
+  // Conversation-level + anti-loop flags. Emitted BEFORE customArgs so a
+  // user-supplied flag in customArgs always wins (parseCustomArgs appends
+  // raw; llama-server's argparse keeps the LAST occurrence).
+  //
+  // RATIONALE (May 2026, after Daniel Han / Unsloth's investigations):
+  //
+  // 1. `--chat-template <name>` overrides the template baked into the
+  //    GGUF. Required for community quants whose `tokenizer.chat_template`
+  //    is broken — the model receives an unrecognised prompt frame and
+  //    falls back to autoregressive babble, which usually surfaces as
+  //    « replies in infinite loops to a simple Hello ».
+  //
+  // 2. `--repeat-penalty` defaults to **1.0 (disabled)**, NOT the legacy
+  //    1.1. Unsloth's own troubleshooting page on GLM-4.7-Flash (and
+  //    QwQ-32B before it) explicitly tells users to set this to 1.0
+  //    because the token-level penalty runs FIRST in llama.cpp's default
+  //    sampler chain and AGGRAVATES loops on reasoning models. The
+  //    modern recommended anti-loop is DRY (below).
+  //
+  // 3. DRY (Don't Repeat Yourself) is a sequence-aware sampler added to
+  //    llama.cpp in 2024. It penalises only N-grams that would extend an
+  //    existing repetition, leaving the rest of the distribution intact —
+  //    much safer than the legacy token-level penalty. Defaults below
+  //    are the ones Unsloth and the DRY guide both recommend.
+  //
+  // SAFETY: each new flag is emitted only if the runner's probed
+  // `--help` actually advertises it. Older llama-server builds that
+  // pre-date DRY (≤ early 2024) would crash at boot with « unknown
+  // argument: --dry-multiplier » otherwise. When no probe is on file
+  // (legacy runner cards) we fall back to emitting — same residual
+  // papercut as the flash-attn syntax fallback above.
+  const flagsKnown = runner.probed?.flagsKnown;
+  const supports = (flag: string) =>
+    !flagsKnown || flagsKnown.includes(flag.toLowerCase());
+
+  if (params.chatTemplate && supports('--chat-template')) {
+    args.push('--chat-template', params.chatTemplate);
+  }
+
+  const customHas = (flag: string) => {
+    if (!params.customArgs) return false;
+    const re = new RegExp(`(^|\\n)\\s*${flag.replace(/[-]/g, '\\-')}\\b`, 'i');
+    return re.test(params.customArgs);
+  };
+
+  if (supports('--repeat-penalty') && !customHas('--repeat-penalty')) {
+    args.push('--repeat-penalty', String(params.repeatPenalty ?? 1.0));
+  }
+  if (supports('--dry-multiplier') && !customHas('--dry-multiplier')) {
+    args.push('--dry-multiplier', String(params.dryMultiplier ?? 0.8));
+  }
+  if (supports('--dry-base') && !customHas('--dry-base')) {
+    args.push('--dry-base', String(params.dryBase ?? 1.75));
+  }
+  if (supports('--dry-allowed-length') && !customHas('--dry-allowed-length')) {
+    args.push('--dry-allowed-length', String(params.dryAllowedLength ?? 2));
+  }
+  if (supports('--dry-penalty-last-n') && !customHas('--dry-penalty-last-n')) {
+    args.push('--dry-penalty-last-n', String(params.dryPenaltyLastN ?? -1));
+  }
   // Custom user args from the "Advanced parameters" dialog. Parsed
   // line-by-line so the user can stack arbitrary flags llama-server
   // accepts but our editor doesn't expose as a dedicated row. Pushed
