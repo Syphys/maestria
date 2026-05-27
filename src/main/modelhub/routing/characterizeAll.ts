@@ -58,6 +58,7 @@ import {
 } from './characterizeRunner';
 import { resolveEmbedderCliFn } from './embedderCli';
 import type { EmbedFn } from './embedProject';
+import { listRunning, stopProcess } from '../runners/launch';
 
 /** A model that can't be characterized at all → quarantine, don't retry. */
 function isUnsupported(e: unknown): boolean {
@@ -157,11 +158,30 @@ export function isCharacterizeAllRunning(): boolean {
  * the current model to finish" — that was the old contract, replaced
  * because a 30k-token runaway generation could hold the run hostage
  * for minutes per stuck model.
+ *
+ * DEFENCE-IN-DEPTH: also kills any llama-server we LAUNCHED for the
+ * characterization pass that hasn't been stopped yet by
+ * runCharacterization's finally. Symptoms this catches: a tree-pass
+ * abort that for some reason didn't reach the runner's finally, or a
+ * launch that completed but whose pid never made it back into the
+ * `ephemeral` tracking. Without this, the user sees the « Cancel »
+ * click leave llama-server alive in the supervisor panel and is
+ * unable to relaunch a fresh characterization without manually
+ * killing the orphan server.
  */
 export function cancelCharacterizeAll(): void {
   if (!running) return;
   cancelFlag = true;
   cancelController?.abort();
+  for (const entry of listRunning()) {
+    if (entry.exited) continue;
+    if (entry.launchedBy !== 'characterize') continue;
+    try {
+      stopProcess(entry.pid);
+    } catch {
+      // already gone — harmless
+    }
+  }
 }
 
 function baseName(p: string): string {

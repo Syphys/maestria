@@ -52,6 +52,63 @@ import mcqV1 from './questions/mcq-v1.json';
  * server cancel) and on responses with any printable letter — those
  * are real chat outputs we must keep scoring.
  */
+/**
+ * Quintuplon detector: returns true when `text` exhibits 5+ consecutive
+ * identical fragments (line-level or block-level). Used to flag
+ * runaway-generation responses where the model loops on its own output
+ * (Unsloth Qwen3.5 / DeepSeek-Prover « Okay, I will stop. The prompt
+ * is: 3x² + Nx + N » pattern). Conservative: only fires on real
+ * repetition, not on creative writing that happens to reuse short
+ * phrases. Single-pass O(n).
+ *
+ * Two checks:
+ *   1. line-level (≥ 20 chars, ≥ 5 in a row, exactly equal) — catches
+ *      the « repeated paragraph » failure mode.
+ *   2. block-level (200-char windows stepping 50, 5 identical in a
+ *      row) — catches the « repeated structural template » failure
+ *      mode where line splits don't align with the loop boundary.
+ *
+ * Exported for tests.
+ */
+export function detectQuintuplon(text: string, k: number = 5): boolean {
+  if (!text) return false;
+  // 1. Line-level
+  const lines = text.split('\n').map((l) => l.trim());
+  let prev: string | undefined;
+  let streak = 0;
+  for (const line of lines) {
+    if (line.length < 20) {
+      streak = 0;
+      prev = undefined;
+      continue;
+    }
+    if (line === prev) {
+      streak += 1;
+      if (streak >= k - 1) return true;
+    } else {
+      streak = 0;
+      prev = line;
+    }
+  }
+  // 2. Block-level: 200-char windows, step 50
+  const winLen = 200;
+  if (text.length >= winLen * k) {
+    for (let start = 0; start + winLen * k <= text.length; start += 50) {
+      const ref = text.slice(start, start + winLen);
+      let allSame = true;
+      for (let j = 1; j < k; j += 1) {
+        const slice = text.slice(start + j * winLen, start + (j + 1) * winLen);
+        if (slice !== ref) {
+          allSame = false;
+          break;
+        }
+      }
+      if (allSame) return true;
+    }
+  }
+  return false;
+}
+
 function looksLikeNonTextResponse(response?: string): boolean {
   if (!response) return false;
   const trimmed = response.trim();
@@ -220,6 +277,12 @@ export async function characterize(
   // GGUFs whose name+arch slipped past the pre-launch filters) doesn't
   // burn the full suite before we admit it's not a chat model.
   let consecutiveEmpty = 0;
+  // When set, the loop bails out and we still persist what we have
+  // before re-throwing. Without this, the previous design threw mid-
+  // loop and the in-memory entries were LOST — the sidecar's
+  // diagnostic_run stayed at 0 entries and the user saw an empty
+  // « Interactions » tab with no clue why the model was quarantined.
+  let quarantineReason: string | undefined;
 
   for (let i = 0; i < work.length; i++) {
     // Honour the user's Cancel click between every prompt — combined
@@ -241,44 +304,106 @@ export async function characterize(
 
     const input = w.kind === 'prompt' ? w.prompt.prompt : renderMcq(w.item);
 
+    // Per-prompt 5-minute hard cap. Above this, the response is
+    // almost certainly stuck in a generation loop (the SSE stream
+    // would have already filled the « Interactions » tab with the
+    // repeating output, but llama-server keeps generating until ctx
+    // is full). The cap aborts the request, the entry is recorded as
+    // a failure with score=0, and the loop moves to the next prompt.
+    // 5 min is loose enough to let a 31B Q6 multistep prompt finish
+    // (typical 3-4 min) and tight enough to bound the worst case.
+    const PROMPT_TIMEOUT_MS = 5 * 60 * 1000;
+    const timeoutCtl = new AbortController();
+    const timeoutId = setTimeout(() => timeoutCtl.abort(), PROMPT_TIMEOUT_MS);
+    const onUserAbort = () => timeoutCtl.abort();
+    opts.signal?.addEventListener('abort', onUserAbort, { once: true });
     let entry: DiagnosticRunEntry;
     try {
       const response = await chat.complete(input, {
         id: w.id,
-        signal: opts.signal,
+        signal: timeoutCtl.signal,
+        onChunk: opts.onProgress
+          ? (channel, accumulated) => {
+              opts.onProgress?.({
+                kind: 'prompt_streaming',
+                modelHash,
+                promptId: w.id,
+                channel,
+                accumulated,
+              });
+            }
+          : undefined,
       });
-      const result =
-        w.kind === 'prompt'
-          ? getScorer(w.id)!(response, w.prompt)
-          : scoreMcq(response, w.item);
-      entry = {
-        promptId: w.id,
-        startedAt,
-        finishedAt: now(),
-        response,
-        score: result.score,
-        pass: result.pass,
-        detail: result.detail,
-        axes: w.axes,
-      };
-      scored.push({
-        id: w.id,
-        axes: w.axes,
-        score: result.score,
-        pass: result.pass,
-      });
+      // Post-stream quintuplon check: a long generation that loops on
+      // its own output (Qwen3.5 / DeepSeek-Prover Unsloth quants) can
+      // still finish under the 5-min cap with thousands of tokens of
+      // garbage. Mark such responses as failed (score 0) so they
+      // don't pollute the competence vector with a fake « ✓ » when
+      // the scorer happens to match the correct answer at the start
+      // of the loop.
+      if (detectQuintuplon(response)) {
+        errors += 1;
+        entry = {
+          promptId: w.id,
+          startedAt,
+          finishedAt: now(),
+          response,
+          error: 'response contains 5+ repeated fragments (generation loop)',
+          score: 0,
+          pass: false,
+          axes: w.axes,
+        };
+        scored.push({ id: w.id, axes: w.axes, score: 0, pass: false });
+      } else {
+        const result =
+          w.kind === 'prompt'
+            ? getScorer(w.id)!(response, w.prompt)
+            : scoreMcq(response, w.item);
+        entry = {
+          promptId: w.id,
+          startedAt,
+          finishedAt: now(),
+          response,
+          score: result.score,
+          pass: result.pass,
+          detail: result.detail,
+          axes: w.axes,
+        };
+        scored.push({
+          id: w.id,
+          axes: w.axes,
+          score: result.score,
+          pass: result.pass,
+        });
+      }
     } catch (e) {
       errors += 1;
+      // Disambiguate user-cancel vs 5-min cap vs real chat error so
+      // the « Interactions » tab can show a useful error message.
+      let reason: string;
+      if (opts.signal?.aborted) {
+        // Re-throw so the outer loop's `signal.aborted` check picks
+        // it up and stops the whole run (we don't want to score the
+        // remaining prompts when the user clicked Cancel).
+        throw e;
+      } else if (timeoutCtl.signal.aborted) {
+        reason = `5-min per-prompt cap reached — request aborted`;
+      } else {
+        reason = (e as Error).message;
+      }
       entry = {
         promptId: w.id,
         startedAt,
         finishedAt: now(),
-        error: (e as Error).message,
+        error: reason,
         score: 0,
         pass: false,
         axes: w.axes,
       };
       scored.push({ id: w.id, axes: w.axes, score: 0, pass: false });
+    } finally {
+      clearTimeout(timeoutId);
+      opts.signal?.removeEventListener('abort', onUserAbort);
     }
     diagnostic_run[w.id] = entry;
     opts.onProgress?.({
@@ -300,19 +425,19 @@ export async function characterize(
     //     `<|stop_1|><|stop_2|>…`) — clear audio-codec output;
     //   - the model produced strictly empty responses for the first
     //     5 prompts in a row — no chat capability, don't waste 23 more.
-    // Throws a special-cased Error so characterizeAll can mark it
-    // `failed` and skip the rest of the suite.
+    // We BREAK out of the loop (not throw) so the partial
+    // diagnostic_run + signature still gets persisted below — the
+    // « Interactions » tab needs the entries to render an explanation
+    // of WHY the model was quarantined.
     if (looksLikeNonTextResponse(entry.response)) {
-      throw new Error(
-        `non-chat model — first response was only special tokens ("${(entry.response ?? '').slice(0, 80)}…"); quarantining`,
-      );
+      quarantineReason = `non-chat model — first response was only special tokens ("${(entry.response ?? '').slice(0, 80)}…"); quarantining`;
+      break;
     }
     if (entry.response === undefined || entry.response.length === 0) {
       consecutiveEmpty += 1;
       if (consecutiveEmpty >= 5) {
-        throw new Error(
-          `non-chat model — 5 consecutive empty responses; quarantining`,
-        );
+        quarantineReason = `non-chat model — 5 consecutive empty responses; quarantining`;
+        break;
       }
     } else {
       consecutiveEmpty = 0;
@@ -341,16 +466,32 @@ export async function characterize(
     embedder_id: null, // no embedder in the deterministic pass (D8.A)
     policy_hash: null, // audit value is set at routing time, not here (D8)
     characterized_at: now(),
-    characterization_state: 'complete',
-    characterization_error: null,
+    characterization_state: quarantineReason ? 'failed' : 'complete',
+    characterization_error: quarantineReason ?? null,
     suite_version: suite.id,
   };
 
+  // Persist whatever we have — even on quarantine, so the
+  // « Interactions » tab shows the prompts that exposed the broken
+  // model + the quarantine reason recorded in `characterization_error`.
   const { written, sidecarPath } = await saveSignature(
     opts.modelFilePath,
     signature,
     { skipWrite: opts.skipWrite },
   );
+
+  if (quarantineReason) {
+    // The throw signals to characterizeAll that this model failed the
+    // suite (so it skips the tree pass + records the failure in the
+    // bulk panel), but the sidecar above already holds the partial
+    // diagnostic_run and the reason, so nothing is silently dropped.
+    opts.onProgress?.({
+      kind: 'failed',
+      modelHash,
+      error: quarantineReason,
+    });
+    throw new Error(quarantineReason);
+  }
 
   opts.onProgress?.({ kind: 'complete', modelHash });
   return { signature, written, sidecarPath, itemsRun: work.length, errors };

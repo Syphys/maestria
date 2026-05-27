@@ -447,6 +447,7 @@ export async function runCharacterization(
         seams: runSandbox ? { runSandbox } : undefined,
         loadExisting: async () => result.signature,
         computeHash: async () => result.signature.modelHash,
+        signal: opts.signal,
       });
       finalResult = {
         ...result,
@@ -455,6 +456,15 @@ export async function runCharacterization(
         sidecarPath: treeRes.sidecarPath,
       };
     } catch (e) {
+      // Cancel takes precedence over the "tree failure is isolated"
+      // policy — without this re-throw, a user clicking Cancel during
+      // the tree pass would have the abort silently swallowed here,
+      // the function would `return finalResult`, the outer finally
+      // would still fire (so llama-server gets killed), but
+      // characterizeAll's loop would NOT see a throw and so wouldn't
+      // know to set its terminal `cancelled` phase — the UI would
+      // stay on « Caractérisation en cours… ».
+      if (opts.signal?.aborted) throw e;
       // eslint-disable-next-line no-console
       console.error(
         `tree characterization failed (R5 kept): ${(e as Error).message}`,

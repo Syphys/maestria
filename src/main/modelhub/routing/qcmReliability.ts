@@ -85,6 +85,7 @@ function render(
 export async function measureQcmReliability(
   prompts: DiagnosticPrompt[],
   ask: ChatLike,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<QcmReliabilityResult> {
   const items = prompts.filter(
     (p) => (p.check as { kind?: string } | undefined)?.kind === 'mcq',
@@ -104,8 +105,12 @@ export async function measureQcmReliability(
       const { prompt, map, goldLetter } = render(item, perms[pi]);
       let resp = '';
       try {
-        resp = await ask.complete(prompt, { id: `${item.id}#${pi}` });
-      } catch {
+        resp = await ask.complete(prompt, {
+          id: `${item.id}#${pi}`,
+          signal: opts.signal,
+        });
+      } catch (e) {
+        if (opts.signal?.aborted) throw e; // let cancel propagate
         resp = '';
       }
       const letter = extractChoice(resp, map);

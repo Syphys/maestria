@@ -85,6 +85,7 @@ export async function evaluateItem(
   item: DiagnosticPrompt,
   ask: ChatLike,
   seams: StaircaseSeams = {},
+  signal?: AbortSignal,
 ): Promise<ItemVerdict> {
   // Slice 7b: prompts can route to a registered DeterministicScorer by
   // id (rich multi-criterion, like the 6e/6f tooluse/robustness/...
@@ -106,8 +107,11 @@ export async function evaluateItem(
   }
   let response: string;
   try {
-    response = await ask.complete(prompt, { id: item.id });
-  } catch {
+    response = await ask.complete(prompt, { id: item.id, signal });
+  } catch (e) {
+    // Bulk-cancel takes precedence: re-throw so the outer loop bails
+    // out instead of recording every remaining item as `fail`.
+    if (signal?.aborted) throw e;
     return { status: 'fail', reason: 'model-error' };
   }
   // Registered scorer first (covers `check: null` rich-rubric prompts).
@@ -162,6 +166,8 @@ export async function characterizeBranch(
      * legacy self-probe path (back-compat, unchanged).
      */
     branchGate?: number;
+    /** Bulk-cancel propagation — forwarded to every evaluateItem call. */
+    signal?: AbortSignal;
   } = {},
 ): Promise<BranchMeasure> {
   const thetaOpen = opts.thetaOpen ?? DEFAULT_THETA_OPEN;
@@ -205,7 +211,7 @@ export async function characterizeBranch(
       let ran = 0;
       let passes = 0;
       for (let i = 0; i < items.length; i++) {
-        const v = await evaluateItem(items[i], ask, seams);
+        const v = await evaluateItem(items[i], ask, seams, opts.signal);
         if (v.status === 'unmeasured') {
           if (ran === 0) um[leaf] = (v.reason as Unmeasured) ?? 'no-items';
           break; // stop climb; keep last passed rung
@@ -244,7 +250,7 @@ export async function characterizeBranch(
       unmeasured[leaf] = 'no-items';
       continue;
     }
-    const v = await evaluateItem(first, ask, seams);
+    const v = await evaluateItem(first, ask, seams, opts.signal);
     l1[leaf] = v;
     if (v.status === 'unmeasured') {
       unmeasured[leaf] = (v.reason as Unmeasured) ?? 'no-items';
@@ -282,7 +288,7 @@ export async function characterizeBranch(
     if (v1.status === 'pass' && !binary) {
       for (let i = 1; i < sorted[leaf].length; i++) {
         const item = sorted[leaf][i];
-        const v = await evaluateItem(item, ask, seams);
+        const v = await evaluateItem(item, ask, seams, opts.signal);
         if (v.status === 'unmeasured') break; // stop climb; keep last rung
         ran++;
         if (v.status === 'pass') passes++;

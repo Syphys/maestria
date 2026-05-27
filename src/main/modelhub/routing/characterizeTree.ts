@@ -134,6 +134,17 @@ export type CharacterizeTreeOptions = {
   ) => Promise<{ written: boolean; sidecarPath: string }>;
   computeHash?: (p: string) => Promise<string>;
   now?: () => string;
+  /**
+   * Bulk-cancel propagation. When the user clicks the bulk-characterise
+   * « Cancel » button, this signal aborts every chat call in the tree
+   * pass (staircase branches + QCM reliability + free-gen phase 1).
+   * Without it, cancel during the tree pass was silently ignored — the
+   * model kept generating, the UI looked frozen, and llama-server
+   * stayed alive past the « cancel » click. Plumbed through to
+   * `characterizeBranch`, `measureQcmReliability`, and
+   * `generateFreeGenText` (each forwards into `ask.complete({ signal })`).
+   */
+  signal?: AbortSignal;
 };
 
 export type CharacterizeTreeResult = {
@@ -200,12 +211,19 @@ export async function characterizeTree(
     opts.branchGate ?? branchGateFromAxes(base.behavioral?.scores_per_axis);
 
   for (const branch of Object.keys(COMPETENCE_TREE)) {
+    // Honour the bulk-cancel between branches so a multi-branch tree
+    // pass stops within seconds of the click instead of plowing
+    // through every remaining branch.
+    if (opts.signal?.aborted) {
+      throw new Error('characterizeTree: aborted by caller');
+    }
     const itemsByLeaf = grouped[branch];
     if (!itemsByLeaf) continue;
     const bm = await characterizeBranch(branch, itemsByLeaf, opts.ask, {
       thetaOpen: opts.thetaOpen,
       seams: opts.seams,
       branchGate: gateMap[branch as CompetenceBranch],
+      signal: opts.signal,
     });
     if (bm.branch_score !== undefined)
       branch_scores[branch as CompetenceBranch] = bm.branch_score;
@@ -223,7 +241,12 @@ export async function characterizeTree(
   // Bernoulli items, just a coarse [0,1] prior; Phase B saturation
   // detection (étape 2) keys on `passes_per_leaf[l] === n_per_leaf[l]`,
   // which absent ⇒ never triggered (correct: priors stay priors).
-  const qcmRes = await measureQcmReliability(qcm.prompts, opts.ask);
+  if (opts.signal?.aborted) {
+    throw new Error('characterizeTree: aborted by caller');
+  }
+  const qcmRes = await measureQcmReliability(qcm.prompts, opts.ask, {
+    signal: opts.signal,
+  });
   let leavesFromQcmPrior = 0;
   for (const [leaf, prior] of Object.entries(qcmRes.leaf_priors)) {
     if (leaf in scores_per_leaf) continue; // staircase wins — never overwrite
@@ -266,7 +289,9 @@ export async function characterizeTree(
           base.behavioral?.freegen_words ??
           priorText.split(/\s+/).filter(Boolean).length;
       } else {
-        const gen = await generateFreeGenText(opts.ask);
+        const gen = await generateFreeGenText(opts.ask, {
+          signal: opts.signal,
+        });
         freegen_text = gen.text;
         freegen_words = gen.words;
       }
